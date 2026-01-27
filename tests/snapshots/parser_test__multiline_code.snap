@@ -1,6 +1,5 @@
 ---
 source: tests/parser_test.rs
-assertion_line: 46
 expression: "parse::any(slice)"
 ---
 Ok(
