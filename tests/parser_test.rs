@@ -1,6 +1,6 @@
-use std::rc::Rc;
 use bagel_language_server::ast::slice::Slice;
 use bagel_language_server::parse::parse;
+use std::rc::Rc;
 
 #[test]
 fn test_simple_declaration() {
@@ -11,9 +11,16 @@ fn test_simple_declaration() {
         Ok((remaining, ast)) => {
             println!("Parse successful!");
             println!("Input length: {}", code.len());
-            println!("AST slice: start={}, end={}", ast.slice().start, ast.slice().end);
+            println!(
+                "AST slice: start={}, end={}",
+                ast.slice().start,
+                ast.slice().end
+            );
             println!("AST slice text: {:?}", ast.slice().as_str());
-            println!("Remaining: start={}, end={}", remaining.start, remaining.end);
+            println!(
+                "Remaining: start={}, end={}",
+                remaining.start, remaining.end
+            );
             assert!(ast.slice().start <= ast.slice().end);
         }
         Err(e) => {
@@ -25,9 +32,10 @@ fn test_simple_declaration() {
 #[test]
 fn test_multiline_code() {
     let code = "const x = 42
-const y = 3.14
-const z = x + y * 2
-nil";
+const y = true
+const z = false
+const a = nil
+const b = y * 2 + x";
 
     println!("Input code:\n{}\n", code);
     println!("Code length: {}", code.len());
@@ -37,9 +45,16 @@ nil";
     match parse::any(slice) {
         Ok((remaining, ast)) => {
             println!("Parse successful!");
-            println!("AST slice: start={}, end={}", ast.slice().start, ast.slice().end);
+            println!(
+                "AST slice: start={}, end={}",
+                ast.slice().start,
+                ast.slice().end
+            );
             println!("AST slice text: {:?}", ast.slice().as_str());
-            println!("Remaining: start={}, end={}", remaining.start, remaining.end);
+            println!(
+                "Remaining: start={}, end={}",
+                remaining.start, remaining.end
+            );
             assert!(ast.slice().start <= ast.slice().end);
         }
         Err(e) => {

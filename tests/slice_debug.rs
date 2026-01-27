@@ -10,7 +10,7 @@ fn test_slice_boundaries() {
     println!("Full slice: start={}, end={}, text={:?}", full.start, full.end, full.as_str());
 
     // Parse just the identifier
-    match parse::plain_identifier_expr(full) {
+    match parse::local_identifier(full) {
         Ok((remaining, x_ast)) => {
             println!("Parsed 'x':");
             println!("  x_ast slice: start={}, end={}, text={:?}",

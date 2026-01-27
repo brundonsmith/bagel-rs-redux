@@ -3,6 +3,7 @@ use nom::{
     bytes::complete::{tag, take_while1},
     character::complete::char,
     combinator::{map, recognize},
+    multi::{many0, many1},
     sequence::tuple,
 };
 use std::cell::RefCell;
@@ -14,7 +15,14 @@ use crate::ast::{
     slice::Slice,
 };
 
-use super::utils::{expect_tag, w, ParseResult};
+use super::utils::{expect_tag, w, ParseResult, RawParseError, RawParseErrorDetails};
+
+// Reserved keywords that cannot be used as identifiers
+const KEYWORDS: &[&str] = &["nil", "true", "false", "const"];
+
+fn is_keyword(s: &str) -> bool {
+    KEYWORDS.contains(&s)
+}
 
 // Helper to create AST nodes
 fn make_ast<TKind>(slice: Slice, details: TKind) -> AST<TKind>
@@ -29,9 +37,18 @@ where
     }))
 }
 
-// Parser for PlainIdentifier: [a-z]+
+// Parser for PlainIdentifier: [a-z]+ (but not a keyword)
 pub fn plain_identifier(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
     let (remaining, matched) = take_while1(|c: char| c.is_ascii_lowercase())(i)?;
+
+    // Reject reserved keywords
+    if is_keyword(matched.as_str()) {
+        return Err(nom::Err::Error(RawParseError {
+            src: matched,
+            details: RawParseErrorDetails::Expected("identifier (not a keyword)".to_string()),
+        }));
+    }
+
     let node = PlainIdentifier;
     Ok((remaining, make_ast(matched, node)))
 }
@@ -65,11 +82,77 @@ pub fn number_literal(i: Slice) -> ParseResult<AST<NumberLiteral>> {
     Ok((remaining, make_ast(matched, node)))
 }
 
-// Parser for plain identifier as an expression
-pub fn plain_identifier_expr(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
-    plain_identifier(i)
+// Parser for LocalIdentifier: PlainIdentifier (used as an expression)
+pub fn local_identifier(i: Slice) -> ParseResult<AST<LocalIdentifier>> {
+    let start = i.clone();
+    let (remaining, mut identifier) = plain_identifier(i)?;
+
+    let consumed_len = start.len() - remaining.len();
+    let span = start.slice_range(0, Some(consumed_len));
+
+    let local_id = LocalIdentifier {
+        identifier: identifier.clone(),
+    };
+
+    let node = make_ast(span, local_id);
+    identifier.set_parent(&node);
+
+    Ok((remaining, node))
 }
 
+
+// Generic binary operation parser
+// Takes a list of operators (tag strings and their corresponding enum values)
+// and the next-precedence parser to use for operands
+fn binary_operation<F>(
+    i: Slice,
+    operators: &[(&str, BinaryOperator)],
+    next_parser: F,
+) -> ParseResult<AST<Expression>>
+where
+    F: Fn(Slice) -> ParseResult<AST<Expression>>,
+{
+    // Parse the first operand
+    let (remaining, first) = next_parser(i)?;
+
+    // Parse zero or more (operator, operand) pairs
+    let operator_parser = |input: Slice| {
+        // Try to match any of the operators
+        for (op_tag, op_enum) in operators {
+            if let Ok((next_input, op_slice)) = w(tag(*op_tag))(input.clone()) {
+                let operator = make_ast(op_slice, op_enum.clone());
+                let (next_input, operand) = w(&next_parser)(next_input)?;
+                return Ok((next_input, (operator, operand)));
+            }
+        }
+        Err(nom::Err::Error(RawParseError {
+            src: input,
+            details: RawParseErrorDetails::Expected("operator".to_string()),
+        }))
+    };
+
+    let (remaining, pairs) = many0(operator_parser)(remaining)?;
+
+    // Fold the operators left-to-right
+    let result = pairs.into_iter().fold(first, |mut left, (mut operator, mut right)| {
+        let span = left.slice().spanning(right.slice());
+
+        let bin_op = BinaryOperation {
+            left: left.clone(),
+            operator: operator.clone(),
+            right: right.clone(),
+        };
+
+        let node = make_ast(span, bin_op);
+        left.set_parent(&node);
+        operator.set_parent(&node);
+        right.set_parent(&node);
+
+        node.upcast()
+    });
+
+    Ok((remaining, result))
+}
 
 // Parser for Expression (precedence-aware)
 pub fn expression(i: Slice) -> ParseResult<AST<Expression>> {
@@ -78,76 +161,20 @@ pub fn expression(i: Slice) -> ParseResult<AST<Expression>> {
 
 // Additive expressions: + and -
 fn additive_expression(i: Slice) -> ParseResult<AST<Expression>> {
-    let (mut remaining, mut left) = multiplicative_expression(i)?;
-
-    loop {
-        let check = w(alt((tag("+"), tag("-"))))(remaining.clone());
-        if let Ok((next_remaining, op_slice)) = check {
-            let operator = if op_slice == "+" {
-                BinaryOperator::Add
-            } else {
-                BinaryOperator::Subtract
-            };
-
-            let (next_remaining, mut right) = w(multiplicative_expression)(next_remaining)?;
-            let span = left.slice().spanning(right.slice());
-
-            let bin_op = BinaryOperation {
-                left: left.clone(),
-                operator,
-                operator_slice: op_slice,
-                right: right.clone(),
-            };
-
-            let node = make_ast(span, bin_op);
-            left.set_parent(&node);
-            right.set_parent(&node);
-
-            left = node.upcast();
-            remaining = next_remaining;
-        } else {
-            break;
-        }
-    }
-
-    Ok((remaining, left))
+    binary_operation(
+        i,
+        &[("+", BinaryOperator::Add), ("-", BinaryOperator::Subtract)],
+        multiplicative_expression,
+    )
 }
 
 // Multiplicative expressions: * and /
 fn multiplicative_expression(i: Slice) -> ParseResult<AST<Expression>> {
-    let (mut remaining, mut left) = primary_expression(i)?;
-
-    loop {
-        let check = w(alt((tag("*"), tag("/"))))(remaining.clone());
-        if let Ok((next_remaining, op_slice)) = check {
-            let operator = if op_slice == "*" {
-                BinaryOperator::Multiply
-            } else {
-                BinaryOperator::Divide
-            };
-
-            let (next_remaining, mut right) = w(primary_expression)(next_remaining)?;
-            let span = left.slice().spanning(right.slice());
-
-            let bin_op = BinaryOperation {
-                left: left.clone(),
-                operator,
-                operator_slice: op_slice,
-                right: right.clone(),
-            };
-
-            let node = make_ast(span, bin_op);
-            left.set_parent(&node);
-            right.set_parent(&node);
-
-            left = node.upcast();
-            remaining = next_remaining;
-        } else {
-            break;
-        }
-    }
-
-    Ok((remaining, left))
+    binary_operation(
+        i,
+        &[("*", BinaryOperator::Multiply), ("/", BinaryOperator::Divide)],
+        primary_expression,
+    )
 }
 
 // Primary expressions: literals and identifiers
@@ -156,7 +183,7 @@ fn primary_expression(i: Slice) -> ParseResult<AST<Expression>> {
         map(nil_literal, |n| n.upcast()),
         map(boolean_literal, |n| n.upcast()),
         map(number_literal, |n| n.upcast()),
-        map(plain_identifier_expr, |n| n.upcast()),
+        map(local_identifier, |n| n.upcast()),
     ))(i)
 }
 
@@ -189,25 +216,9 @@ pub fn declaration(i: Slice) -> ParseResult<AST<Declaration>> {
 // Parser for Module: Declaration+
 pub fn module(i: Slice) -> ParseResult<AST<Module>> {
     let start = i.clone();
-    let mut declarations = Vec::new();
-    let mut remaining = i;
 
-    // Parse at least one declaration
-    let (next_remaining, first_decl) = w(declaration)(remaining)?;
-    declarations.push(first_decl);
-    remaining = next_remaining;
-
-    // Parse remaining declarations
-    loop {
-        // Try to parse another declaration
-        match w(declaration)(remaining.clone()) {
-            Ok((next_remaining, decl)) => {
-                declarations.push(decl);
-                remaining = next_remaining;
-            }
-            Err(_) => break,
-        }
-    }
+    // Parse one or more declarations
+    let (remaining, mut declarations) = many1(w(declaration))(i)?;
 
     let consumed_len = start.len() - remaining.len();
     let span = start.slice_range(0, Some(consumed_len));
@@ -219,9 +230,9 @@ pub fn module(i: Slice) -> ParseResult<AST<Module>> {
     let node = make_ast(span, module_node);
 
     // Set parent for all declarations
-    for decl in &mut declarations {
+    declarations.iter_mut().for_each(|decl| {
         decl.set_parent(&node);
-    }
+    });
 
     Ok((remaining, node))
 }

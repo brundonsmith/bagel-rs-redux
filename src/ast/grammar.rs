@@ -20,6 +20,11 @@ pub struct NumberLiteral;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PlainIdentifier;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LocalIdentifier {
+    pub identifier: AST<PlainIdentifier>,
+}
+
 // Binary operation nodes
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -33,8 +38,7 @@ pub enum BinaryOperator {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BinaryOperation {
     pub left: AST<Expression>,
-    pub operator: BinaryOperator,
-    pub operator_slice: Slice,
+    pub operator: AST<BinaryOperator>,
     pub right: AST<Expression>,
 }
 
@@ -66,8 +70,9 @@ type_hierarchy! {
             BooleanLiteral,
             NumberLiteral,
             BinaryOperation,
-            PlainIdentifier,
+            LocalIdentifier,
         },
+        PlainIdentifier,
         BinaryOperator,
         Malformed
     }
