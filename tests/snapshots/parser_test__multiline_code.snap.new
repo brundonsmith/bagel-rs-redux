@@ -1,0 +1,13 @@
+---
+source: tests/parser_test.rs
+assertion_line: 46
+expression: "parse::any(slice)"
+---
+Ok(
+    (
+        Slice(""),
+        AST(
+            Module(Module { declarations: [AST(Declaration(Declaration { const_keyword: Slice("const"), identifier: AST(PlainIdentifier(PlainIdentifier)), equals: Slice("="), value: AST(Expression(NumberLiteral(NumberLiteral))) })), AST(Declaration(Declaration { const_keyword: Slice("const"), identifier: AST(PlainIdentifier(PlainIdentifier)), equals: Slice("="), value: AST(Expression(BooleanLiteral(BooleanLiteral { value: true }))) })), AST(Declaration(Declaration { const_keyword: Slice("const"), identifier: AST(PlainIdentifier(PlainIdentifier)), equals: Slice("="), value: AST(Expression(BooleanLiteral(BooleanLiteral { value: false }))) })), AST(Declaration(Declaration { const_keyword: Slice("const"), identifier: AST(PlainIdentifier(PlainIdentifier)), equals: Slice("="), value: AST(Expression(NilLiteral(NilLiteral))) })), AST(Declaration(Declaration { const_keyword: Slice("const"), identifier: AST(PlainIdentifier(PlainIdentifier)), equals: Slice("="), value: AST(Expression(BinaryOperation(BinaryOperation { left: AST(Expression(BinaryOperation(BinaryOperation { left: AST(Expression(LocalIdentifier(LocalIdentifier { identifier: AST(PlainIdentifier(PlainIdentifier)) }))), operator: AST(BinaryOperator(Multiply)), right: AST(Expression(NumberLiteral(NumberLiteral))) }))), operator: AST(BinaryOperator(Add)), right: AST(Expression(LocalIdentifier(LocalIdentifier { identifier: AST(PlainIdentifier(PlainIdentifier)) }))) }))) }))] }),
+        ),
+    ),
+)
