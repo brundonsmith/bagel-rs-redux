@@ -1,0 +1,80 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Bagel",
+  "scopeName": "source.bagel",
+  "patterns": [
+    {
+      "include": "#declaration"
+    },
+    {
+      "include": "#expression"
+    }
+  ],
+  "repository": {
+    "declaration": {
+      "patterns": [
+        {
+          "name": "meta.declaration.bagel",
+          "begin": "\\b(const)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.bagel"
+            }
+          },
+          "end": "(?=\\n|;)",
+          "patterns": [
+            {
+              "include": "#plain-identifier"
+            },
+            {
+              "name": "keyword.operator.assignment.bagel",
+              "match": "="
+            },
+            {
+              "include": "#expression"
+            }
+          ]
+        }
+      ]
+    },
+    "expression": {
+      "patterns": [
+        {
+          "include": "#nil-literal"
+        },
+        {
+          "include": "#boolean-literal"
+        },
+        {
+          "include": "#number-literal"
+        },
+        {
+          "include": "#binary-operator"
+        },
+        {
+          "include": "#plain-identifier"
+        }
+      ]
+    },
+    "nil-literal": {
+      "name": "constant.language.nil.bagel",
+      "match": "\\bnil\\b"
+    },
+    "boolean-literal": {
+      "name": "constant.language.boolean.bagel",
+      "match": "\\b(true|false)\\b"
+    },
+    "number-literal": {
+      "name": "constant.numeric.bagel",
+      "match": "\\b[0-9]+(?:\\.[0-9]+)?\\b"
+    },
+    "binary-operator": {
+      "name": "keyword.operator.arithmetic.bagel",
+      "match": "[+\\-*/]"
+    },
+    "plain-identifier": {
+      "name": "variable.other.bagel",
+      "match": "\\b[a-z]+\\b"
+    }
+  }
+}

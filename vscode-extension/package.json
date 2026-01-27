@@ -1,0 +1,52 @@
+{
+  "name": "bagel-language-support",
+  "displayName": "Bagel Language Support",
+  "description": "Language support for Bagel (.bgl) files",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:bagel"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bagel",
+        "aliases": [
+          "Bagel"
+        ],
+        "extensions": [
+          ".bgl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bagel",
+        "scopeName": "source.bagel",
+        "path": "./syntaxes/bagel.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.19.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  }
+}
