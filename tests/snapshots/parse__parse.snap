@@ -1,6 +1,6 @@
 ---
-source: tests/parser_test.rs
-expression: "parse::any(slice)"
+source: tests/parse.rs
+expression: "parse::module(slice)"
 ---
 Ok(
     (

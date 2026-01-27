@@ -3,8 +3,8 @@ use bagel_language_server::parse::parse;
 use insta::assert_debug_snapshot;
 use std::rc::Rc;
 
-fn test_code(code: &str) {
-    println!("Input code:\n{}\n", code);
+fn test_parse(code: &str) {
+    println!("----- input code -----\n{}\n----------------------", code);
 
     let slice = Slice::new(Rc::new(code.to_string()));
 
@@ -13,7 +13,7 @@ fn test_code(code: &str) {
 
 #[test]
 fn parser_test_1() {
-    test_code(
+    test_parse(
         "const x = 42
 const y = true
 const z = false
