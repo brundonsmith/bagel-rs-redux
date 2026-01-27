@@ -43,5 +43,5 @@ const b = y * 2 + x";
 
     let slice = Slice::new(Rc::new(code.to_string()));
 
-    assert_debug_snapshot!(parse::any(slice));
+    assert_debug_snapshot!(parse::module(slice));
 }
