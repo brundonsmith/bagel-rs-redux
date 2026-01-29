@@ -1,5 +1,10 @@
 pub mod ast;
+pub mod check;
+pub mod compile;
+pub mod config;
+pub mod emit;
 pub mod parse;
+pub mod types;
 
 use std::collections::HashMap;
 use std::rc::Rc;
