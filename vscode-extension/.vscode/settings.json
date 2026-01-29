@@ -1,0 +1,6 @@
+{
+    "workbench.colorCustomizations": {
+        "editorWarning.foreground": "#F000",
+        "editorError.foreground": "#FA00"
+    },
+}

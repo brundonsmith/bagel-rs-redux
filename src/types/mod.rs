@@ -1,13 +1,13 @@
 pub mod fits;
 pub mod infer;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
 use crate::ast::slice::Slice;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
     Any,
     Unknown,
@@ -66,7 +66,32 @@ impl Type {
     /// create more situations where exactly-equivalent types have the exact
     /// same structural representation.
     pub fn normalize(self) -> Self {
-        self
+        use Type::*;
+
+        match self {
+            Union { variants } => {
+                let flattened_and_unique = variants
+                    .into_iter()
+                    .flat_map(|v| {
+                        let v = v.normalize(); // recurse
+
+                        // flatten any inner unions
+                        match v {
+                            Union {
+                                variants: variants_inner,
+                            } => variants_inner,
+                            other => vec![other],
+                        }
+                    })
+                    .collect::<HashSet<Type>>(); // collect into a HashSet to uniquify
+
+                let mut v: Vec<Type> = flattened_and_unique.into_iter().collect();
+                v.sort(); // finally, sort the types for consistency
+
+                Union { variants: v }
+            }
+            _ => self,
+        }
     }
 }
 

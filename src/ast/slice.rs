@@ -165,6 +165,18 @@ impl PartialEq<&Slice> for &str {
     }
 }
 
+impl Ord for Slice {
+    fn cmp(&self, other: &Slice) -> std::cmp::Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
+
+impl PartialOrd<Slice> for Slice {
+    fn partial_cmp(&self, other: &Slice) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Debug for Slice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("Slice({:?})", self.as_str()))
