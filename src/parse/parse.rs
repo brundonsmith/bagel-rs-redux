@@ -7,7 +7,7 @@ use nom::{
     sequence::{preceded, tuple},
 };
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast::{
     container::{ASTInner, Parentable, AST},
@@ -78,8 +78,9 @@ where
     TKind: Clone + TryFrom<Any>,
     Any: From<TKind>,
 {
-    AST::new(Rc::new(ASTInner {
-        parent: RefCell::new(None),
+    use std::sync::RwLock;
+    AST::new(Arc::new(ASTInner {
+        parent: Arc::new(RwLock::new(None)),
         slice,
         details: details.clone().into(),
     }))

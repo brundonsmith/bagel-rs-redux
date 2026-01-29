@@ -2,20 +2,19 @@
 //!
 //! This module provides the core AST infrastructure
 
-use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
-use std::rc::{Rc, Weak};
+use std::sync::{Arc, RwLock, Weak};
 
 use crate::ast::grammar::Any;
 use crate::ast::slice::Slice;
 
 /// Generic wrapper for all AST nodes in Bagel.
 ///
-/// `AST<TKind>` wraps an `ASTInner` in an `Rc` for cheap cloning, and uses
+/// `AST<TKind>` wraps an `ASTInner` in an `Arc` for cheap cloning, and uses
 /// `PhantomData` to represent the specific type of AST node contained within.
 /// This allows type-safe casting between AST node types without unwrapping or
-/// cloning the underlying `Rc`.
+/// cloning the underlying `Arc`.
 ///
 /// # Type Parameters
 /// - `TKind`: The specific AST node type (e.g., `Expression`, `Declaration`, `Module`)
@@ -32,7 +31,7 @@ use crate::ast::slice::Slice;
 /// let number: Option<AST<NumberLiteral>> = expr.try_downcast();
 /// ```
 #[derive(Clone, PartialEq, Eq)]
-pub struct AST<TKind>(Rc<ASTInner>, PhantomData<TKind>)
+pub struct AST<TKind>(Arc<ASTInner>, PhantomData<TKind>)
 where
     TKind: Clone + TryFrom<Any>,
     Any: From<TKind>;
@@ -43,7 +42,7 @@ where
     Any: From<TKind>,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        Rc::as_ptr(&self.0).hash(state);
+        Arc::as_ptr(&self.0).hash(state);
     }
 }
 
@@ -65,7 +64,7 @@ where
     /// Creates a new AST node from an ASTInner.
     ///
     /// This is typically called from parser functions via the `make_ast` helper.
-    pub fn new(inner: Rc<ASTInner>) -> Self {
+    pub fn new(inner: Arc<ASTInner>) -> Self {
         AST(inner, PhantomData)
     }
 
@@ -86,16 +85,16 @@ where
         TOtherKind: Clone + TryFrom<Any>,
         Any: From<TOtherKind>,
     {
-        Rc::ptr_eq(&self.0, &other.0)
+        Arc::ptr_eq(&self.0, &other.0)
     }
 
     pub fn parent(&self) -> Option<AST<Any>> {
         self.0
             .parent
-            .borrow()
+            .read()
+            .unwrap()
             .as_ref()
-            .map(|weak| weak.upgrade())
-            .flatten()
+            .and_then(|weak| weak.upgrade())
             .map(|node| AST::<Any>(node, PhantomData))
     }
 
@@ -182,10 +181,7 @@ where
         TParentKind: Clone + TryFrom<Any>,
         Any: From<TParentKind>,
     {
-        self.0
-            .as_ref()
-            .parent
-            .replace(Some(Rc::downgrade(&parent.0)));
+        *self.0.as_ref().parent.write().unwrap() = Some(Arc::downgrade(&parent.0));
     }
 }
 
@@ -242,7 +238,7 @@ where
 #[derive(Clone)]
 pub struct ASTInner {
     /// Weak reference to the parent node (to avoid reference cycles)
-    pub parent: RefCell<Option<Weak<ASTInner>>>,
+    pub parent: Arc<RwLock<Option<Weak<ASTInner>>>>,
     /// The source code slice this node was parsed from
     pub slice: Slice,
     /// The type-specific details of this AST node

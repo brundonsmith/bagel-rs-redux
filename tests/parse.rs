@@ -1,14 +1,14 @@
 use bagel_language_server::ast::slice::Slice;
 use bagel_language_server::parse::parse;
 use insta::assert_debug_snapshot;
-use std::rc::Rc;
+use std::sync::Arc;
 
 mod common;
 
 fn test_parse(code: &str) {
     println!("----- input code -----\n{}\n----------------------", code);
 
-    let slice = Slice::new(Rc::new(code.to_string()));
+    let slice = Slice::new(Arc::new(code.to_string()));
 
     assert_debug_snapshot!(parse::module(slice));
 }

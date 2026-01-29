@@ -3,7 +3,7 @@ pub mod infer;
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast::slice::Slice;
 
@@ -29,7 +29,7 @@ pub enum Type {
         elements: Vec<Type>,
     },
     Array {
-        element: Rc<Type>,
+        element: Arc<Type>,
     },
     Object {
         fields: BTreeMap<String, Type>,
@@ -39,8 +39,8 @@ pub enum Type {
     },
     FuncType {
         args: Vec<Type>,
-        args_spread: Option<Rc<Type>>,
-        returns: Rc<Type>,
+        args_spread: Option<Arc<Type>>,
+        returns: Arc<Type>,
     },
     Union {
         variants: Vec<Type>,
@@ -161,7 +161,7 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
                 Type::Tuple { elements }
             }
             ArrayTypeExpression(array) => {
-                let element = Rc::new(Type::from(array.element.unpack()));
+                let element = Arc::new(Type::from(array.element.unpack()));
                 Type::Array { element }
             }
             ObjectTypeExpression(obj) => {
@@ -185,7 +185,7 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
                     .into_iter()
                     .map(|(_name, _colon, type_expr)| Type::from(type_expr.unpack()))
                     .collect();
-                let returns = Rc::new(Type::from(func.return_type.unpack()));
+                let returns = Arc::new(Type::from(func.return_type.unpack()));
                 Type::FuncType {
                     args,
                     args_spread: None,

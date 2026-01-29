@@ -5,27 +5,27 @@
 //! the document, instead of allocating a new `String`.
 
 use std::ops::{RangeFrom, RangeTo};
-use std::{fmt::Debug, rc::Rc};
+use std::{fmt::Debug, sync::Arc};
 
 use memoize::memoize;
 use nom::{AsChar, Compare, InputIter, InputLength, InputTake, Offset, UnspecializedInput};
 
 /// Zero-allocation substring reference into source code.
 ///
-/// Represents a contiguous substring of some `Rc<String>`. Optimized to allow
+/// Represents a contiguous substring of some `Arc<String>`. Optimized to allow
 /// substringing, concatenation, and resizing without allocations, as well as
 /// cheap cloning. This is used throughout the AST to reference source code
 /// without copying strings.
 ///
 /// # Identity Semantics
 /// Two slices are not considered equal unless they refer to the **same**
-/// (pointer-equivalent) `Rc<String>`, and the exact same indices within it!
+/// (pointer-equivalent) `Arc<String>`, and the exact same indices within it!
 /// This ensures that slices from different source files or different positions
 /// are always distinct.
 ///
 /// # Example
 /// ```ignore
-/// let source = Rc::new("const x = 42".to_string());
+/// let source = Arc::new("const x = 42".to_string());
 /// let slice = Slice::new(source);
 /// let keyword = slice.clone().slice_range(0, Some(5)); // "const"
 /// assert_eq!(keyword.as_str(), "const");
@@ -33,7 +33,7 @@ use nom::{AsChar, Compare, InputIter, InputLength, InputTake, Offset, Unspeciali
 #[derive(Clone, Eq)]
 pub struct Slice {
     /// The full source code string
-    pub full_string: Rc<String>,
+    pub full_string: Arc<String>,
     /// Start index (byte offset) into the full string
     pub start: usize,
     /// End index (byte offset) into the full string
@@ -42,7 +42,7 @@ pub struct Slice {
 
 impl Slice {
     /// Creates a new slice covering the entire string.
-    pub fn new(full_string: Rc<String>) -> Self {
+    pub fn new(full_string: Arc<String>) -> Self {
         let end = full_string.len();
 
         Self {
@@ -108,7 +108,7 @@ impl Slice {
     ///
     /// # Example
     /// ```ignore
-    /// let full = Slice::new(Rc::new("const x = 42".to_string()));
+    /// let full = Slice::new(Arc::new("const x = 42".to_string()));
     /// let keyword = full.clone().slice_range(0, Some(5)); // "const"
     /// ```
     pub fn slice_range(self, start: usize, end: Option<usize>) -> Slice {
@@ -122,7 +122,7 @@ impl Slice {
 
 #[memoize]
 pub fn nothing_slice() -> Slice {
-    Slice::new(Rc::new("".to_owned()))
+    Slice::new(Arc::new("".to_owned()))
 }
 
 impl core::hash::Hash for Slice {
@@ -256,7 +256,7 @@ impl<'a> Compare<&'a str> for Slice {
 // --- internal use by nom traits ---
 
 pub struct SliceCharIndices {
-    code: Rc<String>,
+    code: Arc<String>,
     index: usize,
 }
 
@@ -275,7 +275,7 @@ impl Iterator for SliceCharIndices {
 }
 
 pub struct SliceChars {
-    code: Rc<String>,
+    code: Arc<String>,
     index: usize,
 }
 
@@ -295,7 +295,7 @@ impl Iterator for SliceChars {
 
 #[test]
 fn take_split() {
-    let code = Rc::new(String::from("ksjdfg"));
+    let code = Arc::new(String::from("ksjdfg"));
     let s = Slice::new(code.clone());
 
     let index = 1;
@@ -323,7 +323,7 @@ fn take_split() {
 
 #[test]
 fn slice_range() {
-    let code = Rc::new(String::from("2136547612534721634"));
+    let code = Arc::new(String::from("2136547612534721634"));
 
     let slice = Slice {
         full_string: code.clone(),

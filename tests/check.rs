@@ -3,14 +3,14 @@ use bagel_language_server::check::{CheckContext, Checkable};
 use bagel_language_server::config::Config;
 use bagel_language_server::parse::parse;
 use insta::assert_debug_snapshot;
-use std::rc::Rc;
+use std::sync::Arc;
 
 mod common;
 
 fn test_check(code: &str) {
     println!("----- input code -----\n{}\n----------------------", code);
 
-    let slice = Slice::new(Rc::new(code.to_string()));
+    let slice = Slice::new(Arc::new(code.to_string()));
     let (_, parsed) = parse::module(slice).unwrap();
 
     let config = Config::default();

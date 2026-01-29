@@ -5,7 +5,7 @@ use bagel_language_server::parse::parse;
 use bagel_language_server::types::infer::InferTypeContext;
 use insta::assert_snapshot;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 mod common;
 
@@ -72,7 +72,7 @@ fn format_expression_types(results: &BTreeMap<String, String>) -> String {
 fn test_infer(code: &str) {
     println!("----- input code -----\n{}\n----------------------", code);
 
-    let slice = Slice::new(Rc::new(code.to_string()));
+    let slice = Slice::new(Arc::new(code.to_string()));
     let (_, parsed) = parse::module(slice).unwrap();
 
     let mut results = BTreeMap::new();

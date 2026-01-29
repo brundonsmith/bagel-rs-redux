@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "compile",
+      "problemMatcher": "$tsc",
+      "isBackground": false,
+      "label": "npm: compile",
+      "detail": "tsc -p ./"
+    },
+    {
+      "type": "shell",
+      "label": "cargo: build language server",
+      "command": "cargo",
+      "args": [
+        "build",
+        "--release",
+        "--bin",
+        "bagel-language-server"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/.."
+      },
+      "problemMatcher": "$rustc",
+      "group": "build",
+      "detail": "Build the Bagel language server in release mode"
+    },
+    {
+      "label": "build: extension and language server",
+      "dependsOn": [
+        "cargo: build language server",
+        "npm: compile"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "detail": "Build both the TypeScript extension and Rust language server"
+    }
+  ]
+}

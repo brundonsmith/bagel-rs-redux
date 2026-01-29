@@ -7,7 +7,6 @@ pub mod parse;
 pub mod types;
 
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
@@ -17,6 +16,8 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 use ast::container::AST;
 use ast::grammar::{Any, Expression};
 use ast::slice::Slice;
+use check::{BagelError, CheckContext, Checkable};
+use config::Config;
 use types::infer::InferTypeContext;
 
 #[derive(Debug)]
@@ -66,8 +67,11 @@ impl LanguageServer for BagelLanguageServer {
         let text = params.text_document.text;
         eprintln!("[DEBUG] did_open() - document length: {} bytes, {} lines",
             text.len(), text.lines().count());
-        self.documents.write().await.insert(uri.clone(), text);
+        self.documents.write().await.insert(uri.clone(), text.clone());
         eprintln!("[DEBUG] did_open() completed - stored document for {}", uri);
+
+        // Publish diagnostics
+        self.publish_diagnostics(&uri, &text).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -78,8 +82,12 @@ impl LanguageServer for BagelLanguageServer {
         if let Some(change) = params.content_changes.into_iter().next() {
             eprintln!("[DEBUG] did_change() - new document length: {} bytes, {} lines",
                 change.text.len(), change.text.lines().count());
-            self.documents.write().await.insert(uri.clone(), change.text);
+            let text = change.text;
+            self.documents.write().await.insert(uri.clone(), text.clone());
             eprintln!("[DEBUG] did_change() completed - updated document for {}", uri);
+
+            // Publish diagnostics
+            self.publish_diagnostics(&uri, &text).await;
         } else {
             eprintln!("[DEBUG] did_change() - no changes to process");
         }
@@ -122,7 +130,7 @@ impl LanguageServer for BagelLanguageServer {
 
         // Parse the document
         eprintln!("[DEBUG] hover() - parsing document");
-        let slice = Slice::new(Rc::new(text.clone()));
+        let slice = Slice::new(Arc::new(text.clone()));
         let ast = match parse::parse::any(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] hover() - parse successful");
@@ -193,7 +201,7 @@ impl LanguageServer for BagelLanguageServer {
 
         // Parse the document
         eprintln!("[DEBUG] inlay_hint() - parsing document");
-        let slice = Slice::new(Rc::new(text.clone()));
+        let slice = Slice::new(Arc::new(text.clone()));
         let ast = match parse::parse::any(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] inlay_hint() - parse successful");
@@ -217,6 +225,12 @@ impl LanguageServer for BagelLanguageServer {
                 let decl_data: ast::grammar::Declaration = decl.unpack();
                 eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
                     idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
+
+                // Skip if there's already an explicit type annotation
+                if decl_data.type_annotation.is_some() {
+                    eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
+                    continue;
+                }
 
                 // Infer the type of the value
                 let ctx = InferTypeContext {};
@@ -246,6 +260,97 @@ impl LanguageServer for BagelLanguageServer {
 
         eprintln!("[DEBUG] inlay_hint() - returning {} hints", hints.len());
         Ok(Some(hints))
+    }
+}
+
+impl BagelLanguageServer {
+    async fn publish_diagnostics(&self, uri: &str, text: &str) {
+        eprintln!("[DEBUG] publish_diagnostics() called - uri: {}", uri);
+
+        // Parse the document
+        let slice = Slice::new(Arc::new(text.to_string()));
+        let ast = match parse::parse::module(slice) {
+            Ok((_, ast)) => {
+                eprintln!("[DEBUG] publish_diagnostics() - parse successful");
+                ast
+            }
+            Err(e) => {
+                eprintln!("[DEBUG] publish_diagnostics() - parse failed: {:?}", e);
+                // On parse failure, publish empty diagnostics
+                self.client
+                    .publish_diagnostics(
+                        uri.parse().unwrap(),
+                        vec![],
+                        None,
+                    )
+                    .await;
+                return;
+            }
+        };
+
+        // Run check to collect errors
+        let config = Config::default();
+        let ctx = CheckContext { config: &config };
+        let mut errors = Vec::new();
+        ast.check(&ctx, &mut |error| {
+            errors.push(error);
+        });
+
+        eprintln!("[DEBUG] publish_diagnostics() - found {} errors", errors.len());
+
+        // Convert errors to LSP diagnostics
+        let diagnostics: Vec<Diagnostic> = errors
+            .into_iter()
+            .map(|error| bagel_error_to_diagnostic(text, error))
+            .collect();
+
+        eprintln!("[DEBUG] publish_diagnostics() - publishing {} diagnostics", diagnostics.len());
+
+        // Publish diagnostics
+        self.client
+            .publish_diagnostics(
+                uri.parse().unwrap(),
+                diagnostics,
+                None,
+            )
+            .await;
+
+        eprintln!("[DEBUG] publish_diagnostics() completed");
+    }
+}
+
+fn bagel_error_to_diagnostic(text: &str, error: BagelError) -> Diagnostic {
+    use check::BagelErrorDetails;
+    use config::RuleSeverity;
+
+    let severity = match error.severity {
+        RuleSeverity::Error => DiagnosticSeverity::ERROR,
+        RuleSeverity::Warn => DiagnosticSeverity::WARNING,
+        RuleSeverity::Autofix => DiagnosticSeverity::HINT,
+    };
+
+    let message = match error.details {
+        BagelErrorDetails::ParseError { message } => message,
+        BagelErrorDetails::MiscError { message } => message,
+    };
+
+    // Convert slice to LSP range
+    let start_pos = offset_to_position(text, error.src.start);
+    let end_pos = offset_to_position(text, error.src.end);
+
+    Diagnostic {
+        range: Range {
+            start: start_pos,
+            end: end_pos,
+        },
+        severity: Some(severity),
+        code: None,
+        code_description: None,
+        source: Some("bagel".to_string()),
+        message,
+        related_information: None,
+        tags: None,
+        data: None,
     }
 }
 

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{
     ast::{
@@ -95,7 +95,7 @@ impl AST<Expression> {
                 // For now, we don't have enough context to infer parameter types
                 // We'd need a symbol table to track what types the parameters are used as
                 let args = vec![Type::Unknown; func.parameters.len()];
-                let returns = Rc::new(func.body.infer_type(ctx));
+                let returns = Arc::new(func.body.infer_type(ctx));
 
                 Type::FuncType {
                     args,

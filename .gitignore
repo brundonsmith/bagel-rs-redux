@@ -8,7 +8,6 @@ vscode-extension/out
 vscode-extension/*.vsix
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
