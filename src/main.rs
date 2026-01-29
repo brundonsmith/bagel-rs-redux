@@ -18,6 +18,7 @@ use ast::grammar::{Any, Expression};
 use ast::slice::Slice;
 use check::{BagelError, CheckContext, Checkable};
 use config::Config;
+use emit::{EmitContext, Emittable};
 use types::infer::InferTypeContext;
 
 #[derive(Debug)]
@@ -36,11 +37,20 @@ impl LanguageServer for BagelLanguageServer {
                 version: Some("0.1.0".to_string()),
             }),
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::FULL,
+                text_document_sync: Some(TextDocumentSyncCapability::Options(
+                    TextDocumentSyncOptions {
+                        open_close: Some(true),
+                        change: Some(TextDocumentSyncKind::FULL),
+                        will_save: None,
+                        will_save_wait_until: None,
+                        save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                            include_text: Some(false),
+                        })),
+                    },
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 inlay_hint_provider: Some(OneOf::Left(true)),
+                document_formatting_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
         };
@@ -101,6 +111,85 @@ impl LanguageServer for BagelLanguageServer {
             eprintln!("[DEBUG] did_close() completed - removed document for {}", uri);
         } else {
             eprintln!("[DEBUG] did_close() - document not found in store");
+        }
+    }
+
+    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+        let uri = params.text_document.uri.to_string();
+        eprintln!("[DEBUG] did_save() called - uri: {}", uri);
+
+        // Get the current document text
+        let documents = self.documents.read().await;
+        let text = match documents.get(&uri) {
+            Some(text) => text.clone(),
+            None => {
+                eprintln!("[DEBUG] did_save() - document not found in store");
+                return;
+            }
+        };
+        drop(documents);
+
+        // Parse the document
+        let slice = Slice::new(Arc::new(text.clone()));
+        let ast = match parse::parse::module(slice) {
+            Ok((_, ast)) => {
+                eprintln!("[DEBUG] did_save() - parse successful");
+                ast
+            }
+            Err(e) => {
+                eprintln!("[DEBUG] did_save() - parse failed: {:?}", e);
+                return;
+            }
+        };
+
+        // Re-emit the AST to format it
+        let config = Config::default();
+        let ctx = EmitContext { config: &config };
+        let mut formatted = String::new();
+        if let Err(e) = ast.emit(ctx, &mut formatted) {
+            eprintln!("[DEBUG] did_save() - emit failed: {:?}", e);
+            return;
+        }
+
+        eprintln!("[DEBUG] did_save() - emitted {} bytes", formatted.len());
+
+        // Only apply if the formatted version is different
+        if formatted != text {
+            eprintln!("[DEBUG] did_save() - content changed, applying edits");
+
+            // Calculate the range of the entire document
+            let line_count = text.lines().count() as u32;
+            let last_line_length = text.lines().last().map(|l| l.len()).unwrap_or(0) as u32;
+
+            let edit = TextEdit {
+                range: Range {
+                    start: Position {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: Position {
+                        line: line_count.saturating_sub(1),
+                        character: last_line_length,
+                    },
+                },
+                new_text: formatted.clone(),
+            };
+
+            // Apply the edit
+            self.client
+                .apply_edit(WorkspaceEdit {
+                    changes: Some([(uri.parse().unwrap(), vec![edit])].into_iter().collect()),
+                    document_changes: None,
+                    change_annotations: None,
+                })
+                .await
+                .ok();
+
+            // Update the stored document
+            self.documents.write().await.insert(uri.clone(), formatted);
+            eprintln!("[DEBUG] did_save() - completed with formatting");
+        } else {
+            eprintln!("[DEBUG] did_save() - no formatting changes needed");
         }
     }
 
