@@ -1,0 +1,9 @@
+---
+source: tests/compile.rs
+expression: compiled
+---
+const x = 42;
+const y = true;
+const z = false;
+const a = null;
+const b = y * 2 + x;

@@ -14,7 +14,7 @@ fn test_emit(code: &str) {
     let (_, parsed) = parse::module(slice).unwrap();
     let config = Config::default();
     let mut emitted = String::new();
-    let success = parsed.emit(&mut emitted, EmitContext { config: &config });
+    let success = parsed.emit(EmitContext { config: &config }, &mut emitted);
     println!("{}", emitted);
 
     assert!(success.is_ok());
