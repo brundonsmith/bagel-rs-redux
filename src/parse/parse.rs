@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
     character::complete::char,
-    combinator::{map, opt, recognize},
+    combinator::{map, opt, recognize, verify},
     multi::{many0, many1},
     sequence::{preceded, tuple},
 };
@@ -87,18 +87,13 @@ where
 
 // Parser for PlainIdentifier: [a-z]+ (but not a keyword)
 pub fn plain_identifier(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
-    let (remaining, matched) = take_while1(|c: char| c.is_ascii_lowercase())(i)?;
-
-    // Reject reserved keywords
-    if is_keyword(matched.as_str()) {
-        return Err(nom::Err::Error(RawParseError {
-            src: matched,
-            details: RawParseErrorDetails::Expected("identifier (not a keyword)".to_string()),
-        }));
-    }
-
-    let node = PlainIdentifier;
-    Ok((remaining, make_ast(matched, node)))
+    map(
+        nom::combinator::verify(
+            take_while1(|c: char| c.is_ascii_lowercase()),
+            |matched: &Slice| !is_keyword(matched.as_str())
+        ),
+        |matched: Slice| make_ast(matched, PlainIdentifier)
+    )(i)
 }
 
 // Parser for NilLiteral: "nil"
@@ -332,38 +327,34 @@ fn parse_invocation_args(
 // Postfix expressions: primary followed by zero or more invocations
 fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
     let start = i.clone();
-    let (mut remaining, mut expr) = atom_expression(i)?;
+    map(
+        tuple((
+            atom_expression,
+            many0(w(parse_invocation_args))
+        )),
+        move |(first, invocations)| {
+            invocations.into_iter().fold(first, |mut expr, (open_paren, mut arguments, commas, trailing_comma, close_paren)| {
+                let span = expr.slice().spanning(
+                    close_paren.as_ref().unwrap_or(&open_paren)
+                );
 
-    // Parse zero or more invocation suffixes
-    loop {
-        // Check if there's an opening paren (with optional whitespace)
-        if let Ok((after_args, (open_paren, mut arguments, commas, trailing_comma, close_paren))) =
-            w(parse_invocation_args)(remaining.clone())
-        {
-            let consumed_len = start.len() - after_args.len();
-            let span = start.clone().slice_range(0, Some(consumed_len));
+                let invocation = Invocation {
+                    function: expr.clone(),
+                    open_paren,
+                    arguments: arguments.clone(),
+                    commas,
+                    trailing_comma,
+                    close_paren,
+                };
 
-            let invocation = Invocation {
-                function: expr.clone(),
-                open_paren,
-                arguments: arguments.clone(),
-                commas,
-                trailing_comma,
-                close_paren,
-            };
+                let node = make_ast(span, invocation);
+                expr.set_parent(&node);
+                arguments.set_parent(&node);
 
-            let node = make_ast(span, invocation);
-            expr.set_parent(&node);
-            arguments.set_parent(&node);
-
-            expr = node.upcast();
-            remaining = after_args;
-        } else {
-            break;
+                node.upcast()
+            })
         }
-    }
-
-    Ok((remaining, expr))
+    )(i)
 }
 
 // Atom expressions: literals, identifiers, function expressions, and parenthesized expressions
@@ -384,25 +375,25 @@ fn primary_expression(i: Slice) -> ParseResult<AST<Expression>> {
 
 // Parser for Declaration: "const" PlainIdentifier "=" Expression
 pub fn declaration(i: Slice) -> ParseResult<AST<Declaration>> {
-    let start = i.clone();
-    let (remaining, (const_keyword, mut identifier, equals, mut value)) =
-        seq!(tag("const"), plain_identifier, expect_tag("="), expression)(i)?;
+    map(
+        seq!(tag("const"), plain_identifier, expect_tag("="), expression),
+        |(const_keyword, mut identifier, equals, mut value)| {
+            let span = const_keyword.spanning(value.slice());
 
-    let consumed_len = start.len() - remaining.len();
-    let span = start.slice_range(0, Some(consumed_len));
+            let decl = Declaration {
+                const_keyword,
+                identifier: identifier.clone(),
+                equals,
+                value: value.clone(),
+            };
 
-    let decl = Declaration {
-        const_keyword,
-        identifier: identifier.clone(),
-        equals,
-        value: value.clone(),
-    };
+            let node = make_ast(span, decl);
+            identifier.set_parent(&node);
+            value.set_parent(&node);
 
-    let node = make_ast(span, decl);
-    identifier.set_parent(&node);
-    value.set_parent(&node);
-
-    Ok((remaining, node))
+            node
+        }
+    )(i)
 }
 
 // Parser for Module: Declaration+
