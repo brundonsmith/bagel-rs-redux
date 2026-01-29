@@ -3,7 +3,7 @@
 //! This module provides the core AST infrastructure
 
 use std::cell::RefCell;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
 
@@ -234,9 +234,15 @@ pub struct ASTInner {
     pub details: Any,
 }
 
-impl Debug for ASTInner {
+impl Display for ASTInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{:?}", self.details))
+    }
+}
+
+impl Debug for ASTInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{:?}, {:?}", self.slice, self.details))
     }
 }
 

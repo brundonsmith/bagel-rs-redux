@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
     character::complete::char,
-    combinator::{map, recognize},
+    combinator::{map, opt, recognize},
     multi::{many0, many1},
     sequence::{preceded, tuple},
 };
@@ -103,49 +103,39 @@ pub fn plain_identifier(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
 
 // Parser for NilLiteral: "nil"
 pub fn nil_literal(i: Slice) -> ParseResult<AST<NilLiteral>> {
-    let (remaining, matched) = tag("nil")(i)?;
-    let node = NilLiteral;
-    Ok((remaining, make_ast(matched, node)))
+    map(tag("nil"), |matched: Slice| make_ast(matched, NilLiteral))(i)
 }
 
 // Parser for BooleanLiteral: "true" | "false"
 pub fn boolean_literal(i: Slice) -> ParseResult<AST<BooleanLiteral>> {
-    let (remaining, matched) = alt((tag("true"), tag("false")))(i)?;
-    let value = matched.as_str() == "true";
-    let node = BooleanLiteral { value };
-    Ok((remaining, make_ast(matched, node)))
+    map(alt((tag("true"), tag("false"))), |matched: Slice| {
+        let value = matched.as_str() == "true";
+        make_ast(matched, BooleanLiteral { value })
+    })(i)
 }
 
 // Parser for NumberLiteral: [0-9]+(?:\.[0-9]+)?
 pub fn number_literal(i: Slice) -> ParseResult<AST<NumberLiteral>> {
-    let (remaining, matched) = recognize(tuple((
-        take_while1(|c: char| c.is_ascii_digit()),
-        nom::combinator::opt(tuple((
-            char('.'),
+    map(
+        recognize(tuple((
             take_while1(|c: char| c.is_ascii_digit()),
+            opt(tuple((
+                char('.'),
+                take_while1(|c: char| c.is_ascii_digit()),
+            ))),
         ))),
-    )))(i)?;
-
-    let node = NumberLiteral;
-    Ok((remaining, make_ast(matched, node)))
+        |matched: Slice| make_ast(matched, NumberLiteral)
+    )(i)
 }
 
 // Parser for LocalIdentifier: PlainIdentifier (used as an expression)
 pub fn local_identifier(i: Slice) -> ParseResult<AST<LocalIdentifier>> {
-    let start = i.clone();
-    let (remaining, mut identifier) = plain_identifier(i)?;
+    map(plain_identifier, |identifier: AST<PlainIdentifier>| {
+        let node = make_ast(identifier.slice().clone(), LocalIdentifier { identifier });
+        node.unpack().identifier.set_parent(&node);
 
-    let consumed_len = start.len() - remaining.len();
-    let span = start.slice_range(0, Some(consumed_len));
-
-    let local_id = LocalIdentifier {
-        identifier: identifier.clone(),
-    };
-
-    let node = make_ast(span, local_id);
-    identifier.set_parent(&node);
-
-    Ok((remaining, node))
+        node
+    })(i)
 }
 
 // Parser for Expression (precedence-aware)

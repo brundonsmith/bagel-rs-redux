@@ -239,7 +239,7 @@ impl nom::Slice<RangeFrom<usize>> for Slice {
 
 impl nom::Slice<RangeTo<usize>> for Slice {
     fn slice(&self, range: RangeTo<usize>) -> Self {
-        self.clone().slice_range(self.start, Some(range.end))
+        self.clone().slice_range(0, Some(range.end))
     }
 }
 
