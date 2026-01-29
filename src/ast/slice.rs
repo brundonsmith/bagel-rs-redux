@@ -1,24 +1,47 @@
+//! Zero-allocation substring references for the Bagel language.
+//!
+//! As documented in GRAMMAR.md section 1, any exact strings parsed out of the
+//! original document unchanged should be stored as a `Slice` that refers to
+//! the document, instead of allocating a new `String`.
+
 use std::ops::{RangeFrom, RangeTo};
 use std::{fmt::Debug, rc::Rc};
 
 use memoize::memoize;
 use nom::{AsChar, Compare, InputIter, InputLength, InputTake, Offset, UnspecializedInput};
 
+/// Zero-allocation substring reference into source code.
+///
 /// Represents a contiguous substring of some `Rc<String>`. Optimized to allow
 /// substringing, concatenation, and resizing without allocations, as well as
-/// cheap cloning.
+/// cheap cloning. This is used throughout the AST to reference source code
+/// without copying strings.
 ///
-/// IDENTITY: Two slices are not considered equal unless they refer to the
-/// **same** (pointer-equivalent) `Rc<String>`, and the exact same indices
-/// within it!
+/// # Identity Semantics
+/// Two slices are not considered equal unless they refer to the **same**
+/// (pointer-equivalent) `Rc<String>`, and the exact same indices within it!
+/// This ensures that slices from different source files or different positions
+/// are always distinct.
+///
+/// # Example
+/// ```ignore
+/// let source = Rc::new("const x = 42".to_string());
+/// let slice = Slice::new(source);
+/// let keyword = slice.clone().slice_range(0, Some(5)); // "const"
+/// assert_eq!(keyword.as_str(), "const");
+/// ```
 #[derive(Clone, Eq)]
 pub struct Slice {
+    /// The full source code string
     pub full_string: Rc<String>,
+    /// Start index (byte offset) into the full string
     pub start: usize,
+    /// End index (byte offset) into the full string
     pub end: usize,
 }
 
 impl Slice {
+    /// Creates a new slice covering the entire string.
     pub fn new(full_string: Rc<String>) -> Self {
         let end = full_string.len();
 
@@ -29,16 +52,22 @@ impl Slice {
         }
     }
 
+    /// Returns the length of this slice in bytes.
     pub fn len(&self) -> usize {
         self.end - self.start
     }
 
+    /// Returns true if this slice completely contains the other slice.
+    ///
+    /// Both slices must refer to the same source string.
     pub fn contains(&self, other: &Slice) -> bool {
         self.full_string.as_ptr() == other.full_string.as_ptr()
             && self.start <= other.start
             && self.end >= other.end
     }
 
+    /// Joins two slices, creating a new slice that spans from the minimum
+    /// start to the maximum end of both slices.
     pub fn join(self, other: &Slice) -> Slice {
         Self {
             full_string: self.full_string,
@@ -47,10 +76,22 @@ impl Slice {
         }
     }
 
+    /// Returns the actual string content of this slice.
     pub fn as_str(&self) -> &str {
         &self.full_string[self.start..self.end]
     }
 
+    /// Creates a new slice spanning from this slice to another.
+    ///
+    /// This is commonly used in parsers to create a parent node's slice
+    /// from its first and last child nodes. Both slices must refer to
+    /// the same source string.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let span = left_child.slice().spanning(right_child.slice());
+    /// let node = make_ast(span, BinaryOperation { left, operator, right });
+    /// ```
     pub fn spanning(&self, other: &Slice) -> Slice {
         Self {
             full_string: self.full_string.clone(),
@@ -59,6 +100,17 @@ impl Slice {
         }
     }
 
+    /// Creates a sub-slice with relative offsets.
+    ///
+    /// The `start` and `end` parameters are relative to this slice's start,
+    /// not the full string. If `end` is `None`, the slice extends to the
+    /// end of this slice.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let full = Slice::new(Rc::new("const x = 42".to_string()));
+    /// let keyword = full.clone().slice_range(0, Some(5)); // "const"
+    /// ```
     pub fn slice_range(self, start: usize, end: Option<usize>) -> Slice {
         Self {
             full_string: self.full_string,

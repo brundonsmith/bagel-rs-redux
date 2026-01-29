@@ -49,10 +49,85 @@
           "include": "#number-literal"
         },
         {
+          "include": "#function-expression"
+        },
+        {
+          "include": "#invocation"
+        },
+        {
           "include": "#binary-operator"
         },
         {
           "include": "#plain-identifier"
+        }
+      ]
+    },
+    "function-expression": {
+      "patterns": [
+        {
+          "name": "meta.function.arrow.bagel",
+          "match": "(\\()([a-z]+(?:\\s*,\\s*[a-z]+)*)?\\s*(,)?\\s*(\\))\\s*(=>)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.parameters.begin.bagel"
+            },
+            "2": {
+              "patterns": [
+                {
+                  "name": "variable.parameter.bagel",
+                  "match": "[a-z]+"
+                }
+              ]
+            },
+            "3": {
+              "name": "punctuation.separator.comma.bagel"
+            },
+            "4": {
+              "name": "punctuation.definition.parameters.end.bagel"
+            },
+            "5": {
+              "name": "storage.type.function.arrow.bagel"
+            }
+          }
+        },
+        {
+          "name": "meta.function.arrow.bagel",
+          "match": "([a-z]+)\\s*(=>)",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.bagel"
+            },
+            "2": {
+              "name": "storage.type.function.arrow.bagel"
+            }
+          }
+        }
+      ]
+    },
+    "invocation": {
+      "name": "meta.function-call.bagel",
+      "begin": "([a-z]+)\\s*(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "entity.name.function.bagel"
+        },
+        "2": {
+          "name": "punctuation.definition.arguments.begin.bagel"
+        }
+      },
+      "end": "(\\))",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.arguments.end.bagel"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        },
+        {
+          "name": "punctuation.separator.comma.bagel",
+          "match": ","
         }
       ]
     },

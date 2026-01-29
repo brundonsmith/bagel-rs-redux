@@ -1,11 +1,16 @@
+//! AST node definitions for the Bagel language grammar.
+//!
+//! This module contains the AST data structures. Each grammar rule gets its own
+//! struct or enum, and the `type_hierarchy!` macro generates the enum hierarchy
+//! with `From` and `TryFrom` implementations.
+
 use type_hierarchy::type_hierarchy;
 
 use super::container::{Malformed, AST};
 use super::slice::Slice;
 
-// Terminal nodes (literals and identifiers)
-// Note: The slice for each node is stored in ASTInner, not in these structs
-
+/// Terminal nodes (literals and identifiers)
+/// Note: The slice for each node is stored in ASTInner, not in these structs
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NilLiteral;
 
@@ -25,14 +30,36 @@ pub struct LocalIdentifier {
     pub identifier: AST<PlainIdentifier>,
 }
 
-// Binary operation nodes
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Binary operation nodes
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BinaryOperator {
     Add,
     Subtract,
     Multiply,
     Divide,
+}
+
+impl BinaryOperator {
+    /// Returns the string representation of this operator (e.g., "+", "-", "*", "/")
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            BinaryOperator::Add => "+",
+            BinaryOperator::Subtract => "-",
+            BinaryOperator::Multiply => "*",
+            BinaryOperator::Divide => "/",
+        }
+    }
+
+    /// Attempts to parse a string into a BinaryOperator
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "+" => Some(BinaryOperator::Add),
+            "-" => Some(BinaryOperator::Subtract),
+            "*" => Some(BinaryOperator::Multiply),
+            "/" => Some(BinaryOperator::Divide),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -42,8 +69,30 @@ pub struct BinaryOperation {
     pub right: AST<Expression>,
 }
 
-// Declaration node
+/// Invocation node: Expression "(" Expression (?:"," Expression)* ","? ")"
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Invocation {
+    pub function: AST<Expression>,
+    pub open_paren: Slice,
+    pub arguments: Vec<AST<Expression>>,
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_paren: Option<Slice>,
+}
 
+/// FunctionExpression node: (?:"(" PlainIdentifier (?:"," PlainIdentifier)* ","? ")") or PlainIdentifier "=>" Expression
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FunctionExpression {
+    pub open_paren: Option<Slice>,
+    pub parameters: Vec<AST<PlainIdentifier>>,
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_paren: Option<Slice>,
+    pub arrow: Slice,
+    pub body: AST<Expression>,
+}
+
+/// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Declaration {
     pub const_keyword: Slice,
@@ -52,15 +101,16 @@ pub struct Declaration {
     pub value: AST<Expression>,
 }
 
-// Module node (represents a whole document)
-
+/// Module node (represents a whole document)
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Module {
     pub declarations: Vec<AST<Declaration>>,
 }
 
 // Type hierarchy
-
+//
+// See the `type_hierarchy!` macro documentation in type_hierarchy/src/lib.rs for details
+// on how this generates enums with From/TryFrom implementations.
 type_hierarchy! {
     Any {
         Module,
@@ -71,6 +121,8 @@ type_hierarchy! {
             NumberLiteral,
             BinaryOperation,
             LocalIdentifier,
+            Invocation,
+            FunctionExpression,
         },
         PlainIdentifier,
         BinaryOperator,

@@ -11,7 +11,9 @@ Module = Declaration+
 
 Declaration = "const" PlainIdentifier "=" Expression
 
-Expression = NilLiteral | BooleanLiteral | NumberLiteral | LocalIdentifier | BinaryOperation
+Expression = NilLiteral | BooleanLiteral | NumberLiteral | LocalIdentifier | BinaryOperation | Invocation
+Invocation = Expression "(" Expression (?:"," Expression)* ","? ")"
+FunctionExpression = (?:"(" PlainIdentifier (?:"," PlainIdentifier)* ","? ")") or PlainIdentifier "=>" Expression
 BinaryOperation = Expression BinaryOperator Expression
 BinaryOperator = "+" | "-" | "*" | "/"
 NilLiteral = "nil"

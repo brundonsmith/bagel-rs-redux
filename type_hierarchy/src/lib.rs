@@ -138,6 +138,46 @@ impl HierarchyNode {
     }
 }
 
+/// Generates enum hierarchies with automatic `From` and `TryFrom` implementations.
+///
+/// As documented in GRAMMAR.md, the `type_hierarchy!` macro generates enum hierarchies
+/// that wrap AST nodes at different levels of abstraction. For example:
+///
+/// - The top-level type (e.g., `Any`) is an enum that can hold any node in the tree
+/// - Mid-level types (e.g., `Expression`) are enums that can hold any expression node
+/// - Leaf types (e.g., `NumberLiteral`) are concrete structs defined elsewhere
+///
+/// # Generated Code
+///
+/// The macro generates:
+/// - **Enum definitions** for each non-leaf level with variants for each child
+/// - **`From` implementations** for upcasting (e.g., `NumberLiteral` -> `Expression` -> `Any`)
+/// - **`TryFrom` implementations** for downcasting (e.g., `Any` -> `Expression` -> `NumberLiteral`)
+///
+/// This allows type-safe casting throughout the codebase via `upcast()` and `try_downcast()`.
+///
+/// # Example
+///
+/// ```ignore
+/// type_hierarchy! {
+///     Any {
+///         Expression {
+///             NumberLiteral,
+///             BooleanLiteral,
+///             BinaryOperation,
+///         },
+///         Declaration,
+///     }
+/// }
+/// ```
+///
+/// Generates:
+/// - `enum Any { Expression(Expression), Declaration(Declaration) }`
+/// - `enum Expression { NumberLiteral(NumberLiteral), BooleanLiteral(BooleanLiteral), ... }`
+/// - `From<NumberLiteral> for Expression`
+/// - `From<Expression> for Any`
+/// - `From<NumberLiteral> for Any` (transitive)
+/// - And corresponding `TryFrom` implementations for downcasting
 #[proc_macro]
 pub fn type_hierarchy(input: TokenStream) -> TokenStream {
     let node = syn::parse_macro_input!(input as HierarchyNode);

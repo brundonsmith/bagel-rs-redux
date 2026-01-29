@@ -1,3 +1,7 @@
+//! AST container types for the Bagel language.
+//!
+//! This module provides the core AST infrastructure
+
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -6,6 +10,27 @@ use std::rc::{Rc, Weak};
 use crate::ast::grammar::Any;
 use crate::ast::slice::Slice;
 
+/// Generic wrapper for all AST nodes in Bagel.
+///
+/// `AST<TKind>` wraps an `ASTInner` in an `Rc` for cheap cloning, and uses
+/// `PhantomData` to represent the specific type of AST node contained within.
+/// This allows type-safe casting between AST node types without unwrapping or
+/// cloning the underlying `Rc`.
+///
+/// # Type Parameters
+/// - `TKind`: The specific AST node type (e.g., `Expression`, `Declaration`, `Module`)
+///
+/// # Example
+/// ```ignore
+/// // Create a new AST node
+/// let node = make_ast(slice, NumberLiteral);
+///
+/// // Upcast to a more general type
+/// let expr: AST<Expression> = node.upcast();
+///
+/// // Try to downcast back
+/// let number: Option<AST<NumberLiteral>> = expr.try_downcast();
+/// ```
 #[derive(Clone, PartialEq, Eq)]
 pub struct AST<TKind>(Rc<ASTInner>, PhantomData<TKind>)
 where
@@ -37,10 +62,17 @@ where
     TKind: Clone + TryFrom<Any>,
     Any: From<TKind>,
 {
+    /// Creates a new AST node from an ASTInner.
+    ///
+    /// This is typically called from parser functions via the `make_ast` helper.
     pub fn new(inner: Rc<ASTInner>) -> Self {
         AST(inner, PhantomData)
     }
 
+    /// Returns the source code slice for this AST node.
+    ///
+    /// Every AST node stores the `Slice` representing the portion of source code
+    /// it was parsed from. This allows zero-allocation substring references.
     pub fn slice(&self) -> &Slice {
         &self.0.slice
     }
@@ -115,9 +147,21 @@ where
     }
 }
 
-/// We'll frequently need to set `.parent` on AST nodes that are contained
-/// within a collection (eg Option or Vec). This is a convenience trait to
-/// let us apply the operation to all of those in a single method call
+/// Convenience trait for setting parent relationships on AST nodes.
+///
+/// Parsers must call `set_parent()` on all
+/// newly-created child nodes. This trait allows setting parents on nodes
+/// contained within collections (e.g., `Option<AST<T>>` or `Vec<AST<T>>`)
+/// with a single method call.
+///
+/// # Example
+/// ```ignore
+/// let mut children = vec![child1, child2, child3];
+/// children.set_parent(&parent_node); // Sets parent on all children at once
+///
+/// let mut optional_child = Some(child);
+/// optional_child.set_parent(&parent_node); // Works with Option too
+/// ```
 pub trait Parentable {
     fn set_parent<TParentKind>(&mut self, _parent: &AST<TParentKind>)
     where
@@ -154,9 +198,7 @@ where
         TParentKind: Clone + TryFrom<Any>,
         Any: From<TParentKind>,
     {
-        if let Some(s) = self {
-            s.set_parent(parent);
-        }
+        self.iter_mut().for_each(|x| x.set_parent(parent));
     }
 }
 
@@ -169,16 +211,26 @@ where
         TParentKind: Clone + TryFrom<Any>,
         Any: From<TParentKind>,
     {
-        for ast in self.iter_mut() {
-            ast.set_parent(parent);
-        }
+        self.iter_mut().for_each(|x| x.set_parent(parent));
     }
 }
 
+/// Inner data structure containing metadata common to all AST nodes.
+///
+/// `ASTInner` contains all metadata that _every_
+/// node carries, regardless of its specific type. This includes:
+/// - A weak reference to the parent node (to avoid reference cycles)
+/// - The original source code `Slice` this node was parsed from
+/// - The semantic details specific to this node type (wrapped in `Any`)
+///
+/// `ASTInner` is always wrapped in `AST<TKind>` for type-safe access.
 #[derive(Clone)]
 pub struct ASTInner {
+    /// Weak reference to the parent node (to avoid reference cycles)
     pub parent: RefCell<Option<Weak<ASTInner>>>,
+    /// The source code slice this node was parsed from
     pub slice: Slice,
+    /// The type-specific details of this AST node
     pub details: Any,
 }
 
