@@ -92,11 +92,70 @@ pub struct FunctionExpression {
     pub body: AST<Expression>,
 }
 
+// Type expression nodes
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UnknownTypeExpression;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NilTypeExpression;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BooleanTypeExpression;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NumberTypeExpression;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StringTypeExpression;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TupleTypeExpression {
+    pub open_bracket: Slice,
+    pub elements: Vec<AST<TypeExpression>>,
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_bracket: Slice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ArrayTypeExpression {
+    pub element: AST<TypeExpression>,
+    pub open_bracket: Slice,
+    pub close_bracket: Slice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ObjectTypeExpression {
+    pub open_brace: Slice,
+    pub fields: Vec<(AST<PlainIdentifier>, Slice, AST<TypeExpression>)>, // (name, colon, type)
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_brace: Slice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FunctionTypeExpression {
+    pub open_paren: Slice,
+    pub parameters: Vec<(AST<PlainIdentifier>, Slice, AST<TypeExpression>)>, // (name, colon, type)
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_paren: Slice,
+    pub arrow: Slice,
+    pub return_type: AST<TypeExpression>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UnionTypeExpression {
+    pub variants: Vec<AST<TypeExpression>>,
+    pub pipes: Vec<Slice>,
+}
+
 /// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Declaration {
     pub const_keyword: Slice,
     pub identifier: AST<PlainIdentifier>,
+    pub type_annotation: Option<(Slice, AST<TypeExpression>)>, // (colon, type)
     pub equals: Slice,
     pub value: AST<Expression>,
 }
@@ -123,6 +182,18 @@ type_hierarchy! {
             LocalIdentifier,
             Invocation,
             FunctionExpression,
+        },
+        TypeExpression {
+            UnknownTypeExpression,
+            NilTypeExpression,
+            BooleanTypeExpression,
+            NumberTypeExpression,
+            StringTypeExpression,
+            TupleTypeExpression,
+            ArrayTypeExpression,
+            ObjectTypeExpression,
+            FunctionTypeExpression,
+            UnionTypeExpression,
         },
         PlainIdentifier,
         BinaryOperator,

@@ -1,0 +1,13 @@
+---
+source: tests/types.rs
+expression: output
+---
+2 -> 2
+42 -> 42
+false -> false
+nil -> nil
+true -> true
+x -> unknown
+y -> unknown
+y * 2 -> number
+y * 2 + x -> number

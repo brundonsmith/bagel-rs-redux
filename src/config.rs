@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
 pub struct Config {
     pub rules: Rules,
 }
@@ -9,6 +9,10 @@ pub struct Config {
 pub struct Rules {
     sorted_imports: RuleSeverityOrOff,
     no_redundant_parenthesis: RuleSeverity,
+    lower_camel_case_module_constants: RuleSeverityOrOff,
+    lower_camel_case_module_functions: RuleSeverityOrOff,
+    upper_camel_case_module_types: RuleSeverityOrOff,
+    lower_camel_case_module_local_variables: RuleSeverityOrOff,
 }
 
 impl Default for Rules {
@@ -16,6 +20,10 @@ impl Default for Rules {
         Self {
             sorted_imports: RuleSeverityOrOff::Autofix,
             no_redundant_parenthesis: RuleSeverity::Autofix,
+            lower_camel_case_module_constants: RuleSeverityOrOff::Autofix,
+            lower_camel_case_module_functions: RuleSeverityOrOff::Autofix,
+            upper_camel_case_module_types: RuleSeverityOrOff::Autofix,
+            lower_camel_case_module_local_variables: RuleSeverityOrOff::Autofix,
         }
     }
 }

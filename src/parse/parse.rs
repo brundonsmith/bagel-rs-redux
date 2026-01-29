@@ -90,9 +90,9 @@ pub fn plain_identifier(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
     map(
         nom::combinator::verify(
             take_while1(|c: char| c.is_ascii_lowercase()),
-            |matched: &Slice| !is_keyword(matched.as_str())
+            |matched: &Slice| !is_keyword(matched.as_str()),
         ),
-        |matched: Slice| make_ast(matched, PlainIdentifier)
+        |matched: Slice| make_ast(matched, PlainIdentifier),
     )(i)
 }
 
@@ -119,7 +119,7 @@ pub fn number_literal(i: Slice) -> ParseResult<AST<NumberLiteral>> {
                 take_while1(|c: char| c.is_ascii_digit()),
             ))),
         ))),
-        |matched: Slice| make_ast(matched, NumberLiteral)
+        |matched: Slice| make_ast(matched, NumberLiteral),
     )(i)
 }
 
@@ -328,32 +328,32 @@ fn parse_invocation_args(
 fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
     let start = i.clone();
     map(
-        tuple((
-            atom_expression,
-            many0(w(parse_invocation_args))
-        )),
+        tuple((atom_expression, many0(w(parse_invocation_args)))),
         move |(first, invocations)| {
-            invocations.into_iter().fold(first, |mut expr, (open_paren, mut arguments, commas, trailing_comma, close_paren)| {
-                let span = expr.slice().spanning(
-                    close_paren.as_ref().unwrap_or(&open_paren)
-                );
+            invocations.into_iter().fold(
+                first,
+                |mut expr, (open_paren, mut arguments, commas, trailing_comma, close_paren)| {
+                    let span = expr
+                        .slice()
+                        .spanning(close_paren.as_ref().unwrap_or(&open_paren));
 
-                let invocation = Invocation {
-                    function: expr.clone(),
-                    open_paren,
-                    arguments: arguments.clone(),
-                    commas,
-                    trailing_comma,
-                    close_paren,
-                };
+                    let invocation = Invocation {
+                        function: expr.clone(),
+                        open_paren,
+                        arguments: arguments.clone(),
+                        commas,
+                        trailing_comma,
+                        close_paren,
+                    };
 
-                let node = make_ast(span, invocation);
-                expr.set_parent(&node);
-                arguments.set_parent(&node);
+                    let node = make_ast(span, invocation);
+                    expr.set_parent(&node);
+                    arguments.set_parent(&node);
 
-                node.upcast()
-            })
-        }
+                    node.upcast()
+                },
+            )
+        },
     )(i)
 }
 
@@ -373,26 +373,110 @@ fn primary_expression(i: Slice) -> ParseResult<AST<Expression>> {
     postfix_expression(i)
 }
 
-// Parser for Declaration: "const" PlainIdentifier "=" Expression
+// Type expression parsers
+
+fn unknown_type_expression(i: Slice) -> ParseResult<AST<UnknownTypeExpression>> {
+    map(tag("unknown"), |matched: Slice| {
+        make_ast(matched, UnknownTypeExpression)
+    })(i)
+}
+
+fn nil_type_expression(i: Slice) -> ParseResult<AST<NilTypeExpression>> {
+    map(tag("null"), |matched: Slice| {
+        make_ast(matched, NilTypeExpression)
+    })(i)
+}
+
+fn boolean_type_expression(i: Slice) -> ParseResult<AST<BooleanTypeExpression>> {
+    map(tag("boolean"), |matched: Slice| {
+        make_ast(matched, BooleanTypeExpression)
+    })(i)
+}
+
+fn number_type_expression(i: Slice) -> ParseResult<AST<NumberTypeExpression>> {
+    map(tag("number"), |matched: Slice| {
+        make_ast(matched, NumberTypeExpression)
+    })(i)
+}
+
+fn string_type_expression(i: Slice) -> ParseResult<AST<StringTypeExpression>> {
+    map(tag("string"), |matched: Slice| {
+        make_ast(matched, StringTypeExpression)
+    })(i)
+}
+
+fn array_type_expression(i: Slice) -> ParseResult<AST<ArrayTypeExpression>> {
+    map(
+        tuple((primary_type_expression, seq!(tag("["), tag("]")))),
+        |(mut element, (open_bracket, close_bracket))| {
+            let span = element.slice().spanning(&close_bracket);
+            let node = make_ast(
+                span,
+                ArrayTypeExpression {
+                    element: element.clone(),
+                    open_bracket,
+                    close_bracket,
+                },
+            );
+            element.set_parent(&node);
+            node
+        },
+    )(i)
+}
+
+fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
+    alt((
+        map(unknown_type_expression, |n| n.upcast()),
+        map(nil_type_expression, |n| n.upcast()),
+        map(boolean_type_expression, |n| n.upcast()),
+        map(number_type_expression, |n| n.upcast()),
+        map(string_type_expression, |n| n.upcast()),
+    ))(i)
+}
+
+fn postfix_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
+    alt((
+        map(array_type_expression, |n| n.upcast()),
+        primary_type_expression,
+    ))(i)
+}
+
+pub fn type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
+    postfix_type_expression(i)
+}
+
+// Parser for Declaration: "const" PlainIdentifier (":" TypeExpression)? "=" Expression
 pub fn declaration(i: Slice) -> ParseResult<AST<Declaration>> {
     map(
-        seq!(tag("const"), plain_identifier, expect_tag("="), expression),
-        |(const_keyword, mut identifier, equals, mut value)| {
+        seq!(
+            tag("const"),
+            plain_identifier,
+            opt(seq!(tag(":"), type_expression)),
+            expect_tag("="),
+            expression
+        ),
+        |(const_keyword, mut identifier, type_annotation, equals, mut value)| {
             let span = const_keyword.spanning(value.slice());
+
+            // let mut type_annotation_opt = type_annotation;
 
             let decl = Declaration {
                 const_keyword,
                 identifier: identifier.clone(),
+                type_annotation: type_annotation.clone(),
                 equals,
                 value: value.clone(),
             };
 
             let node = make_ast(span, decl);
             identifier.set_parent(&node);
+            if let Some((_, mut type_expr)) = type_annotation.clone() {
+                type_expr.set_parent(&node);
+            }
             value.set_parent(&node);
 
             node
-        }
+        },
     )(i)
 }
 

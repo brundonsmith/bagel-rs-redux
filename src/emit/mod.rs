@@ -24,6 +24,7 @@ where
             Any::Module(module) => todo!(),
             Any::Declaration(declaration) => todo!(),
             Any::Expression(expression) => todo!(),
+            Any::TypeExpression(_type_expression) => todo!(),
             Any::PlainIdentifier(plain_identifier) => todo!(),
             Any::BinaryOperator(binary_operator) => todo!(),
             Any::Malformed(malformed) => todo!(),

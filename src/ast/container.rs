@@ -215,6 +215,21 @@ where
     }
 }
 
+impl<T, U> Parentable for (T, U)
+where
+    T: Parentable,
+    U: Parentable,
+{
+    fn set_parent<TParentKind>(&mut self, parent: &AST<TParentKind>)
+    where
+        TParentKind: Clone + TryFrom<Any>,
+        Any: From<TParentKind>,
+    {
+        self.0.set_parent(parent);
+        self.1.set_parent(parent);
+    }
+}
+
 /// Inner data structure containing metadata common to all AST nodes.
 ///
 /// `ASTInner` contains all metadata that _every_

@@ -3,6 +3,8 @@ use bagel_language_server::parse::parse;
 use insta::assert_debug_snapshot;
 use std::rc::Rc;
 
+mod common;
+
 fn test_parse(code: &str) {
     println!("----- input code -----\n{}\n----------------------", code);
 
@@ -13,11 +15,5 @@ fn test_parse(code: &str) {
 
 #[test]
 fn parser_test_1() {
-    test_parse(
-        "const x = 42
-const y = true
-const z = false
-const a = nil
-const b = y * 2 + x",
-    );
+    test_parse(common::SAMPLE_1);
 }

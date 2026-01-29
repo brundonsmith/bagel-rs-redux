@@ -1,0 +1,29 @@
+use bagel_language_server::ast::slice::Slice;
+use bagel_language_server::check::{CheckContext, Checkable};
+use bagel_language_server::config::Config;
+use bagel_language_server::parse::parse;
+use insta::assert_debug_snapshot;
+use std::rc::Rc;
+
+mod common;
+
+fn test_check(code: &str) {
+    println!("----- input code -----\n{}\n----------------------", code);
+
+    let slice = Slice::new(Rc::new(code.to_string()));
+    let (_, parsed) = parse::module(slice).unwrap();
+
+    let config = Config::default();
+    let mut errors = Vec::new();
+    let errors_ref = &mut errors;
+    parsed.check(&CheckContext { config: &config }, &mut |e| {
+        errors_ref.push(e)
+    });
+
+    assert_debug_snapshot!(errors);
+}
+
+#[test]
+fn parser_test_1() {
+    test_check(common::SAMPLE_1);
+}

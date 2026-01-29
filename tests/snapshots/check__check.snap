@@ -1,0 +1,13 @@
+---
+source: tests/check.rs
+expression: errors
+---
+[
+    BagelError {
+        src: Slice("nil"),
+        severity: Error,
+        details: MiscError {
+            message: "Type 'nil' is not assignable to type 'string'.",
+        },
+    },
+]
