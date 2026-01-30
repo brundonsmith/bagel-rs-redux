@@ -10,4 +10,11 @@ expression: errors
             message: "Type 'nil' is not assignable to type 'string'.",
         },
     },
+    BagelError {
+        src: Slice("y"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '*' cannot be applied to type 'true'",
+        },
+    },
 ]

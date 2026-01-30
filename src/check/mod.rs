@@ -5,6 +5,7 @@ use crate::{
     ast::{container::AST, grammar::Any, slice::Slice},
     config::{Config, RuleSeverity},
     types::{fits::FitsContext, infer::InferTypeContext, Type},
+    ast::grammar::BinaryOperator,
 };
 
 #[derive(Debug, Clone)]
@@ -285,6 +286,93 @@ where
                             bin_op.left.check(ctx, report_error);
                             bin_op.operator.check(ctx, report_error);
                             bin_op.right.check(ctx, report_error);
+
+                            // Type-check operands
+                            let infer_ctx = InferTypeContext {};
+                            let left_type = bin_op.left.infer_type(infer_ctx).normalize();
+                            let right_type = bin_op.right.infer_type(infer_ctx).normalize();
+
+                            let (allowed, op_str) = match bin_op.operator.unpack() {
+                                BinaryOperator::Add => (
+                                    Some(Type::Union { variants: vec![Type::Number, Type::String] }),
+                                    "+",
+                                ),
+                                BinaryOperator::Subtract => (Some(Type::Number), "-"),
+                                BinaryOperator::Multiply => (Some(Type::Number), "*"),
+                                BinaryOperator::Divide => (Some(Type::Number), "/"),
+                                BinaryOperator::And => (
+                                    Some(Type::Union { variants: vec![Type::Boolean, Type::Nil] }),
+                                    "&&",
+                                ),
+                                BinaryOperator::Or => (
+                                    Some(Type::Union { variants: vec![Type::Boolean, Type::Nil] }),
+                                    "||",
+                                ),
+                                BinaryOperator::Equal => (None, "=="),
+                                BinaryOperator::NotEqual => (None, "!="),
+                                BinaryOperator::NullishCoalescing => (None, "??"),
+                            };
+
+                            if let Some(allowed) = allowed {
+                                let fits_ctx = FitsContext {};
+                                let left_issues = left_type.clone().fit_issues(allowed.clone(), fits_ctx);
+                                let fits_ctx = FitsContext {};
+                                let right_issues = right_type.clone().fit_issues(allowed, fits_ctx);
+                                if !left_issues.is_empty() {
+                                    report_error(BagelError {
+                                        src: bin_op.left.slice().clone(),
+                                        severity: RuleSeverity::Error,
+                                        details: BagelErrorDetails::MiscError {
+                                            message: format!(
+                                                "Operator '{}' cannot be applied to type '{}'",
+                                                op_str, left_type
+                                            ),
+                                        },
+                                    });
+                                }
+                                if !right_issues.is_empty() {
+                                    report_error(BagelError {
+                                        src: bin_op.right.slice().clone(),
+                                        severity: RuleSeverity::Error,
+                                        details: BagelErrorDetails::MiscError {
+                                            message: format!(
+                                                "Operator '{}' cannot be applied to type '{}'",
+                                                op_str, right_type
+                                            ),
+                                        },
+                                    });
+                                }
+                            }
+                        }
+                        UnaryOperation(unary_op) => {
+                            // Recurse to children
+                            unary_op.operator.check(ctx, report_error);
+                            unary_op.operand.check(ctx, report_error);
+
+                            // Type-check operand
+                            let infer_ctx = InferTypeContext {};
+                            let operand_type = unary_op.operand.infer_type(infer_ctx).normalize();
+
+                            match unary_op.operator.unpack() {
+                                crate::ast::grammar::UnaryOperator::Not => {
+                                    // ! only allows booleans or nil
+                                    let allowed = Type::Union { variants: vec![Type::Boolean, Type::Nil] };
+                                    let fits_ctx = FitsContext {};
+                                    let issues = operand_type.clone().fit_issues(allowed, fits_ctx);
+                                    if !issues.is_empty() {
+                                        report_error(BagelError {
+                                            src: unary_op.operand.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Operator '!' cannot be applied to type '{}'",
+                                                    operand_type
+                                                ),
+                                            },
+                                        });
+                                    }
+                                }
+                            }
                         }
                         Invocation(inv) => {
                             // Recurse to children
@@ -346,6 +434,10 @@ where
                 }
 
                 Any::BinaryOperator(_) => {
+                    // Leaf node, nothing to check
+                }
+
+                Any::UnaryOperator(_) => {
                     // Leaf node, nothing to check
                 }
             },

@@ -183,9 +183,37 @@ pub fn local_identifier(i: Slice) -> ParseResult<AST<LocalIdentifier>> {
     })(i)
 }
 
-// Parser for Expression (precedence-aware)
+// Parser for Expression (precedence-aware, lowest to highest)
 pub fn expression(i: Slice) -> ParseResult<AST<Expression>> {
-    additive_expression(i)
+    nullish_coalescing_expression(i)
+}
+
+// Nullish coalescing: ??
+fn nullish_coalescing_expression(i: Slice) -> ParseResult<AST<Expression>> {
+    binary_operation!(
+        i,
+        [BinaryOperator::NullishCoalescing],
+        logical_or_expression
+    )
+}
+
+// Logical OR: ||
+fn logical_or_expression(i: Slice) -> ParseResult<AST<Expression>> {
+    binary_operation!(i, [BinaryOperator::Or], logical_and_expression)
+}
+
+// Logical AND: &&
+fn logical_and_expression(i: Slice) -> ParseResult<AST<Expression>> {
+    binary_operation!(i, [BinaryOperator::And], equality_expression)
+}
+
+// Equality: == and !=
+fn equality_expression(i: Slice) -> ParseResult<AST<Expression>> {
+    binary_operation!(
+        i,
+        [BinaryOperator::Equal, BinaryOperator::NotEqual],
+        additive_expression
+    )
 }
 
 // Additive expressions: + and -
@@ -202,8 +230,34 @@ fn multiplicative_expression(i: Slice) -> ParseResult<AST<Expression>> {
     binary_operation!(
         i,
         [BinaryOperator::Multiply, BinaryOperator::Divide],
-        primary_expression
+        unary_expression
     )
+}
+
+// Unary prefix expressions: !
+fn unary_expression(i: Slice) -> ParseResult<AST<Expression>> {
+    // Try unary ! first, then fall through to primary
+    alt((
+        map(
+            seq!(tag("!"), unary_expression),
+            |(op_slice, mut operand)| {
+                let span = op_slice.spanning(operand.slice());
+                let mut operator = make_ast(op_slice, UnaryOperator::Not);
+
+                let unary_op = UnaryOperation {
+                    operator: operator.clone(),
+                    operand: operand.clone(),
+                };
+
+                let node: AST<Expression> = make_ast(span, unary_op).upcast();
+                operator.set_parent(&node);
+                operand.set_parent(&node);
+
+                node
+            },
+        ),
+        primary_expression,
+    ))(i)
 }
 
 // Parser for FunctionExpression: (?:"(" Param (?:"," Param)* ","? ")") or PlainIdentifier "=>" Expression

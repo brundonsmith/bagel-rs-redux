@@ -5,6 +5,7 @@ expression: compiled
 const x = 42;
 const y = true;
 const z = false;
+const c = a === b || y !== z;
 const foo = [1, 2, {stuff: 'other'}];
 const func = (a, b) => a + b;
 const a = null;

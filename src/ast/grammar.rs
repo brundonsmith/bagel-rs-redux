@@ -40,6 +40,11 @@ pub struct LocalIdentifier {
 /// Binary operation nodes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BinaryOperator {
+    NullishCoalescing,
+    Or,
+    And,
+    Equal,
+    NotEqual,
     Add,
     Subtract,
     Multiply,
@@ -47,9 +52,14 @@ pub enum BinaryOperator {
 }
 
 impl BinaryOperator {
-    /// Returns the string representation of this operator (e.g., "+", "-", "*", "/")
+    /// Returns the string representation of this operator
     pub const fn as_str(&self) -> &'static str {
         match self {
+            BinaryOperator::NullishCoalescing => "??",
+            BinaryOperator::Or => "||",
+            BinaryOperator::And => "&&",
+            BinaryOperator::Equal => "==",
+            BinaryOperator::NotEqual => "!=",
             BinaryOperator::Add => "+",
             BinaryOperator::Subtract => "-",
             BinaryOperator::Multiply => "*",
@@ -60,6 +70,11 @@ impl BinaryOperator {
     /// Attempts to parse a string into a BinaryOperator
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
+            "??" => Some(BinaryOperator::NullishCoalescing),
+            "||" => Some(BinaryOperator::Or),
+            "&&" => Some(BinaryOperator::And),
+            "==" => Some(BinaryOperator::Equal),
+            "!=" => Some(BinaryOperator::NotEqual),
             "+" => Some(BinaryOperator::Add),
             "-" => Some(BinaryOperator::Subtract),
             "*" => Some(BinaryOperator::Multiply),
@@ -67,6 +82,25 @@ impl BinaryOperator {
             _ => None,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UnaryOperator {
+    Not,
+}
+
+impl UnaryOperator {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            UnaryOperator::Not => "!",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UnaryOperation {
+    pub operator: AST<UnaryOperator>,
+    pub operand: AST<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -208,6 +242,7 @@ type_hierarchy! {
             NumberLiteral,
             StringLiteral,
             BinaryOperation,
+            UnaryOperation,
             LocalIdentifier,
             Invocation,
             FunctionExpression,
@@ -227,6 +262,7 @@ type_hierarchy! {
             UnionTypeExpression,
         },
         PlainIdentifier,
-        BinaryOperator
+        BinaryOperator,
+        UnaryOperator
     }
 }

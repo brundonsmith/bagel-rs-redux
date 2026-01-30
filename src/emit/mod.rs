@@ -90,6 +90,11 @@ where
                             bin_op.right.emit(ctx, f)
                         }
 
+                        Expression::UnaryOperation(unary_op) => {
+                            unary_op.operator.emit(ctx, f)?;
+                            unary_op.operand.emit(ctx, f)
+                        }
+
                         Expression::Invocation(inv) => {
                             inv.function.emit(ctx, f)?;
                             write!(f, "(")?;
@@ -244,6 +249,10 @@ where
                 }
 
                 Any::BinaryOperator(op) => {
+                    write!(f, "{}", op.as_str())
+                }
+
+                Any::UnaryOperator(op) => {
                     write!(f, "{}", op.as_str())
                 }
             },

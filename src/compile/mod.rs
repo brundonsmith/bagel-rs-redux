@@ -91,12 +91,16 @@ where
                         }
 
                         Expression::BinaryOperation(bin_op) => {
-                            // Emit with parentheses to preserve precedence
                             bin_op.left.compile(ctx, f)?;
                             write!(f, " ")?;
                             bin_op.operator.compile(ctx, f)?;
                             write!(f, " ")?;
                             bin_op.right.compile(ctx, f)
+                        }
+
+                        Expression::UnaryOperation(unary_op) => {
+                            unary_op.operator.compile(ctx, f)?;
+                            unary_op.operand.compile(ctx, f)
                         }
 
                         Expression::Invocation(inv) => {
@@ -122,7 +126,9 @@ where
                             } else {
                                 // Multiple parameters or explicit parens
                                 write!(f, "(")?;
-                                for (i, (param_name, _type_ann)) in func.parameters.iter().enumerate() {
+                                for (i, (param_name, _type_ann)) in
+                                    func.parameters.iter().enumerate()
+                                {
                                     if i > 0 {
                                         write!(f, ", ")?;
                                     }
@@ -174,8 +180,13 @@ where
                     write!(f, "{}", self.slice().as_str())
                 }
 
-                Any::BinaryOperator(op) => {
-                    // +, -, *, / are the same in JavaScript
+                Any::BinaryOperator(op) => match op {
+                    BinaryOperator::Equal => write!(f, "==="),
+                    BinaryOperator::NotEqual => write!(f, "!=="),
+                    _ => write!(f, "{}", op.as_str()),
+                },
+
+                Any::UnaryOperator(op) => {
                     write!(f, "{}", op.as_str())
                 }
             },

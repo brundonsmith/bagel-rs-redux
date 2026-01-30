@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     ast::{
         container::AST,
-        grammar::{BinaryOperator, Expression},
+        grammar::{BinaryOperator, Expression, UnaryOperator},
     },
     types::Type,
 };
@@ -63,8 +63,6 @@ impl AST<Expression> {
                         | BinaryOperator::Subtract
                         | BinaryOperator::Multiply
                         | BinaryOperator::Divide => {
-                            // For now, assume numeric operations return Number
-                            // In the future, we could be more precise with exact numbers
                             match (left_type, right_type) {
                                 (
                                     Type::ExactNumber { value: l },
@@ -82,6 +80,7 @@ impl AST<Expression> {
                                                 None
                                             }
                                         }
+                                        _ => unreachable!(),
                                     };
                                     result
                                         .map(|value| Type::ExactNumber { value })
@@ -90,6 +89,25 @@ impl AST<Expression> {
                                 _ => Type::Number,
                             }
                         }
+                        BinaryOperator::Equal | BinaryOperator::NotEqual => Type::Boolean,
+                        BinaryOperator::And | BinaryOperator::Or => {
+                            // && and || return a union of the two operand types
+                            Type::Union {
+                                variants: vec![left_type, right_type],
+                            }
+                        }
+                        BinaryOperator::NullishCoalescing => {
+                            // ?? returns a union of the non-nil left type and the right type
+                            Type::Union {
+                                variants: vec![left_type, right_type],
+                            }
+                        }
+                    }
+                }
+
+                UnaryOperation(unary_op) => {
+                    match unary_op.operator.unpack() {
+                        UnaryOperator::Not => Type::Boolean,
                     }
                 }
 

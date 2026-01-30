@@ -8,11 +8,15 @@ expression: output
 [1, 2, {stuff: 'other'}] -> [1, 2, {stuff: "other"}]
 a -> number
 a + b -> number
+a == b -> boolean
+a == b || y != z -> boolean
 b -> string
 false -> false
 nil -> nil
 true -> true
 x -> 42
 y -> true
+y != z -> boolean
 y * 2 -> number
 y * 2 + x -> number
+z -> false
