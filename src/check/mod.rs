@@ -3,9 +3,9 @@ use std::path::Path;
 
 use crate::{
     ast::{container::AST, grammar::Any, slice::Slice},
+    ast::grammar::{BinaryOperator, Declaration, FunctionBody, Statement},
     config::{Config, RuleSeverity},
     types::{fits::FitsContext, infer::InferTypeContext, Type},
-    ast::grammar::BinaryOperator,
 };
 
 #[derive(Debug, Clone)]
@@ -241,32 +241,34 @@ where
                     module.declarations.check(ctx, report_error);
                 }
 
-                Any::Declaration(declaration) => {
-                    // Recurse to children
-                    declaration.identifier.check(ctx, report_error);
-                    declaration.type_annotation.check(ctx, report_error);
-                    declaration.value.check(ctx, report_error);
+                Any::Declaration(declaration) => match declaration {
+                    Declaration::ConstDeclaration(decl) => {
+                        // Recurse to children
+                        decl.identifier.check(ctx, report_error);
+                        decl.type_annotation.check(ctx, report_error);
+                        decl.value.check(ctx, report_error);
 
-                    // Check type compatibility if there's a type annotation
-                    if let Some((_colon, type_expr)) = &declaration.type_annotation {
-                        // Convert TypeExpression to Type
-                        let declared_type = Type::from(type_expr.unpack());
+                        // Check type compatibility if there's a type annotation
+                        if let Some((_colon, type_expr)) = &decl.type_annotation {
+                            // Convert TypeExpression to Type
+                            let declared_type: Type = Type::from(type_expr.unpack());
 
-                        // Infer the type of the value expression
-                        let infer_ctx = InferTypeContext {};
-                        let inferred_type = declaration.value.infer_type(infer_ctx);
+                            // Infer the type of the value expression
+                            let infer_ctx = InferTypeContext {};
+                            let inferred_type = decl.value.infer_type(infer_ctx);
 
-                        // Check if the inferred type fits the declared type
-                        let fits_ctx = FitsContext {};
-                        let issues = inferred_type.fit_issues(declared_type, fits_ctx);
-                        if issues.len() > 0 {
-                            report_error(BagelError {
-                                src: declaration.value.slice().clone(),
-                                severity: RuleSeverity::Error,
-                                details: BagelErrorDetails::MiscError {
-                                    message: issues.join("\n"),
-                                },
-                            });
+                            // Check if the inferred type fits the declared type
+                            let fits_ctx = FitsContext {};
+                            let issues = inferred_type.fit_issues(declared_type, fits_ctx);
+                            if issues.len() > 0 {
+                                report_error(BagelError {
+                                    src: decl.value.slice().clone(),
+                                    severity: RuleSeverity::Error,
+                                    details: BagelErrorDetails::MiscError {
+                                        message: issues.join("\n"),
+                                    },
+                                });
+                            }
                         }
                     }
                 }
@@ -478,6 +480,23 @@ where
 
                 Any::UnaryOperator(_) => {
                     // Leaf node, nothing to check
+                }
+
+                Any::FunctionBody(body) => match body {
+                    FunctionBody::Expression(expr) => expr.check(ctx, report_error),
+                    FunctionBody::Block(block) => block.check(ctx, report_error),
+                }
+
+                Any::Statement(statement) => match statement {
+                    Statement::Invocation(inv) => {
+                        inv.function.check(ctx, report_error);
+                        inv.arguments.check(ctx, report_error);
+                    }
+                    Statement::Block(block) => {
+                        // Block's statements are bare Statement enums, not AST-wrapped
+                        // For now, nothing to recurse into since blocks aren't parsed yet
+                        let _ = block;
+                    }
                 }
             },
         }

@@ -3,6 +3,9 @@ source: tests/types.rs
 expression: output
 ---
 'other' -> 'other'
+() => {
+    print(12)
+} -> () => never
 (a: number, b: string) =>
     if a > 5 {
         a

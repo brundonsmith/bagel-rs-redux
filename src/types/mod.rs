@@ -191,9 +191,15 @@ impl Type {
     pub fn widen(self) -> Self {
         match self {
             Type::Boolean { value: Some(_) } => Type::Boolean { value: None },
-            Type::Number { min_value: Some(_), .. } | Type::Number { max_value: Some(_), .. } => {
-                Type::Number { min_value: None, max_value: None }
+            Type::Number {
+                min_value: Some(_), ..
             }
+            | Type::Number {
+                max_value: Some(_), ..
+            } => Type::Number {
+                min_value: None,
+                max_value: None,
+            },
             Type::String { value: Some(_) } => Type::String { value: None },
             other => other,
         }
@@ -217,8 +223,11 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
                     .declarations
                     .iter()
                     .filter(|decl| decl.details().is_some())
-                    .find(|decl| decl.unpack().identifier.slice().as_str() == name)
-                    .map(|decl| resolve_declaration_type(&decl.unpack()))
+                    .filter_map(|decl| match decl.unpack() {
+                        grammar::Declaration::ConstDeclaration(const_decl) => Some(const_decl),
+                    })
+                    .find(|const_decl| const_decl.identifier.slice().as_str() == name)
+                    .map(|const_decl| resolve_declaration_type(&const_decl))
                     .unwrap_or(Type::Unknown);
             }
             Some(Any::Expression(Expression::FunctionExpression(func))) => {
@@ -249,7 +258,7 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
 
 /// Resolve the type of a declaration from its type annotation (if present)
 /// or by inferring from its value expression.
-fn resolve_declaration_type(decl: &grammar::Declaration) -> Type {
+fn resolve_declaration_type(decl: &grammar::ConstDeclaration) -> Type {
     let ctx = InferTypeContext {};
     decl.value.infer_type(ctx).normalize()
 }
@@ -263,10 +272,7 @@ fn exact_string(s: std::string::String) -> Type {
 
 /// Returns true if a type is "falsy" at the type level (exactly false or nil).
 fn is_exact_falsy(t: &Type) -> bool {
-    matches!(
-        t,
-        Type::Boolean { value: Some(false) } | Type::Nil
-    )
+    matches!(t, Type::Boolean { value: Some(false) } | Type::Nil)
 }
 
 /// Returns true if a type is "truthy" at the type level (an exact non-false,
@@ -275,7 +281,10 @@ fn is_exact_truthy(t: &Type) -> bool {
     matches!(
         t,
         Type::Boolean { value: Some(true) }
-            | Type::Number { min_value: Some(_), max_value: Some(_) }
+            | Type::Number {
+                min_value: Some(_),
+                max_value: Some(_)
+            }
             | Type::String { value: Some(_) }
     )
 }
@@ -327,22 +336,13 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
 
     match operator {
         Add => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => l
-                .checked_add(r)
-                .map(exact_number)
-                .unwrap_or(any_number),
+            (Some(l), Some(r)) => l.checked_add(r).map(exact_number).unwrap_or(any_number),
             _ => match (as_exact_string(&left), as_exact_string(&right)) {
-                (Some(l), Some(r)) => {
-                    exact_string(format!("{}{}", l.as_str(), r.as_str()))
-                }
+                (Some(l), Some(r)) => exact_string(format!("{}{}", l.as_str(), r.as_str())),
                 _ => match (as_exact_string(&left), as_exact_number(&right)) {
-                    (Some(l), Some(r)) => {
-                        exact_string(format!("{}{}", l.as_str(), r))
-                    }
+                    (Some(l), Some(r)) => exact_string(format!("{}{}", l.as_str(), r)),
                     _ => match (as_exact_number(&left), as_exact_string(&right)) {
-                        (Some(l), Some(r)) => {
-                            exact_string(format!("{}{}", l, r.as_str()))
-                        }
+                        (Some(l), Some(r)) => exact_string(format!("{}{}", l, r.as_str())),
                         _ => match (&left, &right) {
                             (Type::String { .. }, _) | (_, Type::String { .. }) => any_string,
                             _ => any_number,
@@ -352,35 +352,32 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
             },
         },
         Subtract => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => l
-                .checked_sub(r)
-                .map(exact_number)
-                .unwrap_or(any_number),
+            (Some(l), Some(r)) => l.checked_sub(r).map(exact_number).unwrap_or(any_number),
             _ => any_number,
         },
         Multiply => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => l
-                .checked_mul(r)
-                .map(exact_number)
-                .unwrap_or(any_number),
+            (Some(l), Some(r)) => l.checked_mul(r).map(exact_number).unwrap_or(any_number),
             _ => any_number,
         },
         Divide => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) if r != 0 => l
-                .checked_div(r)
-                .map(exact_number)
-                .unwrap_or(any_number),
+            (Some(l), Some(r)) if r != 0 => {
+                l.checked_div(r).map(exact_number).unwrap_or(any_number)
+            }
             _ => any_number,
         },
 
         Equal => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean { value: Some(l == r) },
+            (Some(l), Some(r)) => Type::Boolean {
+                value: Some(l == r),
+            },
             _ => match (as_exact_string(&left), as_exact_string(&right)) {
                 (Some(l), Some(r)) => Type::Boolean {
                     value: Some(l.as_str() == r.as_str()),
                 },
                 _ => match (as_exact_bool(&left), as_exact_bool(&right)) {
-                    (Some(l), Some(r)) => Type::Boolean { value: Some(l == r) },
+                    (Some(l), Some(r)) => Type::Boolean {
+                        value: Some(l == r),
+                    },
                     _ => match (&left, &right) {
                         (Type::Nil, Type::Nil) => Type::Boolean { value: Some(true) },
                         _ => Type::Boolean { value: None },
@@ -389,13 +386,17 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
             },
         },
         NotEqual => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean { value: Some(l != r) },
+            (Some(l), Some(r)) => Type::Boolean {
+                value: Some(l != r),
+            },
             _ => match (as_exact_string(&left), as_exact_string(&right)) {
                 (Some(l), Some(r)) => Type::Boolean {
                     value: Some(l.as_str() != r.as_str()),
                 },
                 _ => match (as_exact_bool(&left), as_exact_bool(&right)) {
-                    (Some(l), Some(r)) => Type::Boolean { value: Some(l != r) },
+                    (Some(l), Some(r)) => Type::Boolean {
+                        value: Some(l != r),
+                    },
                     _ => match (&left, &right) {
                         (Type::Nil, Type::Nil) => Type::Boolean { value: Some(false) },
                         _ => Type::Boolean { value: None },
@@ -408,7 +409,9 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
             _ => Type::Boolean { value: None },
         },
         LessThanOrEqual => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean { value: Some(l <= r) },
+            (Some(l), Some(r)) => Type::Boolean {
+                value: Some(l <= r),
+            },
             _ => Type::Boolean { value: None },
         },
         GreaterThan => match (as_exact_number(&left), as_exact_number(&right)) {
@@ -416,7 +419,9 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
             _ => Type::Boolean { value: None },
         },
         GreaterThanOrEqual => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean { value: Some(l >= r) },
+            (Some(l), Some(r)) => Type::Boolean {
+                value: Some(l >= r),
+            },
             _ => Type::Boolean { value: None },
         },
 
@@ -463,7 +468,9 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
 fn normalize_unary_operation(operator: UnaryOperator, operand: Type) -> Type {
     match operator {
         UnaryOperator::Not => match as_exact_bool(&operand) {
-            Some(value) => Type::Boolean { value: Some(!value) },
+            Some(value) => Type::Boolean {
+                value: Some(!value),
+            },
             None => match operand {
                 Type::Nil => Type::Boolean { value: Some(true) },
                 _ => Type::Boolean { value: None },
@@ -607,7 +614,10 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
             UnknownTypeExpression(_) => Type::Unknown,
             NilTypeExpression(_) => Type::Nil,
             BooleanTypeExpression(_) => Type::Boolean { value: None },
-            NumberTypeExpression(_) => Type::Number { min_value: None, max_value: None },
+            NumberTypeExpression(_) => Type::Number {
+                min_value: None,
+                max_value: None,
+            },
             StringTypeExpression(_) => Type::String { value: None },
             TupleTypeExpression(tuple) => {
                 let elements = tuple

@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
 use crate::{
-    ast::{container::AST, grammar::Any},
     ast::grammar::{ElseClause, IfElseExpression},
+    ast::{container::AST, grammar::Any},
     config::Config,
 };
 
@@ -50,14 +50,16 @@ where
                     Ok(())
                 }
 
-                Any::Declaration(declaration) => {
-                    // const identifier = value  ->  const identifier = value
-                    write!(f, "const ")?;
-                    declaration.identifier.compile(ctx, f)?;
-                    write!(f, " = ")?;
-                    declaration.value.compile(ctx, f)?;
-                    Ok(())
-                }
+                Any::Declaration(declaration) => match declaration {
+                    Declaration::ConstDeclaration(decl) => {
+                        // const identifier = value  ->  const identifier = value
+                        write!(f, "const ")?;
+                        decl.identifier.compile(ctx, f)?;
+                        write!(f, " = ")?;
+                        decl.value.compile(ctx, f)?;
+                        Ok(())
+                    }
+                },
 
                 Any::Expression(expression) => {
                     match expression {
@@ -199,6 +201,37 @@ where
                 Any::UnaryOperator(op) => {
                     write!(f, "{}", op.as_str())
                 }
+
+                Any::FunctionBody(body) => match body {
+                    FunctionBody::Expression(expr) => expr.compile(ctx, f),
+                    FunctionBody::Block(block) => block.compile(ctx, f),
+                },
+
+                Any::Statement(statement) => match statement {
+                    Statement::Invocation(inv) => {
+                        inv.function.compile(ctx, f)?;
+                        write!(f, "(")?;
+                        for (i, arg) in inv.arguments.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            arg.compile(ctx, f)?;
+                        }
+                        write!(f, ")")
+                    }
+                    Statement::Block(block) => {
+                        write!(f, "{{ ");
+
+                        for s in block.statements.iter() {
+                            s.compile(ctx, f)?;
+                            write!(f, "; ")?;
+                        }
+
+                        write!(f, "}}");
+
+                        Ok(())
+                    }
+                },
             },
         }
     }
@@ -216,9 +249,9 @@ fn compile_if_else_ternary<W: Write>(
 
     match &if_else.else_clause {
         Some(ElseClause::ElseBlock { expression, .. }) => expression.compile(ctx, f),
-        Some(ElseClause::ElseIf { if_else: nested, .. }) => {
-            compile_if_else_ternary(&nested.unpack(), ctx, f)
-        }
+        Some(ElseClause::ElseIf {
+            if_else: nested, ..
+        }) => compile_if_else_ternary(&nested.unpack(), ctx, f),
         None => write!(f, "null"),
     }
 }

@@ -128,7 +128,7 @@ pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
     let (remaining, open_quote) = tag("'")(i)?;
 
     // Parse string contents until we hit a closing quote or end of input
-    let mut chars = remaining.as_str().chars();
+    let chars = remaining.as_str().chars();
     let mut len = 0;
     let mut escaped = false;
 
@@ -283,7 +283,8 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
     // Try parsing with parentheses first: (a: number, b: string) => expr
     if let Ok((remaining, open_paren)) = w(tag("("))(i.clone()) {
         // Parse parameter list
-        let mut parameters: Vec<(AST<PlainIdentifier>, Option<(Slice, AST<TypeExpression>)>)> = Vec::new();
+        let mut parameters: Vec<(AST<PlainIdentifier>, Option<(Slice, AST<TypeExpression>)>)> =
+            Vec::new();
         let mut commas = Vec::new();
         let mut current = remaining;
         let mut trailing_comma = None;
@@ -299,7 +300,8 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
                 if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
                     // Check if there's another parameter or if this is a trailing comma
                     if let Ok((after_param, param)) = w(plain_identifier)(after_comma.clone()) {
-                        let (after_type_ann, type_ann) = parse_optional_type_annotation(after_param)?;
+                        let (after_type_ann, type_ann) =
+                            parse_optional_type_annotation(after_param)?;
                         commas.push(comma);
                         parameters.push((param.clone(), type_ann));
                         current = after_type_ann;
@@ -317,7 +319,7 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
 
         // Parse closing paren with backtracking, then arrow and body
         let (current, close_paren) = w(backtrack(tag(")"), ")", "("))(current)?;
-        let (remaining, (arrow, mut body)) = seq!(expect_tag("=>"), expression)(current)?;
+        let (remaining, (arrow, mut body)) = seq!(expect_tag("=>"), function_body)(current)?;
 
         let consumed_len = start.len() - remaining.len();
         let span = start.slice_range(0, Some(consumed_len));
@@ -346,7 +348,7 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
 
     // Try parsing without parentheses: x => expr (no type annotation allowed here)
     let (remaining, (mut param, (arrow, mut body))) =
-        tuple((plain_identifier, seq!(tag("=>"), expression)))(i)?;
+        tuple((plain_identifier, seq!(tag("=>"), function_body)))(i)?;
 
     let consumed_len = start.len() - remaining.len();
     let span = start.slice_range(0, Some(consumed_len));
@@ -425,36 +427,47 @@ fn parse_invocation_args(
     ))
 }
 
-// Postfix expressions: primary followed by zero or more invocations
-fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
+// Parser for Invocation: atom_expression followed by one or more "(args)" suffixes
+fn invocation(i: Slice) -> ParseResult<AST<Invocation>> {
     map(
-        tuple((atom_expression, many0(w(parse_invocation_args)))),
+        tuple((atom_expression, many1(w(parse_invocation_args)))),
         move |(first, invocations)| {
-            invocations.into_iter().fold(
-                first,
-                |mut expr, (open_paren, mut arguments, commas, trailing_comma, close_paren)| {
-                    let span = expr
-                        .slice()
-                        .spanning(close_paren.as_ref().unwrap_or(&open_paren));
+            let mut current_expr = first;
+            let mut last_invocation: Option<AST<Invocation>> = None;
 
-                    let invocation = Invocation {
-                        function: expr.clone(),
-                        open_paren,
-                        arguments: arguments.clone(),
-                        commas,
-                        trailing_comma,
-                        close_paren,
-                    };
+            for (open_paren, mut arguments, commas, trailing_comma, close_paren) in invocations {
+                let span = current_expr
+                    .slice()
+                    .spanning(close_paren.as_ref().unwrap_or(&open_paren));
 
-                    let node = make_ast(span, invocation);
-                    expr.set_parent(&node);
-                    arguments.set_parent(&node);
+                let inv = Invocation {
+                    function: current_expr.clone(),
+                    open_paren,
+                    arguments: arguments.clone(),
+                    commas,
+                    trailing_comma,
+                    close_paren,
+                };
 
-                    node.upcast()
-                },
-            )
+                let node = make_ast(span, inv);
+                current_expr.set_parent(&node);
+                arguments.set_parent(&node);
+
+                current_expr = node.clone().upcast();
+                last_invocation = Some(node);
+            }
+
+            last_invocation.unwrap()
         },
     )(i)
+}
+
+// Primary expressions: invocations or atoms
+fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
+    alt((
+        map(invocation, |n| n.upcast()),
+        atom_expression,
+    ))(i)
 }
 
 // Atom expressions: literals, identifiers, function expressions, and parenthesized expressions
@@ -650,6 +663,40 @@ fn if_else_expression(i: Slice) -> ParseResult<AST<IfElseExpression>> {
     Ok((remaining, node))
 }
 
+// Parser for a statement: currently only invocations
+fn statement(i: Slice) -> ParseResult<AST<Statement>> {
+    map(invocation, |inv| inv.upcast())(i)
+}
+
+// Parser for a block: "{" statement* "}"
+fn block(i: Slice) -> ParseResult<AST<Block>> {
+    let (remaining, open_brace) = tag("{")(i)?;
+    let (remaining, statements) = many0(w(statement))(remaining)?;
+    let (remaining, close_brace) = w(expect_tag("}"))(remaining)?;
+
+    let span = open_brace.spanning(&close_brace);
+    let node = make_ast(span, Block { statements });
+
+    Ok((remaining, node))
+}
+
+// Parser for a function body: block or expression
+fn function_body(i: Slice) -> ParseResult<AST<FunctionBody>> {
+    alt((
+        map(block, |mut block_ast| {
+            let span = block_ast.slice().clone();
+            let body = make_ast(span, FunctionBody::Block(block_ast.clone()));
+            block_ast.set_parent(&body);
+            body
+        }),
+        map(expression, |mut expr_body| {
+            let body = make_ast(expr_body.slice().clone(), FunctionBody::Expression(expr_body.clone()));
+            expr_body.set_parent(&body);
+            body
+        }),
+    ))(i)
+}
+
 fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
     alt((
         map(nil_literal, |n| n.upcast()),
@@ -758,14 +805,7 @@ fn range_type_expression(i: Slice) -> ParseResult<AST<RangeTypeExpression>> {
     let consumed_len = start_pos.len() - remaining.len();
     let span = start_pos.slice_range(0, Some(consumed_len));
 
-    let node = make_ast(
-        span,
-        RangeTypeExpression {
-            start,
-            dots,
-            end,
-        },
-    );
+    let node = make_ast(span, RangeTypeExpression { start, dots, end });
 
     Ok((remaining, node))
 }
@@ -793,7 +833,7 @@ pub fn type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
 }
 
 // Parser for Declaration: "const" PlainIdentifier (":" TypeExpression)? "=" Expression
-pub fn declaration(i: Slice) -> ParseResult<AST<Declaration>> {
+pub fn declaration(i: Slice) -> ParseResult<AST<ConstDeclaration>> {
     map(
         seq!(
             tag("const"),
@@ -807,7 +847,7 @@ pub fn declaration(i: Slice) -> ParseResult<AST<Declaration>> {
 
             // let mut type_annotation_opt = type_annotation;
 
-            let decl = Declaration {
+            let decl = ConstDeclaration {
                 const_keyword,
                 identifier: identifier.clone(),
                 type_annotation: type_annotation.clone(),
@@ -832,10 +872,15 @@ pub fn module(i: Slice) -> ParseResult<AST<Module>> {
     let start = i.clone();
 
     // Parse one or more declarations
-    let (remaining, mut declarations) = many1(w(declaration))(i)?;
+    let (remaining, const_declarations) = many1(w(declaration))(i)?;
 
     let consumed_len = start.len() - remaining.len();
     let span = start.slice_range(0, Some(consumed_len));
+
+    let mut declarations: Vec<AST<Declaration>> = const_declarations
+        .into_iter()
+        .map(|d| d.upcast())
+        .collect();
 
     let module_node = Module {
         declarations: declarations.clone(),

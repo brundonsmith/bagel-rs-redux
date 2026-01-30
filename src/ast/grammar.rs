@@ -143,7 +143,18 @@ pub struct FunctionExpression {
     pub trailing_comma: Option<Slice>,
     pub close_paren: Option<Slice>,
     pub arrow: Slice,
-    pub body: AST<Expression>,
+    pub body: AST<FunctionBody>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FunctionBody {
+    Expression(AST<Expression>),
+    Block(AST<Block>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Block {
+    pub statements: Vec<AST<Statement>>,
 }
 
 /// ArrayLiteral node: "[" Expression (?:"," Expression)* ","? "]"
@@ -258,7 +269,7 @@ pub struct UnionTypeExpression {
 
 /// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Declaration {
+pub struct ConstDeclaration {
     pub const_keyword: Slice,
     pub identifier: AST<PlainIdentifier>,
     pub type_annotation: Option<(Slice, AST<TypeExpression>)>, // (colon, type)
@@ -279,7 +290,9 @@ pub struct Module {
 type_hierarchy! {
     Any {
         Module,
-        Declaration,
+        Declaration {
+            ConstDeclaration
+        }
         Expression {
             NilLiteral,
             BooleanLiteral,
@@ -307,8 +320,13 @@ type_hierarchy! {
             RangeTypeExpression,
             UnionTypeExpression,
         },
+        Statement {
+            Invocation,
+            Block
+        },
         PlainIdentifier,
         BinaryOperator,
-        UnaryOperator
+        UnaryOperator,
+        FunctionBody
     }
 }

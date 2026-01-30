@@ -10,5 +10,10 @@ const func = (a: number, b: string) =>
         a + b
     }
 const a: string = nil
+
+const main = () => {
+    print(12)
+}
+
 const b: number = y * 2 + x
 ";

@@ -41,21 +41,23 @@ where
                     Ok(())
                 }
 
-                Any::Declaration(declaration) => {
-                    // const identifier: type = value
-                    write!(f, "const ")?;
-                    declaration.identifier.emit(ctx, f)?;
+                Any::Declaration(declaration) => match declaration {
+                    Declaration::ConstDeclaration(decl) => {
+                        // const identifier: type = value
+                        write!(f, "const ")?;
+                        decl.identifier.emit(ctx, f)?;
 
-                    // Emit type annotation if present
-                    if let Some((_, type_expr)) = &declaration.type_annotation {
-                        write!(f, ": ")?;
-                        type_expr.emit(ctx, f)?;
+                        // Emit type annotation if present
+                        if let Some((_, type_expr)) = &decl.type_annotation {
+                            write!(f, ": ")?;
+                            type_expr.emit(ctx, f)?;
+                        }
+
+                        write!(f, " = ")?;
+                        decl.value.emit(ctx, f)?;
+                        Ok(())
                     }
-
-                    write!(f, " = ")?;
-                    declaration.value.emit(ctx, f)?;
-                    Ok(())
-                }
+                },
 
                 Any::Expression(expression) => {
                     match expression {
@@ -121,7 +123,9 @@ where
                             } else {
                                 // Multiple parameters or explicit parens
                                 write!(f, "(")?;
-                                for (i, (param_name, type_ann)) in func.parameters.iter().enumerate() {
+                                for (i, (param_name, type_ann)) in
+                                    func.parameters.iter().enumerate()
+                                {
                                     if i > 0 {
                                         write!(f, ", ")?;
                                     }
@@ -184,7 +188,9 @@ where
                                     expression.emit(ctx, f)?;
                                     write!(f, " }}")
                                 }
-                                Some(ElseClause::ElseIf { if_else: nested, .. }) => {
+                                Some(ElseClause::ElseIf {
+                                    if_else: nested, ..
+                                }) => {
                                     write!(f, " else ")?;
                                     nested.emit(ctx, f)
                                 }
@@ -287,6 +293,36 @@ where
                 Any::UnaryOperator(op) => {
                     write!(f, "{}", op.as_str())
                 }
+
+                Any::FunctionBody(body) => match body {
+                    FunctionBody::Expression(expr) => expr.emit(ctx, f),
+                    FunctionBody::Block(block) => block.emit(ctx, f),
+                },
+
+                Any::Statement(statement) => match statement {
+                    Statement::Invocation(inv) => {
+                        inv.function.emit(ctx, f)?;
+                        write!(f, "(")?;
+                        for (i, arg) in inv.arguments.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            arg.emit(ctx, f)?;
+                        }
+                        if inv.trailing_comma.is_some() {
+                            write!(f, ",")?;
+                        }
+                        write!(f, ")")
+                    }
+                    Statement::Block(block) => {
+                        writeln!(f, "{{")?;
+                        for stmt in &block.statements {
+                            stmt.emit(ctx, f)?;
+                            write!(f, "\n")?;
+                        }
+                        write!(f, "}}")
+                    }
+                },
             },
         }
     }

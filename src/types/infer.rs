@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    ast::{container::AST, grammar::Expression},
+    ast::{container::AST, grammar::{Expression, FunctionBody}},
     types::Type,
 };
 
@@ -91,7 +91,10 @@ impl AST<Expression> {
                                 .unwrap_or(Type::Unknown)
                         })
                         .collect();
-                    let returns = Arc::new(func.body.infer_type(ctx));
+                    let returns = Arc::new(match func.body.unpack() {
+                        FunctionBody::Expression(expr) => expr.infer_type(ctx),
+                        FunctionBody::Block(_) => Type::Never,
+                    });
 
                     Type::FuncType {
                         args,

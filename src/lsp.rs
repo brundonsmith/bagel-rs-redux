@@ -6,7 +6,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::ast::container::AST;
-use crate::ast::grammar::{Any, Expression};
+use crate::ast::grammar::{Any, Declaration, Expression};
 use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
 use crate::config::Config;
@@ -346,18 +346,21 @@ impl LanguageServer for BagelLanguageServer {
                     );
 
                     for (idx, decl) in module_data.declarations.iter().enumerate() {
-                        match (decl.details(), decl.unpack().type_annotation) {
-                            (None, _) => {
-                                eprintln!(
-                                    "[DEBUG] inlay_hint() - declaration {} is malformed, skipping",
-                                    idx
-                                );
-                            }
-                            (Some(_), Some(_)) => {
-                                eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
-                            }
-                            (Some(_), None) => {
-                                let decl_data: crate::ast::grammar::Declaration = decl.unpack();
+                        if decl.details().is_none() {
+                            eprintln!(
+                                "[DEBUG] inlay_hint() - declaration {} is malformed, skipping",
+                                idx
+                            );
+                            continue;
+                        }
+
+                        match decl.unpack() {
+                            Declaration::ConstDeclaration(decl_data) => {
+                                if decl_data.type_annotation.is_some() {
+                                    eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
+                                    continue;
+                                }
+
                                 eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
                                     idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
 
@@ -579,9 +582,13 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
                 }
                 Any::Declaration(decl) => {
                     eprintln!("[DEBUG] find_node_at_offset() - node is Declaration");
-                    find_node_at_offset(&decl.value.clone().upcast(), offset).inspect(|_| {
-                        eprintln!("[DEBUG] find_node_at_offset() - found in declaration value")
-                    })
+                    match decl {
+                        Declaration::ConstDeclaration(const_decl) => {
+                            find_node_at_offset(&const_decl.value.clone().upcast(), offset).inspect(|_| {
+                                eprintln!("[DEBUG] find_node_at_offset() - found in declaration value")
+                            })
+                        }
+                    }
                 }
                 Any::Expression(expr) => {
                     eprintln!(

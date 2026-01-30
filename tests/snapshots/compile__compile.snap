@@ -9,4 +9,5 @@ const c = a === b || y !== z;
 const foo = [1, 2, {stuff: 'other'}];
 const func = (a, b) => (a > 5 ? a : a + b);
 const a = null;
+const main = () => { print(12); };
 const b = y * 2 + x;

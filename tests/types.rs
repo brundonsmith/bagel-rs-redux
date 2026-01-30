@@ -1,5 +1,5 @@
 use bagel::ast::container::AST;
-use bagel::ast::grammar::{Any, Expression};
+use bagel::ast::grammar::{Any, Declaration, Expression};
 use bagel::ast::slice::Slice;
 use bagel::parse::parse;
 use bagel::types::infer::InferTypeContext;
@@ -28,8 +28,10 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                     collect_expression_types(&decl.clone().upcast(), results);
                 }
             }
-            Any::Declaration(decl) => {
-                collect_expression_types(&decl.value.clone().upcast(), results);
+            Any::Declaration(decl) => match decl {
+                Declaration::ConstDeclaration(const_decl) => {
+                    collect_expression_types(&const_decl.value.clone().upcast(), results);
+                }
             }
             Any::Expression(expr) => {
                 use bagel::ast::grammar::Expression::*;
@@ -76,6 +78,17 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                     }
                     _ => {
                         // Leaf expressions (literals) have no children
+                    }
+                }
+            }
+            Any::FunctionBody(body) => {
+                use bagel::ast::grammar::FunctionBody::*;
+                match body {
+                    Expression(expr) => {
+                        collect_expression_types(&expr.clone().upcast(), results);
+                    }
+                    Block(block) => {
+                        collect_expression_types(&block.clone().upcast(), results);
                     }
                 }
             }
