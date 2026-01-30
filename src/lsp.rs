@@ -366,7 +366,7 @@ impl LanguageServer for BagelLanguageServer {
 
                                 // Infer the type of the value
                                 let ctx = InferTypeContext {};
-                                let inferred_type = decl_data.value.infer_type(ctx);
+                                let inferred_type = decl_data.value.infer_type(ctx).normalize();
                                 eprintln!(
                                     "[DEBUG] inlay_hint() - inferred type for decl {}: {}",
                                     idx, inferred_type
@@ -583,11 +583,13 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
                 Any::Declaration(decl) => {
                     eprintln!("[DEBUG] find_node_at_offset() - node is Declaration");
                     match decl {
-                        Declaration::ConstDeclaration(const_decl) => {
-                            find_node_at_offset(&const_decl.value.clone().upcast(), offset).inspect(|_| {
-                                eprintln!("[DEBUG] find_node_at_offset() - found in declaration value")
-                            })
-                        }
+                        Declaration::ConstDeclaration(const_decl) => find_node_at_offset(
+                            &const_decl.value.clone().upcast(),
+                            offset,
+                        )
+                        .inspect(|_| {
+                            eprintln!("[DEBUG] find_node_at_offset() - found in declaration value")
+                        }),
                     }
                 }
                 Any::Expression(expr) => {
