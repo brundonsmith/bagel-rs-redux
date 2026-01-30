@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     ast::{
         container::AST,
-        grammar::{BinaryOperator, Expression, UnaryOperator},
+        grammar::Expression,
     },
     types::Type,
 };
@@ -54,62 +54,16 @@ impl AST<Expression> {
                     identifier: local_id,
                 },
 
-                BinaryOperation(bin_op) => {
-                    let left_type = bin_op.left.infer_type(ctx);
-                    let right_type = bin_op.right.infer_type(ctx);
+                BinaryOperation(bin_op) => Type::BinaryOperation {
+                    operator: bin_op.operator.unpack(),
+                    left: Arc::new(bin_op.left.infer_type(ctx)),
+                    right: Arc::new(bin_op.right.infer_type(ctx)),
+                },
 
-                    match bin_op.operator.unpack() {
-                        BinaryOperator::Add
-                        | BinaryOperator::Subtract
-                        | BinaryOperator::Multiply
-                        | BinaryOperator::Divide => {
-                            match (left_type, right_type) {
-                                (
-                                    Type::ExactNumber { value: l },
-                                    Type::ExactNumber { value: r },
-                                ) => {
-                                    // Perform constant folding for exact numbers
-                                    let result = match bin_op.operator.unpack() {
-                                        BinaryOperator::Add => l.checked_add(r),
-                                        BinaryOperator::Subtract => l.checked_sub(r),
-                                        BinaryOperator::Multiply => l.checked_mul(r),
-                                        BinaryOperator::Divide => {
-                                            if r != 0 {
-                                                l.checked_div(r)
-                                            } else {
-                                                None
-                                            }
-                                        }
-                                        _ => unreachable!(),
-                                    };
-                                    result
-                                        .map(|value| Type::ExactNumber { value })
-                                        .unwrap_or(Type::Number)
-                                }
-                                _ => Type::Number,
-                            }
-                        }
-                        BinaryOperator::Equal | BinaryOperator::NotEqual => Type::Boolean,
-                        BinaryOperator::And | BinaryOperator::Or => {
-                            // && and || return a union of the two operand types
-                            Type::Union {
-                                variants: vec![left_type, right_type],
-                            }
-                        }
-                        BinaryOperator::NullishCoalescing => {
-                            // ?? returns a union of the non-nil left type and the right type
-                            Type::Union {
-                                variants: vec![left_type, right_type],
-                            }
-                        }
-                    }
-                }
-
-                UnaryOperation(unary_op) => {
-                    match unary_op.operator.unpack() {
-                        UnaryOperator::Not => Type::Boolean,
-                    }
-                }
+                UnaryOperation(unary_op) => Type::UnaryOperation {
+                    operator: unary_op.operator.unpack(),
+                    operand: Arc::new(unary_op.operand.infer_type(ctx)),
+                },
 
                 Invocation(inv) => {
                     // Infer the function type

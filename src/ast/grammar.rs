@@ -38,13 +38,17 @@ pub struct LocalIdentifier {
 }
 
 /// Binary operation nodes
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BinaryOperator {
     NullishCoalescing,
     Or,
     And,
     Equal,
     NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
     Add,
     Subtract,
     Multiply,
@@ -60,6 +64,10 @@ impl BinaryOperator {
             BinaryOperator::And => "&&",
             BinaryOperator::Equal => "==",
             BinaryOperator::NotEqual => "!=",
+            BinaryOperator::LessThan => "<",
+            BinaryOperator::LessThanOrEqual => "<=",
+            BinaryOperator::GreaterThan => ">",
+            BinaryOperator::GreaterThanOrEqual => ">=",
             BinaryOperator::Add => "+",
             BinaryOperator::Subtract => "-",
             BinaryOperator::Multiply => "*",
@@ -75,6 +83,10 @@ impl BinaryOperator {
             "&&" => Some(BinaryOperator::And),
             "==" => Some(BinaryOperator::Equal),
             "!=" => Some(BinaryOperator::NotEqual),
+            "<" => Some(BinaryOperator::LessThan),
+            "<=" => Some(BinaryOperator::LessThanOrEqual),
+            ">" => Some(BinaryOperator::GreaterThan),
+            ">=" => Some(BinaryOperator::GreaterThanOrEqual),
             "+" => Some(BinaryOperator::Add),
             "-" => Some(BinaryOperator::Subtract),
             "*" => Some(BinaryOperator::Multiply),
@@ -84,7 +96,7 @@ impl BinaryOperator {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UnaryOperator {
     Not,
 }

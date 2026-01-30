@@ -310,6 +310,10 @@ where
                                 ),
                                 BinaryOperator::Equal => (None, "=="),
                                 BinaryOperator::NotEqual => (None, "!="),
+                                BinaryOperator::LessThan => (Some(Type::Number), "<"),
+                                BinaryOperator::LessThanOrEqual => (Some(Type::Number), "<="),
+                                BinaryOperator::GreaterThan => (Some(Type::Number), ">"),
+                                BinaryOperator::GreaterThanOrEqual => (Some(Type::Number), ">="),
                                 BinaryOperator::NullishCoalescing => (None, "??"),
                             };
 

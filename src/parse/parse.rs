@@ -212,6 +212,21 @@ fn equality_expression(i: Slice) -> ParseResult<AST<Expression>> {
     binary_operation!(
         i,
         [BinaryOperator::Equal, BinaryOperator::NotEqual],
+        relational_expression
+    )
+}
+
+// Relational: <, <=, >, >=
+// Note: parse >= and <= before > and < so the two-char operators match first
+fn relational_expression(i: Slice) -> ParseResult<AST<Expression>> {
+    binary_operation!(
+        i,
+        [
+            BinaryOperator::LessThanOrEqual,
+            BinaryOperator::GreaterThanOrEqual,
+            BinaryOperator::LessThan,
+            BinaryOperator::GreaterThan,
+        ],
         additive_expression
     )
 }

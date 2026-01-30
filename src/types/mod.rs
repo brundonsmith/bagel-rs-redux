@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
-use crate::ast::grammar::{self, Any, Expression, LocalIdentifier};
+use crate::ast::grammar::{self, Any, BinaryOperator, Expression, LocalIdentifier, UnaryOperator};
 use crate::ast::slice::Slice;
 
 use self::infer::InferTypeContext;
@@ -47,6 +47,15 @@ pub enum Type {
     },
     Union {
         variants: Vec<Type>,
+    },
+    BinaryOperation {
+        operator: BinaryOperator,
+        left: Arc<Type>,
+        right: Arc<Type>,
+    },
+    UnaryOperation {
+        operator: UnaryOperator,
+        operand: Arc<Type>,
     },
     LocalIdentifier {
         identifier: LocalIdentifier,
@@ -99,9 +108,61 @@ impl Type {
                 let mut v: Vec<Type> = flattened_and_unique.into_iter().collect();
                 v.sort(); // finally, sort the types for consistency
 
-                Union { variants: v }
+                // Remove variants that are subsumed by other variants.
+                // E.g. `true | boolean` collapses to `boolean` because
+                // `true` fits into `boolean`.
+                let ctx = crate::types::fits::FitsContext {};
+                let keep: Vec<bool> = v
+                    .iter()
+                    .enumerate()
+                    .map(|(i, candidate)| {
+                        !v.iter().enumerate().any(|(j, other)| {
+                            i != j
+                                && candidate.clone().fits(other.clone(), ctx)
+                                && !other.clone().fits(candidate.clone(), ctx)
+                        })
+                    })
+                    .collect();
+                let mut keep_iter = keep.iter();
+                v.retain(|_| *keep_iter.next().unwrap());
+
+                if v.len() == 1 {
+                    v.into_iter().next().unwrap()
+                } else {
+                    Union { variants: v }
+                }
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier),
+            BinaryOperation {
+                operator,
+                left,
+                right,
+            } => normalize_binary_operation(operator, left.as_ref().clone().normalize(), right.as_ref().clone().normalize()),
+            UnaryOperation { operator, operand } => {
+                normalize_unary_operation(operator, operand.as_ref().clone().normalize())
+            }
+            Tuple { elements } => Tuple {
+                elements: elements.into_iter().map(|e| e.normalize()).collect(),
+            },
+            Array { element } => Array {
+                element: Arc::new(element.as_ref().clone().normalize()),
+            },
+            Object { fields, is_open } => Object {
+                fields: fields
+                    .into_iter()
+                    .map(|(k, v)| (k, v.normalize()))
+                    .collect(),
+                is_open,
+            },
+            FuncType {
+                args,
+                args_spread,
+                returns,
+            } => FuncType {
+                args: args.into_iter().map(|a| a.normalize()).collect(),
+                args_spread: args_spread.map(|s| Arc::new(s.as_ref().clone().normalize())),
+                returns: Arc::new(returns.as_ref().clone().normalize()),
+            },
             _ => self,
         }
     }
@@ -175,6 +236,157 @@ fn resolve_declaration_type(decl: &grammar::Declaration) -> Type {
     decl.value.infer_type(ctx).normalize()
 }
 
+/// Helper to create an ExactString type from a computed string value.
+fn exact_string(s: String) -> Type {
+    Type::ExactString {
+        value: Slice::new(Arc::new(s)),
+    }
+}
+
+/// Returns true if a type is "falsy" at the type level (exactly false or nil).
+fn is_exact_falsy(t: &Type) -> bool {
+    matches!(t, Type::ExactBoolean { value: false } | Type::Nil)
+}
+
+/// Returns true if a type is "truthy" at the type level (an exact non-false,
+/// non-nil value).
+fn is_exact_truthy(t: &Type) -> bool {
+    match t {
+        Type::ExactBoolean { value: true }
+        | Type::ExactNumber { .. }
+        | Type::ExactString { .. } => true,
+        _ => false,
+    }
+}
+
+/// Normalize a binary operation type by computing exact results where possible.
+fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type) -> Type {
+    use BinaryOperator::*;
+    use Type::*;
+
+    match operator {
+        Add => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => l
+                .checked_add(*r)
+                .map(|value| ExactNumber { value })
+                .unwrap_or(Number),
+            // String concatenation cases
+            (ExactString { value: l }, ExactString { value: r }) => {
+                exact_string(format!("{}{}", l.as_str(), r.as_str()))
+            }
+            (ExactString { value: l }, ExactNumber { value: r }) => {
+                exact_string(format!("{}{}", l.as_str(), r))
+            }
+            (ExactNumber { value: l }, ExactString { value: r }) => {
+                exact_string(format!("{}{}", l, r.as_str()))
+            }
+            (ExactString { .. } | String, _) | (_, ExactString { .. } | String) => String,
+            _ => Number,
+        },
+        Subtract => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => l
+                .checked_sub(*r)
+                .map(|value| ExactNumber { value })
+                .unwrap_or(Number),
+            _ => Number,
+        },
+        Multiply => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => l
+                .checked_mul(*r)
+                .map(|value| ExactNumber { value })
+                .unwrap_or(Number),
+            _ => Number,
+        },
+        Divide => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) if *r != 0 => l
+                .checked_div(*r)
+                .map(|value| ExactNumber { value })
+                .unwrap_or(Number),
+            _ => Number,
+        },
+
+        Equal => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => ExactBoolean { value: l == r },
+            (ExactString { value: l }, ExactString { value: r }) => {
+                ExactBoolean { value: l.as_str() == r.as_str() }
+            }
+            (ExactBoolean { value: l }, ExactBoolean { value: r }) => {
+                ExactBoolean { value: l == r }
+            }
+            (Nil, Nil) => ExactBoolean { value: true },
+            _ => Boolean,
+        },
+        NotEqual => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => ExactBoolean { value: l != r },
+            (ExactString { value: l }, ExactString { value: r }) => {
+                ExactBoolean { value: l.as_str() != r.as_str() }
+            }
+            (ExactBoolean { value: l }, ExactBoolean { value: r }) => {
+                ExactBoolean { value: l != r }
+            }
+            (Nil, Nil) => ExactBoolean { value: false },
+            _ => Boolean,
+        },
+        LessThan => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => ExactBoolean { value: l < r },
+            _ => Boolean,
+        },
+        LessThanOrEqual => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => ExactBoolean { value: l <= r },
+            _ => Boolean,
+        },
+        GreaterThan => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => ExactBoolean { value: l > r },
+            _ => Boolean,
+        },
+        GreaterThanOrEqual => match (&left, &right) {
+            (ExactNumber { value: l }, ExactNumber { value: r }) => ExactBoolean { value: l >= r },
+            _ => Boolean,
+        },
+
+        And => {
+            if is_exact_falsy(&left) {
+                left
+            } else if is_exact_truthy(&left) {
+                right
+            } else {
+                Union { variants: vec![left, right] }.normalize()
+            }
+        }
+        Or => {
+            if is_exact_truthy(&left) {
+                left
+            } else if is_exact_falsy(&left) {
+                right
+            } else {
+                Union { variants: vec![left, right] }.normalize()
+            }
+        }
+        NullishCoalescing => {
+            if matches!(left, Nil) {
+                right
+            } else if is_exact_truthy(&left) {
+                left
+            } else {
+                Union { variants: vec![left, right] }.normalize()
+            }
+        }
+    }
+}
+
+/// Normalize a unary operation type by computing exact results where possible.
+fn normalize_unary_operation(operator: UnaryOperator, operand: Type) -> Type {
+    use Type::*;
+
+    match operator {
+        UnaryOperator::Not => match operand {
+            ExactBoolean { value } => ExactBoolean { value: !value },
+            Nil => ExactBoolean { value: true },
+            _ => Boolean,
+        },
+    }
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -245,6 +457,14 @@ impl fmt::Display for Type {
                     write!(f, "{}", variant)?;
                 }
                 Ok(())
+            }
+            Type::BinaryOperation {
+                operator,
+                left,
+                right,
+            } => write!(f, "({} {} {})", left, operator.as_str(), right),
+            Type::UnaryOperation { operator, operand } => {
+                write!(f, "({}{})", operator.as_str(), operand)
             }
             Type::LocalIdentifier { identifier } => {
                 write!(f, "{}", identifier.identifier.slice().as_str())
