@@ -750,6 +750,10 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
                 Type::Union { variants }
             }
             ParenthesizedTypeExpression(paren) => Type::from(paren.expression.unpack()),
+            TypeOfTypeExpression(type_of) => {
+                let ctx = InferTypeContext {};
+                type_of.expression.infer_type(ctx)
+            }
         }
     }
 }

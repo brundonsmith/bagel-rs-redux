@@ -61,10 +61,16 @@
           "include": "#object-literal"
         },
         {
+          "include": "#if-else-expression"
+        },
+        {
           "include": "#function-expression"
         },
         {
           "include": "#invocation"
+        },
+        {
+          "include": "#unary-operator"
         },
         {
           "include": "#binary-operator"
@@ -77,32 +83,45 @@
     "function-expression": {
       "patterns": [
         {
+          "comment": "Arrow function with parenthesized parameters (possibly typed): (a: number, b) => ...",
           "name": "meta.function.arrow.bagel",
-          "match": "(\\()([a-z]+(?:\\s*,\\s*[a-z]+)*)?\\s*(,)?\\s*(\\))\\s*(=>)",
-          "captures": {
+          "begin": "(\\()(?=[^)]*\\)\\s*(?::\\s*[a-z(\\[{])?\\s*=>)",
+          "beginCaptures": {
             "1": {
               "name": "punctuation.definition.parameters.begin.bagel"
+            }
+          },
+          "end": "(\\))\\s*(?:(:\\s*)([^=]*?)\\s*)?(=>)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.parameters.end.bagel"
             },
             "2": {
+              "name": "punctuation.separator.type.bagel"
+            },
+            "3": {
               "patterns": [
                 {
-                  "name": "variable.parameter.bagel",
-                  "match": "[a-z]+"
+                  "include": "#type-expression"
                 }
               ]
             },
-            "3": {
-              "name": "punctuation.separator.comma.bagel"
-            },
             "4": {
-              "name": "punctuation.definition.parameters.end.bagel"
-            },
-            "5": {
               "name": "storage.type.function.arrow.bagel"
             }
-          }
+          },
+          "patterns": [
+            {
+              "include": "#function-parameter"
+            },
+            {
+              "name": "punctuation.separator.comma.bagel",
+              "match": ","
+            }
+          ]
         },
         {
+          "comment": "Arrow function with single unparenthesized parameter: x => ...",
           "name": "meta.function.arrow.bagel",
           "match": "([a-z]+)\\s*(=>)",
           "captures": {
@@ -113,6 +132,56 @@
               "name": "storage.type.function.arrow.bagel"
             }
           }
+        }
+      ]
+    },
+    "function-parameter": {
+      "patterns": [
+        {
+          "comment": "Typed parameter: name: Type",
+          "begin": "([a-z]+)\\s*(:)",
+          "beginCaptures": {
+            "1": {
+              "name": "variable.parameter.bagel"
+            },
+            "2": {
+              "name": "punctuation.separator.type.bagel"
+            }
+          },
+          "end": "(?=[,)=])",
+          "patterns": [
+            {
+              "include": "#type-expression"
+            }
+          ]
+        },
+        {
+          "comment": "Untyped parameter: name",
+          "name": "variable.parameter.bagel",
+          "match": "[a-z]+"
+        }
+      ]
+    },
+    "if-else-expression": {
+      "patterns": [
+        {
+          "name": "meta.if-else.bagel",
+          "begin": "\\b(if)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.conditional.bagel"
+            }
+          },
+          "end": "(?<=\\})",
+          "patterns": [
+            {
+              "name": "keyword.control.conditional.bagel",
+              "match": "\\b(else)\\b"
+            },
+            {
+              "include": "#expression"
+            }
+          ]
         }
       ]
     },
@@ -236,13 +305,33 @@
         }
       ]
     },
+    "unary-operator": {
+      "name": "keyword.operator.logical.bagel",
+      "match": "!"
+    },
     "binary-operator": {
-      "name": "keyword.operator.arithmetic.bagel",
-      "match": "[+\\-*/]"
+      "patterns": [
+        {
+          "name": "keyword.operator.nullish.bagel",
+          "match": "\\?\\?"
+        },
+        {
+          "name": "keyword.operator.logical.bagel",
+          "match": "\\|\\||&&"
+        },
+        {
+          "name": "keyword.operator.comparison.bagel",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.arithmetic.bagel",
+          "match": "[+\\-*/]"
+        }
+      ]
     },
     "plain-identifier": {
       "name": "variable.other.bagel",
-      "match": "\\b(?!true\\b|false\\b|nil\\b|const\\b)[a-z]+\\b"
+      "match": "\\b(?!true\\b|false\\b|nil\\b|const\\b|if\\b|else\\b|typeof\\b)[a-z]+\\b"
     },
     "type-annotation": {
       "name": "meta.type.annotation.bagel",
@@ -252,7 +341,7 @@
           "name": "punctuation.separator.type.bagel"
         }
       },
-      "end": "(?==)",
+      "end": "(?==(?!>))",
       "patterns": [
         {
           "include": "#type-expression"
@@ -262,16 +351,186 @@
     "type-expression": {
       "patterns": [
         {
-          "name": "support.type.primitive.bagel",
-          "match": "\\b(unknown|nil|boolean|number|string)\\b"
+          "include": "#typeof-type-expression"
         },
         {
-          "name": "punctuation.definition.typeparameters.begin.bagel",
-          "match": "\\["
+          "include": "#function-type-expression"
         },
         {
-          "name": "punctuation.definition.typeparameters.end.bagel",
-          "match": "\\]"
+          "include": "#primitive-type"
+        },
+        {
+          "include": "#range-type-expression"
+        },
+        {
+          "include": "#object-type-expression"
+        },
+        {
+          "include": "#parenthesized-type-expression"
+        },
+        {
+          "comment": "Array type suffix []",
+          "name": "punctuation.definition.typeparameters.bagel",
+          "match": "\\[\\]"
+        },
+        {
+          "comment": "Tuple type [T, U]",
+          "begin": "\\[",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.typeparameters.begin.bagel"
+            }
+          },
+          "end": "\\]",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.typeparameters.end.bagel"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#type-expression"
+            },
+            {
+              "name": "punctuation.separator.comma.bagel",
+              "match": ","
+            }
+          ]
+        },
+        {
+          "comment": "Union type separator",
+          "name": "keyword.operator.type.union.bagel",
+          "match": "\\|"
+        }
+      ]
+    },
+    "primitive-type": {
+      "name": "support.type.primitive.bagel",
+      "match": "\\b(unknown|nil|boolean|number|string)\\b"
+    },
+    "range-type-expression": {
+      "comment": "Range type: 0..10, ..5, 1..",
+      "name": "meta.type.range.bagel",
+      "match": "(-?[0-9]+)?(\\.\\.)(-?[0-9]+)?",
+      "captures": {
+        "1": {
+          "name": "constant.numeric.bagel"
+        },
+        "2": {
+          "name": "keyword.operator.range.bagel"
+        },
+        "3": {
+          "name": "constant.numeric.bagel"
+        }
+      }
+    },
+    "object-type-expression": {
+      "comment": "Object type: {name: string, age: number}",
+      "name": "meta.type.object.bagel",
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.object.begin.bagel"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.object.end.bagel"
+        }
+      },
+      "patterns": [
+        {
+          "match": "([a-z]+)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "variable.object.property.bagel"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.bagel"
+            }
+          }
+        },
+        {
+          "include": "#type-expression"
+        },
+        {
+          "name": "punctuation.separator.comma.bagel",
+          "match": ","
+        }
+      ]
+    },
+    "function-type-expression": {
+      "comment": "Function type: (a: number, b: string) => boolean",
+      "name": "meta.type.function.bagel",
+      "begin": "(\\()(?=[^)]*\\)\\s*=>)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.parameters.begin.bagel"
+        }
+      },
+      "end": "(\\))\\s*(=>)",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.parameters.end.bagel"
+        },
+        "2": {
+          "name": "storage.type.function.arrow.bagel"
+        }
+      },
+      "patterns": [
+        {
+          "match": "([a-z]+)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.bagel"
+            },
+            "2": {
+              "name": "punctuation.separator.type.bagel"
+            }
+          }
+        },
+        {
+          "include": "#type-expression"
+        },
+        {
+          "name": "punctuation.separator.comma.bagel",
+          "match": ","
+        }
+      ]
+    },
+    "parenthesized-type-expression": {
+      "comment": "Parenthesized type: (number | string)",
+      "begin": "\\(",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.type.begin.bagel"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.type.end.bagel"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#type-expression"
+        }
+      ]
+    },
+    "typeof-type-expression": {
+      "comment": "typeof keyword in type position: typeof <expression>",
+      "begin": "\\b(typeof)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.expression.typeof.bagel"
+        }
+      },
+      "end": "(?=[,)\\]=|}])",
+      "patterns": [
+        {
+          "include": "#expression"
         }
       ]
     }

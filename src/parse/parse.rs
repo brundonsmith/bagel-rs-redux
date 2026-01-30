@@ -65,7 +65,7 @@ macro_rules! binary_operation {
 }
 
 // Reserved keywords that cannot be used as identifiers
-const KEYWORDS: &[&str] = &["nil", "true", "false", "const", "if", "else"];
+const KEYWORDS: &[&str] = &["nil", "true", "false", "const", "if", "else", "typeof"];
 
 fn is_keyword(s: &str) -> bool {
     KEYWORDS.contains(&s)
@@ -937,6 +937,22 @@ fn parenthesized_type_expression(i: Slice) -> ParseResult<AST<ParenthesizedTypeE
     Ok((remaining, node))
 }
 
+fn typeof_type_expression(i: Slice) -> ParseResult<AST<TypeOfTypeExpression>> {
+    let (remaining, (keyword, mut expr)) = seq!(tag("typeof"), expression)(i)?;
+
+    let span = keyword.spanning(expr.slice());
+    let node = make_ast(
+        span,
+        TypeOfTypeExpression {
+            keyword,
+            expression: expr.clone(),
+        },
+    );
+    expr.set_parent(&node);
+
+    Ok((remaining, node))
+}
+
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(unknown_type_expression, |n| n.upcast()),
@@ -945,6 +961,7 @@ fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
         map(range_type_expression, |n| n.upcast()),
         map(number_type_expression, |n| n.upcast()),
         map(string_type_expression, |n| n.upcast()),
+        map(typeof_type_expression, |n| n.upcast()),
         map(function_type_expression, |n| n.upcast()),
         map(parenthesized_type_expression, |n| n.upcast()),
     ))(i)

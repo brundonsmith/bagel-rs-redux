@@ -282,6 +282,15 @@ pub struct ParenthesizedTypeExpression {
     pub close_paren: Slice,
 }
 
+/// Written `typeof foo` where `foo` is some Expression. This is a
+/// TypeExpression that infers the type of the Expression it's applied to,
+/// and evaluates to that.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TypeOfTypeExpression {
+    pub keyword: Slice,
+    pub expression: AST<Expression>,
+}
+
 /// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstDeclaration {
@@ -336,6 +345,7 @@ type_hierarchy! {
             RangeTypeExpression,
             UnionTypeExpression,
             ParenthesizedTypeExpression,
+            TypeOfTypeExpression,
         },
         Statement {
             Invocation,

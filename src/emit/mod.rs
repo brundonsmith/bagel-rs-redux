@@ -296,6 +296,11 @@ where
                         paren.expression.emit(ctx, f)?;
                         write!(f, ")")
                     }
+
+                    TypeExpression::TypeOfTypeExpression(type_of) => {
+                        write!(f, "typeof ")?;
+                        type_of.expression.emit(ctx, f)
+                    }
                 },
 
                 Any::PlainIdentifier(_) => {

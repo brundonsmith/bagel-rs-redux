@@ -546,6 +546,9 @@ where
                         ParenthesizedTypeExpression(paren) => {
                             paren.expression.check(ctx, report_error);
                         }
+                        TypeOfTypeExpression(type_of) => {
+                            type_of.expression.check(ctx, report_error);
+                        }
                     }
                 }
 
