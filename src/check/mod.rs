@@ -1,3 +1,6 @@
+use std::fmt::Write;
+use std::path::Path;
+
 use crate::{
     ast::{container::AST, grammar::Any, slice::Slice},
     config::{Config, RuleSeverity},
@@ -25,6 +28,172 @@ pub struct BagelError {
 pub enum BagelErrorDetails {
     ParseError { message: String },
     MiscError { message: String },
+}
+
+// ANSI color codes
+const RESET: &str = "\x1b[0m";
+const RED: &str = "\x1b[91m";
+const YELLOW: &str = "\x1b[93m";
+const CYAN: &str = "\x1b[96m";
+const GREEN: &str = "\x1b[92m";
+const BLUE: &str = "\x1b[94m";
+const GRAY: &str = "\x1b[90m";
+const WHITE_BG: &str = "\x1b[47m\x1b[30m"; // white background, black text
+
+const KEYWORDS: &[&str] = &["const"];
+const LITERAL_KEYWORDS: &[&str] = &["nil", "true", "false"];
+const TYPE_KEYWORDS: &[&str] = &["unknown", "boolean", "number", "string"];
+
+/// Returns true if `ch` can appear in an identifier (letter, digit, or underscore).
+fn is_ident_char(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_'
+}
+
+/// Applies basic syntax highlighting to a line of Bagel source code.
+/// Keywords are colored blue, literal keywords (nil/true/false) are yellow,
+/// type keywords are cyan, number literals are yellow, and string literals
+/// are green.
+fn highlight_source_line(line: &str) -> String {
+    let mut out = String::with_capacity(line.len() * 2);
+    let chars: Vec<char> = line.chars().collect();
+    let len = chars.len();
+    let mut i = 0;
+
+    while i < len {
+        let ch = chars[i];
+
+        // String literals
+        if ch == '\'' || ch == '"' {
+            let quote = ch;
+            out.push_str(GREEN);
+            out.push(ch);
+            i += 1;
+            while i < len && chars[i] != quote {
+                if chars[i] == '\\' && i + 1 < len {
+                    out.push(chars[i]);
+                    i += 1;
+                }
+                out.push(chars[i]);
+                i += 1;
+            }
+            if i < len {
+                out.push(chars[i]);
+                i += 1;
+            }
+            out.push_str(RESET);
+            continue;
+        }
+
+        // Identifiers and keywords
+        if ch.is_alphabetic() || ch == '_' {
+            let start = i;
+            while i < len && is_ident_char(chars[i]) {
+                i += 1;
+            }
+            let word: String = chars[start..i].iter().collect();
+
+            // if KEYWORDS.contains(&word.as_str()) {
+            //     let _ = write!(out, "{CYAN}{word}{RESET}");
+            // } else
+            if LITERAL_KEYWORDS.contains(&word.as_str()) {
+                let _ = write!(out, "{BLUE}{word}{RESET}");
+            } else if TYPE_KEYWORDS.contains(&word.as_str()) {
+                let _ = write!(out, "{GRAY}{word}{RESET}");
+            } else {
+                out.push_str(&word);
+            }
+            continue;
+        }
+
+        // Number literals
+        if ch.is_ascii_digit() {
+            let start = i;
+            while i < len && (chars[i].is_ascii_digit() || chars[i] == '.') {
+                i += 1;
+            }
+            let num: String = chars[start..i].iter().collect();
+            let _ = write!(out, "{YELLOW}{num}{RESET}");
+            continue;
+        }
+
+        // Everything else
+        out.push(ch);
+        i += 1;
+    }
+
+    out
+}
+
+impl BagelError {
+    fn message(&self) -> &str {
+        match &self.details {
+            BagelErrorDetails::ParseError { message } => message,
+            BagelErrorDetails::MiscError { message } => message,
+        }
+    }
+
+    /// Computes (1-indexed line, 1-indexed column) from a byte offset into a source string.
+    fn offset_to_line_col(source: &str, offset: usize) -> (usize, usize) {
+        let mut line = 1;
+        let mut col = 1;
+        for (i, ch) in source.char_indices() {
+            if i >= offset {
+                break;
+            }
+            if ch == '\n' {
+                line += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
+        (line, col)
+    }
+
+    /// Formats this error for terminal display, mirroring the TypeScript
+    /// compiler's `--pretty` output format with ANSI colors.
+    ///
+    /// The `file_path` argument is the path to display in the error header.
+    pub fn write_for_terminal(&self, file_path: &Path) -> String {
+        let source = self.src.full_string.as_str();
+        let (line, col) = Self::offset_to_line_col(source, self.src.start);
+        let display_path = file_path.display();
+
+        let severity_label = match self.severity {
+            RuleSeverity::Error => format!("{RED}error{RESET}"),
+            RuleSeverity::Warn => format!("{YELLOW}warning{RESET}"),
+            RuleSeverity::Autofix => format!("{GRAY}autofix{RESET}"),
+        };
+
+        let mut out = String::new();
+
+        // Header line: path:line:col - error: message
+        let _ = writeln!(
+            out,
+            "{CYAN}{display_path}{RESET}:{YELLOW}{line}{RESET}:{YELLOW}{col}{RESET} - {severity_label}: {}",
+            self.message()
+        );
+
+        // Source code snippet
+        let source_line = source.lines().nth(line - 1).unwrap_or("");
+        let line_num_str = line.to_string();
+        let gutter_width = line_num_str.len();
+
+        // Blank line
+        let _ = writeln!(out);
+
+        // Source line with line number in white-bg gutter
+        let highlighted = highlight_source_line(source_line);
+        let _ = writeln!(out, "{WHITE_BG}{line_num_str}{RESET} {highlighted}");
+
+        // Squiggle underline
+        let error_len = (self.src.end - self.src.start).max(1);
+        let padding = " ".repeat(gutter_width + 1 + (col - 1));
+        let squiggle = "~".repeat(error_len);
+        let _ = writeln!(out, "{padding}{RED}{squiggle}{RESET}");
+
+        out
+    }
 }
 
 pub trait Checkable {

@@ -1,5 +1,6 @@
 const x = 42
 const y = true
 const z = false
-const a = nil
+const a: string = nil
 const b = x + y * 2
+const stuff: string = 123

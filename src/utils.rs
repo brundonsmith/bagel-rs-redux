@@ -33,15 +33,18 @@ pub fn resolve_targets(patterns: Vec<String>) -> HashSet<PathBuf> {
 /// otherwise add `path` directly.
 fn collect_path(path: &Path, results: &mut HashSet<PathBuf>) {
     if path.is_dir() {
-        glob::glob(
-            path.join("**/*.bgl")
-                .to_str()
-                .expect("Non-UTF-8 path"),
-        )
-        .expect("Invalid glob pattern")
-        .filter_map(Result::ok)
-        .for_each(|p| { results.insert(p); });
-    } else {
+        glob::glob(path.join("**/*.bgl").to_str().expect("Non-UTF-8 path"))
+            .expect("Invalid glob pattern")
+            .filter_map(Result::ok)
+            .filter(|p| is_bagel_module(p))
+            .for_each(|p| {
+                results.insert(p);
+            });
+    } else if is_bagel_module(path) {
         results.insert(path.to_path_buf());
     }
+}
+
+fn is_bagel_module(path: &Path) -> bool {
+    path.extension().and_then(|e| e.to_str()) == Some("bgl")
 }
