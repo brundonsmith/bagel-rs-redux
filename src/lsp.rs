@@ -1,11 +1,3 @@
-pub mod ast;
-pub mod check;
-pub mod compile;
-pub mod config;
-pub mod emit;
-pub mod parse;
-pub mod types;
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -13,13 +5,13 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use ast::container::AST;
-use ast::grammar::{Any, Expression};
-use ast::slice::Slice;
-use check::{BagelError, CheckContext, Checkable};
-use config::Config;
-use emit::{EmitContext, Emittable};
-use types::infer::InferTypeContext;
+use crate::ast::container::AST;
+use crate::ast::grammar::{Any, Expression};
+use crate::ast::slice::Slice;
+use crate::check::{BagelError, CheckContext, Checkable};
+use crate::config::Config;
+use crate::emit::{EmitContext, Emittable};
+use crate::types::infer::InferTypeContext;
 
 #[derive(Debug)]
 struct BagelLanguageServer {
@@ -149,7 +141,7 @@ impl LanguageServer for BagelLanguageServer {
 
         // Parse the document
         let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match parse::parse::module(slice) {
+        let ast = match crate::parse::parse::module(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] did_save() - parse successful");
                 ast
@@ -246,7 +238,7 @@ impl LanguageServer for BagelLanguageServer {
         // Parse the document
         eprintln!("[DEBUG] hover() - parsing document");
         let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match parse::parse::any(slice) {
+        let ast = match crate::parse::parse::any(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] hover() - parse successful");
                 ast
@@ -326,7 +318,7 @@ impl LanguageServer for BagelLanguageServer {
         // Parse the document
         eprintln!("[DEBUG] inlay_hint() - parsing document");
         let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match parse::parse::any(slice) {
+        let ast = match crate::parse::parse::any(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] inlay_hint() - parse successful");
                 ast
@@ -341,7 +333,7 @@ impl LanguageServer for BagelLanguageServer {
 
         // Traverse the AST to find declarations
         eprintln!("[DEBUG] inlay_hint() - attempting to downcast to Module");
-        if let Some(module) = ast.try_downcast::<ast::grammar::Module>() {
+        if let Some(module) = ast.try_downcast::<crate::ast::grammar::Module>() {
             match module.details() {
                 None => {
                     eprintln!("[DEBUG] inlay_hint() - module is malformed, skipping");
@@ -365,7 +357,7 @@ impl LanguageServer for BagelLanguageServer {
                                 eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
                             }
                             (Some(_), None) => {
-                                let decl_data: ast::grammar::Declaration = decl.unpack();
+                                let decl_data: crate::ast::grammar::Declaration = decl.unpack();
                                 eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
                                     idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
 
@@ -413,7 +405,7 @@ impl BagelLanguageServer {
 
         // Parse the document
         let slice = Slice::new(Arc::new(text.to_string()));
-        let ast = match parse::parse::module(slice) {
+        let ast = match crate::parse::parse::module(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] publish_diagnostics() - parse successful");
                 ast
@@ -462,8 +454,8 @@ impl BagelLanguageServer {
 }
 
 fn bagel_error_to_diagnostic(text: &str, error: BagelError) -> Diagnostic {
-    use check::BagelErrorDetails;
-    use config::RuleSeverity;
+    use crate::check::BagelErrorDetails;
+    use crate::config::RuleSeverity;
 
     let severity = match error.severity {
         RuleSeverity::Error => DiagnosticSeverity::ERROR,
@@ -597,7 +589,7 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
                         std::mem::discriminant(expr)
                     );
                     match expr {
-                        ast::grammar::Expression::BinaryOperation(bin_op) => {
+                        crate::ast::grammar::Expression::BinaryOperation(bin_op) => {
                             eprintln!(
                                 "[DEBUG] find_node_at_offset() - Expression is BinaryOperation"
                             );
@@ -630,18 +622,14 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    eprintln!("[DEBUG] main() - Bagel Language Server starting");
+pub async fn run_lsp() {
+    eprintln!("[DEBUG] Bagel Language Server starting");
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    eprintln!("[DEBUG] main() - creating LSP service");
     let (service, socket) = LspService::new(|client| BagelLanguageServer {
         client,
         documents: Arc::new(RwLock::new(HashMap::new())),
     });
-    eprintln!("[DEBUG] main() - starting server");
     Server::new(stdin, stdout, socket).serve(service).await;
-    eprintln!("[DEBUG] main() - server stopped");
 }

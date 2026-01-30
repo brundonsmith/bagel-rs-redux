@@ -1,7 +1,7 @@
-use bagel_language_server::ast::slice::Slice;
-use bagel_language_server::config::Config;
-use bagel_language_server::emit::{EmitContext, Emittable};
-use bagel_language_server::parse::parse;
+use bagel::ast::slice::Slice;
+use bagel::config::Config;
+use bagel::emit::{EmitContext, Emittable};
+use bagel::parse::parse;
 use insta::assert_snapshot;
 use std::sync::Arc;
 

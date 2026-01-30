@@ -1,8 +1,8 @@
-use bagel_language_server::ast::container::AST;
-use bagel_language_server::ast::grammar::{Any, Expression};
-use bagel_language_server::ast::slice::Slice;
-use bagel_language_server::parse::parse;
-use bagel_language_server::types::infer::InferTypeContext;
+use bagel::ast::container::AST;
+use bagel::ast::grammar::{Any, Expression};
+use bagel::ast::slice::Slice;
+use bagel::parse::parse;
+use bagel::types::infer::InferTypeContext;
 use insta::assert_snapshot;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -32,7 +32,7 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                 collect_expression_types(&decl.value.clone().upcast(), results);
             }
             Any::Expression(expr) => {
-                use bagel_language_server::ast::grammar::Expression::*;
+                use bagel::ast::grammar::Expression::*;
                 match expr {
                     BinaryOperation(bin_op) => {
                         collect_expression_types(&bin_op.left.clone().upcast(), results);

@@ -11,8 +11,8 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
   const serverExecutable: Executable = {
-    command: path.join(context.extensionPath, '..', 'target', 'release', 'bagel-language-server'),
-    args: [],
+    command: path.join(context.extensionPath, '..', 'target', 'release', 'bagel'),
+    args: ['lsp'],
   };
 
   const serverOptions: ServerOptions = {

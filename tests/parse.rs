@@ -1,5 +1,5 @@
-use bagel_language_server::ast::slice::Slice;
-use bagel_language_server::parse::parse;
+use bagel::ast::slice::Slice;
+use bagel::parse::parse;
 use insta::assert_debug_snapshot;
 use std::sync::Arc;
 

@@ -17,7 +17,7 @@
         "build",
         "--release",
         "--bin",
-        "bagel-language-server"
+        "bagel"
       ],
       "options": {
         "cwd": "${workspaceFolder}/.."

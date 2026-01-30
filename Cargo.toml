@@ -1,13 +1,19 @@
 [package]
-name = "bagel-language-server"
+name = "bagel"
 version = "0.1.0"
 edition = "2021"
 
-[lib]                                                                            
-path = "src/main.rs" 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "bagel"
+path = "src/bin/main.rs"
 
 [dependencies]
 type_hierarchy = { path = "type_hierarchy" }
+clap = { version = "4", features = ["derive"] }
+glob = "0.3"
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["full"] }
 serde = "1.0.228"
