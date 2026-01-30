@@ -288,12 +288,31 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
                 let param_match = func
                     .parameters
                     .iter()
-                    .find(|(param_name, _type_ann)| param_name.slice().as_str() == name);
+                    .enumerate()
+                    .find(|(_, (param_name, _type_ann))| param_name.slice().as_str() == name);
 
-                if let Some((_param_name, type_ann)) = param_match {
+                if let Some((param_index, (_param_name, type_ann))) = param_match {
                     return match type_ann {
                         Some((_colon, type_expr)) => Type::from(type_expr.unpack()),
-                        None => Type::Unknown,
+                        None => {
+                            // Try contextual typing: get expected type for the
+                            // function expression and extract the parameter type
+                            let func_expr_node: AST<Expression> = match &node {
+                                AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
+                                AST::Malformed { inner, message } => {
+                                    AST::<Expression>::new_malformed(inner.clone(), message.clone())
+                                }
+                            };
+                            func_expr_node
+                                .expected_type()
+                                .and_then(|t| match t.normalize() {
+                                    Type::FuncType { args, .. } => {
+                                        args.into_iter().nth(param_index)
+                                    }
+                                    _ => None,
+                                })
+                                .unwrap_or(Type::Unknown)
+                        }
                     };
                 }
 

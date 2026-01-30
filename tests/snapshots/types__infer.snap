@@ -6,6 +6,7 @@ expression: output
 () => {
     print(12)
 } -> () => never
+(a, b) => a + b -> (arg0: number, arg1: number) => number
 (a: number, b: string): boolean =>
     if a > 5 {
         a
@@ -18,11 +19,11 @@ expression: output
 5 -> 5
 [1, 2, {stuff: 'other'}] -> [1, 2, {stuff: 'other'}]
 a -> number
-a + b -> string
+a + b -> number
 a == b -> boolean
 a == b || y != z -> boolean
 a > 5 -> boolean
-b -> string
+b -> number
 false -> false
 if a > 5 {
         a

@@ -8,6 +8,7 @@ const z = false
 const c: boolean = a == b || y != z
 const foo = [1, 2, { stuff: 'other' }]
 const func = (a: number, b: string): boolean => if a > 5 { a } else { a + b }
+const bar: (a: number, b: number) => number = (a, b) => a + b
 const a: string = nil
 const main = () => {
 print(12)

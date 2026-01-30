@@ -816,6 +816,90 @@ fn range_type_expression(i: Slice) -> ParseResult<AST<RangeTypeExpression>> {
     Ok((remaining, node))
 }
 
+fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>> {
+    let start = i.clone();
+
+    let (remaining, open_paren) = tag("(")(i)?;
+
+    let mut parameters: Vec<(AST<PlainIdentifier>, Slice, AST<TypeExpression>)> = Vec::new();
+    let mut commas = Vec::new();
+    let mut current = remaining;
+    let mut trailing_comma = None;
+
+    // Parse first parameter if present
+    if let Ok((after_name, name)) = w(plain_identifier)(current.clone()) {
+        if let Ok((after_colon, colon)) = w(tag(":"))(after_name) {
+            if let Ok((after_type, type_expr)) = w(type_expression)(after_colon) {
+                parameters.push((name, colon, type_expr));
+                current = after_type;
+
+                // Parse subsequent ", name: Type" triples
+                loop {
+                    match w(tag(","))(current.clone()) {
+                        Ok((after_comma, comma)) => {
+                            match w(plain_identifier)(after_comma.clone()) {
+                                Ok((after_name, name)) => match w(tag(":"))(after_name) {
+                                    Ok((after_colon, colon)) => {
+                                        match w(type_expression)(after_colon) {
+                                            Ok((after_type, type_expr)) => {
+                                                commas.push(comma);
+                                                parameters.push((name, colon, type_expr));
+                                                current = after_type;
+                                            }
+                                            Err(_) => {
+                                                trailing_comma = Some(comma);
+                                                current = after_comma;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    Err(_) => {
+                                        trailing_comma = Some(comma);
+                                        current = after_comma;
+                                        break;
+                                    }
+                                },
+                                Err(_) => {
+                                    trailing_comma = Some(comma);
+                                    current = after_comma;
+                                    break;
+                                }
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            }
+        }
+    }
+
+    let (current, close_paren) = w(backtrack(tag(")"), ")", "("))(current)?;
+    let close_paren = close_paren.unwrap_or_else(|| current.clone().slice_range(0, Some(0)));
+    let (remaining, (arrow, mut return_type)) = seq!(expect_tag("=>"), type_expression)(current)?;
+
+    let consumed_len = start.len() - remaining.len();
+    let span = start.slice_range(0, Some(consumed_len));
+
+    let func_type = FunctionTypeExpression {
+        open_paren,
+        parameters: parameters.clone(),
+        commas,
+        trailing_comma,
+        close_paren,
+        arrow,
+        return_type: return_type.clone(),
+    };
+
+    let node = make_ast(span, func_type);
+    for (mut name, _, mut type_expr) in parameters {
+        name.set_parent(&node);
+        type_expr.set_parent(&node);
+    }
+    return_type.set_parent(&node);
+
+    Ok((remaining, node))
+}
+
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(unknown_type_expression, |n| n.upcast()),
@@ -824,6 +908,7 @@ fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
         map(range_type_expression, |n| n.upcast()),
         map(number_type_expression, |n| n.upcast()),
         map(string_type_expression, |n| n.upcast()),
+        map(function_type_expression, |n| n.upcast()),
     ))(i)
 }
 
