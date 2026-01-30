@@ -32,7 +32,7 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                 Declaration::ConstDeclaration(const_decl) => {
                     collect_expression_types(&const_decl.value.clone().upcast(), results);
                 }
-            }
+            },
             Any::Expression(expr) => {
                 use bagel::ast::grammar::Expression::*;
                 match expr {
@@ -67,10 +67,15 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                         collect_expression_types(&if_else.condition.clone().upcast(), results);
                         collect_expression_types(&if_else.consequent.clone().upcast(), results);
                         match &if_else.else_clause {
-                            Some(bagel::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
+                            Some(bagel::ast::grammar::ElseClause::ElseBlock {
+                                expression, ..
+                            }) => {
                                 collect_expression_types(&expression.clone().upcast(), results);
                             }
-                            Some(bagel::ast::grammar::ElseClause::ElseIf { if_else: nested, .. }) => {
+                            Some(bagel::ast::grammar::ElseClause::ElseIf {
+                                if_else: nested,
+                                ..
+                            }) => {
                                 collect_expression_types(&nested.clone().upcast(), results);
                             }
                             None => {}

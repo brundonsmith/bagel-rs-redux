@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    ast::{container::AST, grammar::{Expression, FunctionBody}},
+    ast::{
+        container::AST,
+        grammar::{Expression, FunctionBody},
+    },
     types::Type,
 };
 
@@ -79,15 +82,22 @@ impl AST<Expression> {
                 }
 
                 FunctionExpression(func) => {
-                    // For now, we don't have enough context to infer parameter types
-                    // We'd need a symbol table to track what types the parameters are used as
+                    let expected_args = self.expected_type().and_then(|t| match t.normalize() {
+                        Type::FuncType { args, .. } => Some(args),
+                        _ => None,
+                    });
+
                     let args = func
                         .parameters
-                        .into_iter()
-                        .map(|param| {
-                            param
-                                .1
-                                .map(|(_, t)| t.unpack().into())
+                        .iter()
+                        .enumerate()
+                        .map(|(i, (_name, type_ann))| {
+                            type_ann
+                                .as_ref()
+                                .map(|(_, t)| Type::from(t.unpack()))
+                                .or_else(|| {
+                                    expected_args.as_ref().and_then(|ea| ea.get(i).cloned())
+                                })
                                 .unwrap_or(Type::Unknown)
                         })
                         .collect();

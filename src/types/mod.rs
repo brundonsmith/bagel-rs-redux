@@ -6,7 +6,9 @@ use std::fmt;
 use std::sync::Arc;
 
 use crate::ast::container::AST;
-use crate::ast::grammar::{self, Any, BinaryOperator, Expression, FunctionBody, LocalIdentifier, UnaryOperator};
+use crate::ast::grammar::{
+    self, Any, BinaryOperator, Expression, FunctionBody, LocalIdentifier, UnaryOperator,
+};
 use crate::ast::slice::Slice;
 
 use self::infer::InferTypeContext;
@@ -225,17 +227,12 @@ impl AST<Expression> {
         let parent = self.parent()?;
 
         match parent.details()? {
-            Any::Declaration(grammar::Declaration::ConstDeclaration(const_decl)) => {
-                const_decl
-                    .type_annotation
-                    .as_ref()
-                    .map(|(_colon, type_expr)| Type::from(type_expr.unpack()))
-            }
+            Any::Declaration(grammar::Declaration::ConstDeclaration(const_decl)) => const_decl
+                .type_annotation
+                .as_ref()
+                .map(|(_colon, type_expr)| Type::from(type_expr.unpack())),
             Any::Expression(Expression::Invocation(inv)) => {
-                let arg_index = inv
-                    .arguments
-                    .iter()
-                    .position(|arg| arg.ptr_eq(self))?;
+                let arg_index = inv.arguments.iter().position(|arg| arg.ptr_eq(self))?;
 
                 let ctx = InferTypeContext {};
                 let func_type = inv.function.infer_type(ctx).normalize();

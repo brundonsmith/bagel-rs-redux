@@ -2,9 +2,16 @@ use std::fmt::Write;
 use std::path::Path;
 
 use crate::{
-    ast::{container::AST, grammar::{Any, BinaryOperator, Declaration, ElseClause, Expression, FunctionBody, Statement, TypeExpression, UnaryOperator}, slice::Slice},
+    ast::{
+        container::AST,
+        grammar::{
+            Any, BinaryOperator, Declaration, ElseClause, Expression, FunctionBody, Statement,
+            TypeExpression, UnaryOperator,
+        },
+        slice::Slice,
+    },
     config::{Config, RuleSeverity},
-    types::{Type, fits::FitsContext, infer::InferTypeContext},
+    types::{fits::FitsContext, infer::InferTypeContext, Type},
 };
 
 #[derive(Debug, Clone)]
@@ -438,15 +445,11 @@ where
                             if_else.consequent.check(ctx, report_error);
 
                             match &if_else.else_clause {
-                                Some(ElseClause::ElseBlock {
-                                    expression,
-                                    ..
-                                }) => {
+                                Some(ElseClause::ElseBlock { expression, .. }) => {
                                     expression.check(ctx, report_error);
                                 }
                                 Some(ElseClause::ElseIf {
-                                    if_else: nested,
-                                    ..
+                                    if_else: nested, ..
                                 }) => {
                                     nested.check(ctx, report_error);
                                 }
@@ -481,7 +484,9 @@ where
                     // verify that its inferred type fits.
                     let expr_node: AST<Expression> = match self {
                         AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
-                        AST::Malformed { inner, message } => AST::<Expression>::new_malformed(inner.clone(), message.clone()),
+                        AST::Malformed { inner, message } => {
+                            AST::<Expression>::new_malformed(inner.clone(), message.clone())
+                        }
                     };
                     if let Some(expected) = expr_node.expected_type() {
                         let infer_ctx = InferTypeContext {};

@@ -470,10 +470,7 @@ fn invocation(i: Slice) -> ParseResult<AST<Invocation>> {
 
 // Primary expressions: invocations or atoms
 fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
-    alt((
-        map(invocation, |n| n.upcast()),
-        atom_expression,
-    ))(i)
+    alt((map(invocation, |n| n.upcast()), atom_expression))(i)
 }
 
 // Atom expressions: literals, identifiers, function expressions, and parenthesized expressions
@@ -696,7 +693,10 @@ fn function_body(i: Slice) -> ParseResult<AST<FunctionBody>> {
             body
         }),
         map(expression, |mut expr_body| {
-            let body = make_ast(expr_body.slice().clone(), FunctionBody::Expression(expr_body.clone()));
+            let body = make_ast(
+                expr_body.slice().clone(),
+                FunctionBody::Expression(expr_body.clone()),
+            );
             expr_body.set_parent(&body);
             body
         }),
@@ -883,10 +883,8 @@ pub fn module(i: Slice) -> ParseResult<AST<Module>> {
     let consumed_len = start.len() - remaining.len();
     let span = start.slice_range(0, Some(consumed_len));
 
-    let mut declarations: Vec<AST<Declaration>> = const_declarations
-        .into_iter()
-        .map(|d| d.upcast())
-        .collect();
+    let mut declarations: Vec<AST<Declaration>> =
+        const_declarations.into_iter().map(|d| d.upcast()).collect();
 
     let module_node = Module {
         declarations: declarations.clone(),

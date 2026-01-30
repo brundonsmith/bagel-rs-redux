@@ -61,8 +61,14 @@ impl Type {
 
             // Exact/bounded number fits into general number or a wider range
             (
-                Type::Number { min_value: val_min, max_value: val_max },
-                Type::Number { min_value: dest_min, max_value: dest_max },
+                Type::Number {
+                    min_value: val_min,
+                    max_value: val_max,
+                },
+                Type::Number {
+                    min_value: dest_min,
+                    max_value: dest_max,
+                },
             ) => {
                 let min_ok = match (val_min, dest_min) {
                     (_, None) => true, // destination has no lower bound
