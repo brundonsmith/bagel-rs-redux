@@ -13,7 +13,7 @@ pub struct CheckContext<'a> {
     // pub in_expression_context: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BagelError {
     // pub module_id: ModuleID,
     pub src: Slice,
@@ -21,7 +21,7 @@ pub struct BagelError {
     pub details: BagelErrorDetails,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BagelErrorDetails {
     ParseError { message: String },
     MiscError { message: String },

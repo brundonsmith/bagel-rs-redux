@@ -9,6 +9,8 @@ use nom::{
 };
 
 use crate::ast::slice::Slice;
+use crate::check::{BagelError, BagelErrorDetails};
+use crate::config::RuleSeverity;
 
 // --- Util types ---
 
@@ -16,35 +18,16 @@ use crate::ast::slice::Slice;
 ///
 /// Each AST node parser takes a `Slice` and returns `ParseResult<AST<TKind>>`
 /// where `TKind` is the expected AST node struct or enum.
-pub type ParseResult<T> = IResult<Slice, T, RawParseError>;
+pub type ParseResult<T> = IResult<Slice, T, BagelError>;
 
-/// Custom parse error type for Bagel.
-///
-/// Contains the source location (as a `Slice`) and details about what went wrong.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RawParseError {
-    /// The slice where the error occurred
-    pub src: Slice,
-    /// Details about what kind of error occurred
-    pub details: RawParseErrorDetails,
-}
-
-/// Details about what kind of parse error occurred.
-#[derive(Debug, Clone, PartialEq)]
-pub enum RawParseErrorDetails {
-    /// Expected a specific piece of syntax (e.g., "expected ')'")
-    Expected(String),
-    /// A nom error kind
-    Kind(nom::error::ErrorKind),
-    /// Expected a specific character
-    Char(char),
-}
-
-impl nom::error::ParseError<Slice> for RawParseError {
+impl nom::error::ParseError<Slice> for BagelError {
     fn from_error_kind(input: Slice, kind: nom::error::ErrorKind) -> Self {
         Self {
             src: input,
-            details: RawParseErrorDetails::Kind(kind),
+            severity: RuleSeverity::Error,
+            details: BagelErrorDetails::ParseError {
+                message: format!("{:?}", kind),
+            },
         }
     }
 
@@ -55,22 +38,28 @@ impl nom::error::ParseError<Slice> for RawParseError {
     fn from_char(input: Slice, ch: char) -> Self {
         Self {
             src: input,
-            details: RawParseErrorDetails::Char(ch),
+            severity: RuleSeverity::Error,
+            details: BagelErrorDetails::ParseError {
+                message: format!("expected '{}'", ch),
+            },
         }
     }
 }
 
-impl nom::error::ContextError<Slice> for RawParseError {
+impl nom::error::ContextError<Slice> for BagelError {
     fn add_context(_input: Slice, _ctx: &'static str, other: Self) -> Self {
         other
     }
 }
 
-impl<E> nom::error::FromExternalError<Slice, E> for RawParseError {
+impl<E> nom::error::FromExternalError<Slice, E> for BagelError {
     fn from_external_error(input: Slice, kind: nom::error::ErrorKind, _e: E) -> Self {
         Self {
             src: input,
-            details: RawParseErrorDetails::Kind(kind),
+            severity: RuleSeverity::Error,
+            details: BagelErrorDetails::ParseError {
+                message: format!("{:?}", kind),
+            },
         }
     }
 }
@@ -90,7 +79,7 @@ impl<E> nom::error::FromExternalError<Slice, E> for RawParseError {
 /// ```
 pub fn w<O, G>(parser: G) -> impl FnMut(Slice) -> ParseResult<O>
 where
-    G: Parser<Slice, O, RawParseError>,
+    G: Parser<Slice, O, BagelError>,
 {
     preceded(whitespace, parser)
 }
@@ -157,15 +146,16 @@ fn expect_inner<TResult, F: FnMut(Slice) -> ParseResult<TResult>>(
         let res = f(i.clone());
 
         if matches!(res, Err(nom::Err::Error(_))) {
-            let details = if quoted {
+            let message = if quoted {
                 format!("'{}'", description)
             } else {
                 description.to_owned()
             };
 
-            Err(nom::Err::Failure(RawParseError {
+            Err(nom::Err::Failure(BagelError {
                 src: i,
-                details: RawParseErrorDetails::Expected(details),
+                severity: RuleSeverity::Error,
+                details: BagelErrorDetails::ParseError { message },
             }))
         } else {
             res

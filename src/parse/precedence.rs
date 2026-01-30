@@ -1,8 +1,8 @@
-use nom::error::ErrorKind;
-
 use crate::{
     ast::{container::AST, grammar::Any, slice::Slice},
-    parse::utils::{ParseResult, RawParseError, RawParseErrorDetails},
+    check::{BagelError, BagelErrorDetails},
+    config::RuleSeverity,
+    parse::utils::ParseResult,
 };
 
 use precedence_index::precedence_index;
@@ -27,9 +27,12 @@ where
         }
     }
 
-    Err(nom::Err::Error(RawParseError {
+    Err(nom::Err::Error(BagelError {
         src: i,
-        details: RawParseErrorDetails::Kind(ErrorKind::Fail),
+        severity: RuleSeverity::Error,
+        details: BagelErrorDetails::ParseError {
+            message: "Fail".to_string(),
+        },
     }))
 }
 
