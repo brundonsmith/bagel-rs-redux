@@ -115,18 +115,18 @@ where
                         }
 
                         Expression::FunctionExpression(func) => {
-                            // (param1, param2) => body  ->  (param1, param2) => body (same in JS)
+                            // (param1: T, param2: U) => body  ->  (param1, param2) => body (strip types for JS)
                             if func.parameters.len() == 1 && func.open_paren.is_none() {
                                 // Single parameter without parens
-                                func.parameters[0].compile(ctx, f)?;
+                                func.parameters[0].0.compile(ctx, f)?;
                             } else {
                                 // Multiple parameters or explicit parens
                                 write!(f, "(")?;
-                                for (i, param) in func.parameters.iter().enumerate() {
+                                for (i, (param_name, _type_ann)) in func.parameters.iter().enumerate() {
                                     if i > 0 {
                                         write!(f, ", ")?;
                                     }
-                                    param.compile(ctx, f)?;
+                                    param_name.compile(ctx, f)?;
                                 }
                                 write!(f, ")")?;
                             }

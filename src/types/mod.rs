@@ -5,7 +5,10 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
+use crate::ast::grammar::{self, Any, Expression, LocalIdentifier};
 use crate::ast::slice::Slice;
+
+use self::infer::InferTypeContext;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
@@ -45,6 +48,9 @@ pub enum Type {
     Union {
         variants: Vec<Type>,
     },
+    LocalIdentifier {
+        identifier: LocalIdentifier,
+    },
 }
 
 impl Type {
@@ -65,6 +71,11 @@ impl Type {
     /// these cases as possible, to make types more human-readable but also to
     /// create more situations where exactly-equivalent types have the exact
     /// same structural representation.
+    ///
+    /// It also, additionally, "interprets" certain types that are lazily
+    /// resolved, to try and figure out their "real" type. Local identifiers
+    /// are a major instance- this function determines what "real" type a given
+    /// variable turns out to have.
     pub fn normalize(self) -> Self {
         use Type::*;
 
@@ -90,9 +101,78 @@ impl Type {
 
                 Union { variants: v }
             }
+            LocalIdentifier { identifier } => resolve_local_identifier(&identifier),
             _ => self,
         }
     }
+
+    /// Widens exact literal types to their general counterparts.
+    /// For example, `ExactBoolean(true)` becomes `Boolean`, `ExactNumber(42)`
+    /// becomes `Number`, `ExactString("foo")` becomes `String`.
+    /// This is used when inferring the type of a variable declaration without
+    /// an explicit type annotation.
+    pub fn widen(self) -> Self {
+        match self {
+            Type::ExactBoolean { .. } => Type::Boolean,
+            Type::ExactNumber { .. } => Type::Number,
+            Type::ExactString { .. } => Type::String,
+            other => other,
+        }
+    }
+}
+
+/// Given a `LocalIdentifier` from a type, walk up the AST to find where the
+/// identifier is declared, then resolve its type from the declaration's value
+/// expression or type annotation.
+fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
+    let name = identifier.identifier.slice().as_str();
+
+    // Walk up the AST from the identifier's AST node to find a containing scope
+    let mut current = identifier.identifier.parent();
+
+    while let Some(node) = current {
+        match node.details() {
+            Some(Any::Module(module)) => {
+                // Search module-level declarations for one matching our name
+                return module
+                    .declarations
+                    .iter()
+                    .filter(|decl| decl.details().is_some())
+                    .find(|decl| decl.unpack().identifier.slice().as_str() == name)
+                    .map(|decl| resolve_declaration_type(&decl.unpack()))
+                    .unwrap_or(Type::Unknown);
+            }
+            Some(Any::Expression(Expression::FunctionExpression(func))) => {
+                // Check if one of the function's parameters matches our name
+                let param_match = func
+                    .parameters
+                    .iter()
+                    .find(|(param_name, _type_ann)| param_name.slice().as_str() == name);
+
+                if let Some((_param_name, type_ann)) = param_match {
+                    return match type_ann {
+                        Some((_colon, type_expr)) => Type::from(type_expr.unpack()),
+                        None => Type::Unknown,
+                    };
+                }
+
+                // Not a parameter of this function — keep walking up
+            }
+            _ => {}
+        }
+
+        current = node.parent();
+    }
+
+    // Identifier not found in any scope
+    Type::Unknown
+}
+
+/// Resolve the type of a declaration from its type annotation (if present)
+/// or by inferring from its value expression.
+fn resolve_declaration_type(decl: &grammar::Declaration) -> Type {
+    let ctx = InferTypeContext {};
+    decl.value.infer_type(ctx).normalize()
 }
 
 impl fmt::Display for Type {
@@ -165,6 +245,9 @@ impl fmt::Display for Type {
                     write!(f, "{}", variant)?;
                 }
                 Ok(())
+            }
+            Type::LocalIdentifier { identifier } => {
+                write!(f, "{}", identifier.identifier.slice().as_str())
             }
         }
     }

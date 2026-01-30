@@ -206,31 +206,34 @@ fn multiplicative_expression(i: Slice) -> ParseResult<AST<Expression>> {
     )
 }
 
-// Parser for FunctionExpression: (?:"(" PlainIdentifier (?:"," PlainIdentifier)* ","? ")") or PlainIdentifier "=>" Expression
+// Parser for FunctionExpression: (?:"(" Param (?:"," Param)* ","? ")") or PlainIdentifier "=>" Expression
+// where Param = PlainIdentifier (":" TypeExpression)?
 pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
     let start = i.clone();
 
-    // Try parsing with parentheses first: (a, b, c) => expr
+    // Try parsing with parentheses first: (a: number, b: string) => expr
     if let Ok((remaining, open_paren)) = w(tag("("))(i.clone()) {
         // Parse parameter list
-        let mut parameters = Vec::new();
+        let mut parameters: Vec<(AST<PlainIdentifier>, Option<(Slice, AST<TypeExpression>)>)> = Vec::new();
         let mut commas = Vec::new();
         let mut current = remaining;
         let mut trailing_comma = None;
 
         // Parse first parameter if present (not immediately a close paren)
         if let Ok((after_param, param)) = w(plain_identifier)(current.clone()) {
-            parameters.push(param.clone());
-            current = after_param;
+            let (after_type_ann, type_ann) = parse_optional_type_annotation(after_param)?;
+            parameters.push((param.clone(), type_ann));
+            current = after_type_ann;
 
             // Parse subsequent ", param" pairs
             loop {
                 if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
                     // Check if there's another parameter or if this is a trailing comma
                     if let Ok((after_param, param)) = w(plain_identifier)(after_comma.clone()) {
+                        let (after_type_ann, type_ann) = parse_optional_type_annotation(after_param)?;
                         commas.push(comma);
-                        parameters.push(param.clone());
-                        current = after_param;
+                        parameters.push((param.clone(), type_ann));
+                        current = after_type_ann;
                     } else {
                         // Trailing comma
                         trailing_comma = Some(comma);
@@ -261,15 +264,18 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
         };
 
         let node = make_ast(span, func_expr);
-        for param in &mut parameters {
+        for (mut param, type_ann) in parameters {
             param.set_parent(&node);
+            if let Some((_colon, mut type_expr)) = type_ann {
+                type_expr.set_parent(&node);
+            }
         }
         body.set_parent(&node);
 
         return Ok((remaining, node));
     }
 
-    // Try parsing without parentheses: x => expr
+    // Try parsing without parentheses: x => expr (no type annotation allowed here)
     let (remaining, (mut param, (arrow, mut body))) =
         tuple((plain_identifier, seq!(tag("=>"), expression)))(i)?;
 
@@ -278,7 +284,7 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
 
     let func_expr = FunctionExpression {
         open_paren: None,
-        parameters: vec![param.clone()],
+        parameters: vec![(param.clone(), None)],
         commas: vec![],
         trailing_comma: None,
         close_paren: None,
@@ -291,6 +297,11 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
     body.set_parent(&node);
 
     Ok((remaining, node))
+}
+
+/// Parses an optional `: TypeExpression` type annotation.
+fn parse_optional_type_annotation(i: Slice) -> ParseResult<Option<(Slice, AST<TypeExpression>)>> {
+    opt(seq!(w(tag(":")), type_expression))(i)
 }
 
 // Parse invocation arguments: "(" Expression (?:"," Expression)* ","? ")"

@@ -2,13 +2,17 @@
 source: tests/types.rs
 expression: output
 ---
+(a: number, b: string) => a + b -> (arg0: unknown, arg1: unknown) => number
 2 -> 2
 42 -> 42
 [1, 2, {stuff: 'other'}] -> [1, 2, {stuff: "other"}]
+a -> number
+a + b -> number
+b -> string
 false -> false
 nil -> nil
 true -> true
-x -> unknown
-y -> unknown
+x -> 42
+y -> true
 y * 2 -> number
 y * 2 + x -> number

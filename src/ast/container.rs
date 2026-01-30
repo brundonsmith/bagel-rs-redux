@@ -55,6 +55,37 @@ where
     }
 }
 
+impl<TKind> PartialOrd for AST<TKind>
+where
+    TKind: Clone + TryFrom<Any> + PartialEq,
+    Any: From<TKind>,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(ptr_of(self).cmp(&ptr_of(other)))
+    }
+}
+
+impl<TKind> Ord for AST<TKind>
+where
+    TKind: Clone + TryFrom<Any> + Eq + PartialOrd,
+    Any: From<TKind>,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        ptr_of(self).cmp(&ptr_of(other))
+    }
+}
+
+fn ptr_of<TKind>(ast: &AST<TKind>) -> *const ASTInner
+where
+    TKind: Clone + TryFrom<Any>,
+    Any: From<TKind>,
+{
+    match ast {
+        AST::Valid(inner, _) => Arc::as_ptr(inner),
+        AST::Malformed { inner, .. } => Arc::as_ptr(inner),
+    }
+}
+
 impl<TKind> Debug for AST<TKind>
 where
     TKind: Clone + TryFrom<Any> + Debug,

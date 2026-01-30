@@ -29,10 +29,10 @@ pub struct StringLiteral {
     pub close_quote: Slice,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlainIdentifier;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalIdentifier {
     pub identifier: AST<PlainIdentifier>,
 }
@@ -87,11 +87,12 @@ pub struct Invocation {
     pub close_paren: Option<Slice>,
 }
 
-/// FunctionExpression node: (?:"(" PlainIdentifier (?:"," PlainIdentifier)* ","? ")") or PlainIdentifier "=>" Expression
+/// FunctionExpression node: (?:"(" Param (?:"," Param)* ","? ")") or PlainIdentifier "=>" Expression
+/// where Param = PlainIdentifier (":" TypeExpression)?
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionExpression {
     pub open_paren: Option<Slice>,
-    pub parameters: Vec<AST<PlainIdentifier>>,
+    pub parameters: Vec<(AST<PlainIdentifier>, Option<(Slice, AST<TypeExpression>)>)>,
     pub commas: Vec<Slice>,
     pub trailing_comma: Option<Slice>,
     pub close_paren: Option<Slice>,

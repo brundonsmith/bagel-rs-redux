@@ -266,7 +266,7 @@ impl LanguageServer for BagelLanguageServer {
             let type_info = if let Some(expr) = node.clone().try_downcast::<Expression>() {
                 eprintln!("[DEBUG] hover() - node is an Expression, inferring type");
                 let ctx = InferTypeContext {};
-                let inferred_type = expr.infer_type(ctx);
+                let inferred_type = expr.infer_type(ctx).normalize();
                 eprintln!("[DEBUG] hover() - inferred type: {}", inferred_type);
                 format!("**Type:** `{}`\n\n", inferred_type)
             } else {

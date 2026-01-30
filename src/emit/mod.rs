@@ -111,16 +111,20 @@ where
                         Expression::FunctionExpression(func) => {
                             // (param1, param2) => body  or  param => body
                             if func.parameters.len() == 1 && func.open_paren.is_none() {
-                                // Single parameter without parens
-                                func.parameters[0].emit(ctx, f)?;
+                                // Single parameter without parens (no type annotation possible)
+                                func.parameters[0].0.emit(ctx, f)?;
                             } else {
                                 // Multiple parameters or explicit parens
                                 write!(f, "(")?;
-                                for (i, param) in func.parameters.iter().enumerate() {
+                                for (i, (param_name, type_ann)) in func.parameters.iter().enumerate() {
                                     if i > 0 {
                                         write!(f, ", ")?;
                                     }
-                                    param.emit(ctx, f)?;
+                                    param_name.emit(ctx, f)?;
+                                    if let Some((_colon, type_expr)) = type_ann {
+                                        write!(f, ": ")?;
+                                        type_expr.emit(ctx, f)?;
+                                    }
                                 }
                                 if func.trailing_comma.is_some() {
                                     write!(f, ",")?;

@@ -50,11 +50,9 @@ impl AST<Expression> {
                     }
                 }
 
-                LocalIdentifier(_) => {
-                    // Without a symbol table, we can't determine the type
-                    // In the future, this would look up the identifier in the context
-                    Type::Unknown
-                }
+                LocalIdentifier(local_id) => Type::LocalIdentifier {
+                    identifier: local_id,
+                },
 
                 BinaryOperation(bin_op) => {
                     let left_type = bin_op.left.infer_type(ctx);

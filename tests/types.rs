@@ -14,7 +14,7 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
     // Try to downcast to Expression
     if let Some(expr) = ast.clone().try_downcast::<Expression>() {
         let ctx = InferTypeContext {};
-        let inferred_type = expr.infer_type(ctx);
+        let inferred_type = expr.infer_type(ctx).normalize();
         let code = expr.slice().as_str().to_string();
         let type_str = format!("{}", inferred_type);
         results.insert(code, type_str);
