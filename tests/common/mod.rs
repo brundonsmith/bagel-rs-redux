@@ -1,4 +1,7 @@
-pub const SAMPLE_1: &str = "const x: number = 42
+pub const SAMPLE_1: &str = "
+from './bar.bgl' import { thing }
+
+const x: number = 42
 const y = true
 const z = false
 const c: boolean = a == b || y != z

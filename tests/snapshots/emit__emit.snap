@@ -2,6 +2,7 @@
 source: tests/emit.rs
 expression: emitted
 ---
+from './bar.bgl' import { thing }
 const x: number = 42
 const y = true
 const z = false

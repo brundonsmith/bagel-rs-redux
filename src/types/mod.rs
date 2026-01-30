@@ -278,6 +278,7 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
                     .filter(|decl| decl.details().is_some())
                     .filter_map(|decl| match decl.unpack() {
                         grammar::Declaration::ConstDeclaration(const_decl) => Some(const_decl),
+                        grammar::Declaration::ImportDeclaration(_) => None,
                     })
                     .find(|const_decl| const_decl.identifier.slice().as_str() == name)
                     .map(|const_decl| resolve_declaration_type(&const_decl))

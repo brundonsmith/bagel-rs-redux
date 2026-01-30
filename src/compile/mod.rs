@@ -52,11 +52,32 @@ where
 
                 Any::Declaration(declaration) => match declaration {
                     Declaration::ConstDeclaration(decl) => {
-                        // const identifier = value  ->  const identifier = value
+                        // export? const identifier = value  ->  export? const identifier = value
+                        if decl.export_keyword.is_some() {
+                            write!(f, "export ")?;
+                        }
                         write!(f, "const ")?;
                         decl.identifier.compile(ctx, f)?;
                         write!(f, " = ")?;
                         decl.value.compile(ctx, f)?;
+                        Ok(())
+                    }
+                    Declaration::ImportDeclaration(decl) => {
+                        // from 'path' import { foo, bar as other }
+                        //   -> import { foo, bar as other } from 'path'
+                        write!(f, "import {{ ")?;
+                        for (i, specifier) in decl.imports.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            specifier.name.compile(ctx, f)?;
+                            if let Some((_, alias)) = &specifier.alias {
+                                write!(f, " as ")?;
+                                alias.compile(ctx, f)?;
+                            }
+                        }
+                        write!(f, " }} from ")?;
+                        decl.path.compile(ctx, f)?;
                         Ok(())
                     }
                 },

@@ -2,6 +2,7 @@
 source: tests/compile.rs
 expression: compiled
 ---
+import { thing } from './bar.bgl';
 const x = 42;
 const y = true;
 const z = false;

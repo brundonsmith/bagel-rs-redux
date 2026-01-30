@@ -1,9 +1,8 @@
-use std::sync::Arc;
+use std::path::PathBuf;
 
-use bagel::ast::slice::Slice;
-use bagel::check::{BagelError, BagelErrorDetails, CheckContext, Checkable};
-use bagel::config::{Config, RuleSeverity};
-use bagel::parse::parse;
+use bagel::ast::modules::{ModulePath, ModulesStore};
+use bagel::check::{CheckContext, Checkable};
+use bagel::config::Config;
 use bagel::utils::resolve_targets;
 use clap::{Parser, Subcommand};
 
@@ -51,71 +50,79 @@ async fn main() {
     match cli.command {
         Command::Check { watch: _, targets } => {
             let files = resolve_targets(targets);
+            let store = match ModulesStore::load(files).await {
+                Ok(store) => store,
+                Err(e) => {
+                    eprintln!("Failed to load modules: {:?}", e);
+                    std::process::exit(1);
+                }
+            };
+
             let config = Config::default();
             let mut error_count = 0;
+            let module_count = store.modules.len();
 
-            for file_path in &files {
-                let source = match std::fs::read_to_string(file_path) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        eprintln!("Failed to read {}: {e}", file_path.display());
-                        continue;
-                    }
-                };
-
-                let slice = Slice::new(Arc::new(source));
-
-                let ast = match parse::module(slice.clone()) {
-                    Ok((_, ast)) => ast,
-                    Err(nom_err) => {
-                        let bagel_err = match nom_err {
-                            nom::Err::Error(e) | nom::Err::Failure(e) => e,
-                            nom::Err::Incomplete(_) => BagelError {
-                                src: slice,
-                                severity: RuleSeverity::Error,
-                                details: BagelErrorDetails::ParseError {
-                                    message: "Unexpected end of input".to_string(),
-                                },
-                            },
-                        };
-                        eprint!("{}", bagel_err.write_for_terminal(file_path));
-                        error_count += 1;
-                        continue;
-                    }
+            for (path, module) in &store.modules {
+                let file_path = match path {
+                    ModulePath::File(p) => p.clone(),
+                    ModulePath::Url(url) => PathBuf::from(url),
                 };
 
                 let mut errors = Vec::new();
-                ast.check(&CheckContext { config: &config }, &mut |e| {
-                    errors.push(e);
-                });
+                module
+                    .ast
+                    .check(&CheckContext { config: &config }, &mut |e| {
+                        errors.push(e);
+                    });
 
                 error_count += errors.len();
                 for error in &errors {
-                    eprint!("{}", error.write_for_terminal(file_path));
+                    eprint!("{}", error.write_for_terminal(&file_path));
                 }
             }
 
             if error_count > 0 {
-                let file_word = if files.len() == 1 { "file" } else { "files" };
+                let file_word = if module_count == 1 { "file" } else { "files" };
                 let error_word = if error_count == 1 { "error" } else { "errors" };
-                eprintln!(
-                    "\nFound {error_count} {error_word} in {} {file_word}.",
-                    files.len()
-                );
+                eprintln!("\nFound {error_count} {error_word} in {module_count} {file_word}.",);
                 std::process::exit(1);
             }
         }
         Command::Fix { targets } => {
             let files = resolve_targets(targets);
-            eprintln!("TODO: fix {files:?}");
+            let store = match ModulesStore::load(files).await {
+                Ok(store) => store,
+                Err(e) => {
+                    eprintln!("Failed to load modules: {:?}", e);
+                    std::process::exit(1);
+                }
+            };
+            eprintln!("TODO: fix {} modules", store.modules.len());
         }
         Command::Test { watch, targets } => {
             let files = resolve_targets(targets);
-            eprintln!("TODO: test (watch: {watch}) {files:?}");
+            let store = match ModulesStore::load(files).await {
+                Ok(store) => store,
+                Err(e) => {
+                    eprintln!("Failed to load modules: {:?}", e);
+                    std::process::exit(1);
+                }
+            };
+            eprintln!(
+                "TODO: test (watch: {watch}) {} modules",
+                store.modules.len()
+            );
         }
         Command::Build { targets } => {
             let files = resolve_targets(targets);
-            eprintln!("TODO: build {files:?}");
+            let store = match ModulesStore::load(files).await {
+                Ok(store) => store,
+                Err(e) => {
+                    eprintln!("Failed to load modules: {:?}", e);
+                    std::process::exit(1);
+                }
+            };
+            eprintln!("TODO: build {} modules", store.modules.len());
         }
         Command::Lsp => {
             bagel::lsp::run_lsp().await;

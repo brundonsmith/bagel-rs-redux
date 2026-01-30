@@ -1,3 +1,5 @@
+from './bar.bgl' import { thing }
+
 const x = 42
 const y = true
 const z = false

@@ -32,6 +32,7 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                 Declaration::ConstDeclaration(const_decl) => {
                     collect_expression_types(&const_decl.value.clone().upcast(), results);
                 }
+                Declaration::ImportDeclaration(_) => {}
             },
             Any::Expression(expr) => {
                 use bagel::ast::grammar::Expression::*;

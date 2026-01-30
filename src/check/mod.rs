@@ -72,7 +72,7 @@ fn highlight_source_line(line: &str) -> String {
         // String literals
         if ch == '\'' || ch == '"' {
             let quote = ch;
-            out.push_str(GREEN);
+            out.push_str(YELLOW);
             out.push(ch);
             i += 1;
             while i < len && chars[i] != quote {
@@ -253,6 +253,15 @@ where
                         decl.identifier.check(ctx, report_error);
                         decl.type_annotation.check(ctx, report_error);
                         decl.value.check(ctx, report_error);
+                    }
+                    Declaration::ImportDeclaration(decl) => {
+                        decl.path.check(ctx, report_error);
+                        for specifier in &decl.imports {
+                            specifier.name.check(ctx, report_error);
+                            if let Some((_, alias)) = &specifier.alias {
+                                alias.check(ctx, report_error);
+                            }
+                        }
                     }
                 },
 

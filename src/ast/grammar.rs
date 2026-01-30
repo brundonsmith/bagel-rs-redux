@@ -294,11 +294,31 @@ pub struct TypeOfTypeExpression {
 /// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstDeclaration {
+    pub export_keyword: Option<Slice>,
     pub const_keyword: Slice,
     pub identifier: AST<PlainIdentifier>,
     pub type_annotation: Option<(Slice, AST<TypeExpression>)>, // (colon, type)
     pub equals: Slice,
     pub value: AST<Expression>,
+}
+
+/// ImportDeclaration node: from '<path>' import { foo, bar as other }
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ImportDeclaration {
+    pub from_keyword: Slice,
+    pub path: AST<StringLiteral>,
+    pub import_keyword: Slice,
+    pub open_brace: Slice,
+    pub imports: Vec<ImportSpecifier>,
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_brace: Option<Slice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ImportSpecifier {
+    pub name: AST<PlainIdentifier>,
+    pub alias: Option<(Slice, AST<PlainIdentifier>)>, // (as_keyword, alias)
 }
 
 /// Module node (represents a whole document)
@@ -315,7 +335,8 @@ type_hierarchy! {
     Any {
         Module,
         Declaration {
-            ConstDeclaration
+            ConstDeclaration,
+            ImportDeclaration
         }
         Expression {
             NilLiteral,

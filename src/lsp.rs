@@ -389,6 +389,9 @@ impl LanguageServer for BagelLanguageServer {
                                     data: None,
                                 });
                             }
+                            Declaration::ImportDeclaration(_) => {
+                                // No inlay hints for imports
+                            }
                         }
                     }
                 }
@@ -590,6 +593,7 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
                         .inspect(|_| {
                             eprintln!("[DEBUG] find_node_at_offset() - found in declaration value")
                         }),
+                        Declaration::ImportDeclaration(_) => None,
                     }
                 }
                 Any::Expression(expr) => {

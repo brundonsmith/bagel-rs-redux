@@ -43,7 +43,10 @@ where
 
                 Any::Declaration(declaration) => match declaration {
                     Declaration::ConstDeclaration(decl) => {
-                        // const identifier: type = value
+                        // export? const identifier: type = value
+                        if decl.export_keyword.is_some() {
+                            write!(f, "export ")?;
+                        }
                         write!(f, "const ")?;
                         decl.identifier.emit(ctx, f)?;
 
@@ -56,6 +59,25 @@ where
                         write!(f, " = ")?;
                         decl.value.emit(ctx, f)?;
                         Ok(())
+                    }
+                    Declaration::ImportDeclaration(decl) => {
+                        write!(f, "from ")?;
+                        decl.path.emit(ctx, f)?;
+                        write!(f, " import {{ ")?;
+                        for (i, specifier) in decl.imports.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            specifier.name.emit(ctx, f)?;
+                            if let Some((_, alias)) = &specifier.alias {
+                                write!(f, " as ")?;
+                                alias.emit(ctx, f)?;
+                            }
+                        }
+                        if decl.trailing_comma.is_some() {
+                            write!(f, ",")?;
+                        }
+                        write!(f, " }}")
                     }
                 },
 

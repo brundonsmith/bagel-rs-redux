@@ -65,7 +65,9 @@ macro_rules! binary_operation {
 }
 
 // Reserved keywords that cannot be used as identifiers
-const KEYWORDS: &[&str] = &["nil", "true", "false", "const", "if", "else", "typeof"];
+const KEYWORDS: &[&str] = &[
+    "nil", "true", "false", "const", "export", "from", "import", "as", "if", "else", "typeof",
+];
 
 fn is_keyword(s: &str) -> bool {
     KEYWORDS.contains(&s)
@@ -978,22 +980,25 @@ pub fn type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     postfix_type_expression(i)
 }
 
-// Parser for Declaration: "const" PlainIdentifier (":" TypeExpression)? "=" Expression
-pub fn declaration(i: Slice) -> ParseResult<AST<ConstDeclaration>> {
+// Parser for ConstDeclaration: "export"? "const" PlainIdentifier (":" TypeExpression)? "=" Expression
+fn const_declaration(i: Slice) -> ParseResult<AST<ConstDeclaration>> {
     map(
         seq!(
+            opt(tag("export")),
             tag("const"),
             plain_identifier,
             opt(seq!(tag(":"), type_expression)),
             expect_tag("="),
             expression
         ),
-        |(const_keyword, mut identifier, type_annotation, equals, mut value)| {
-            let span = const_keyword.spanning(value.slice());
-
-            // let mut type_annotation_opt = type_annotation;
+        |(export_keyword, const_keyword, mut identifier, type_annotation, equals, mut value)| {
+            let span = export_keyword
+                .as_ref()
+                .unwrap_or(&const_keyword)
+                .spanning(value.slice());
 
             let decl = ConstDeclaration {
+                export_keyword,
                 const_keyword,
                 identifier: identifier.clone(),
                 type_annotation: type_annotation.clone(),
@@ -1013,6 +1018,84 @@ pub fn declaration(i: Slice) -> ParseResult<AST<ConstDeclaration>> {
     )(i)
 }
 
+// Parser for ImportDeclaration: "from" StringLiteral "import" "{" ImportSpecifier ("," ImportSpecifier)* ","? "}"
+fn import_declaration(i: Slice) -> ParseResult<AST<ImportDeclaration>> {
+    let (remaining, from_keyword) = tag("from")(i)?;
+    let (remaining, mut path) = w(string_literal)(remaining)?;
+    let (remaining, import_keyword) = w(tag("import"))(remaining)?;
+    let (remaining, open_brace) = w(tag("{"))(remaining)?;
+
+    let mut imports = Vec::new();
+    let mut commas = Vec::new();
+    let mut current = remaining;
+    let mut trailing_comma = None;
+
+    // Parse first import specifier if present
+    if let Ok((after_spec, spec)) = w(import_specifier)(current.clone()) {
+        imports.push(spec);
+        current = after_spec;
+
+        // Parse subsequent ", specifier" pairs
+        loop {
+            if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
+                if let Ok((after_spec, spec)) = w(import_specifier)(after_comma.clone()) {
+                    commas.push(comma);
+                    imports.push(spec);
+                    current = after_spec;
+                } else {
+                    trailing_comma = Some(comma);
+                    current = after_comma;
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    let (remaining, close_brace) = w(backtrack(tag("}"), "}", "{"))(current)?;
+
+    let span = from_keyword.spanning(close_brace.as_ref().unwrap_or(&open_brace));
+
+    let decl = ImportDeclaration {
+        from_keyword,
+        path: path.clone(),
+        import_keyword,
+        open_brace,
+        imports: imports.clone(),
+        commas,
+        trailing_comma,
+        close_brace,
+    };
+
+    let node = make_ast(span, decl);
+    path.set_parent(&node);
+    for mut spec in imports {
+        spec.name.set_parent(&node);
+        if let Some((_, mut alias)) = spec.alias {
+            alias.set_parent(&node);
+        }
+    }
+
+    Ok((remaining, node))
+}
+
+// Parser for ImportSpecifier: PlainIdentifier ("as" PlainIdentifier)?
+fn import_specifier(i: Slice) -> ParseResult<ImportSpecifier> {
+    map(
+        seq!(plain_identifier, opt(seq!(tag("as"), plain_identifier))),
+        |(name, alias)| ImportSpecifier { name, alias },
+    )(i)
+}
+
+// Parser for Declaration: ConstDeclaration | ImportDeclaration
+pub fn declaration(i: Slice) -> ParseResult<AST<Declaration>> {
+    alt((
+        map(const_declaration, |d| d.upcast()),
+        map(import_declaration, |d| d.upcast()),
+    ))(i)
+}
+
 // Parser for Module: Declaration+
 pub fn module(i: Slice) -> ParseResult<AST<Module>> {
     let start = i.clone();
@@ -1023,8 +1106,7 @@ pub fn module(i: Slice) -> ParseResult<AST<Module>> {
     let consumed_len = start.len() - remaining.len();
     let span = start.slice_range(0, Some(consumed_len));
 
-    let mut declarations: Vec<AST<Declaration>> =
-        const_declarations.into_iter().map(|d| d.upcast()).collect();
+    let mut declarations: Vec<AST<Declaration>> = const_declarations;
 
     let module_node = Module {
         declarations: declarations.clone(),
