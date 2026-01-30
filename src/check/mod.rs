@@ -396,6 +396,40 @@ where
                             // Recurse to fields
                             obj.fields.check(ctx, report_error);
                         }
+                        IfElseExpression(if_else) => {
+                            // Recurse to children
+                            if_else.condition.check(ctx, report_error);
+                            if_else.consequent.check(ctx, report_error);
+
+                            match &if_else.else_clause {
+                                Some(crate::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
+                                    expression.check(ctx, report_error);
+                                }
+                                Some(crate::ast::grammar::ElseClause::ElseIf { if_else: nested, .. }) => {
+                                    nested.check(ctx, report_error);
+                                }
+                                None => {}
+                            }
+
+                            // Type-check: condition must be boolean or nil
+                            let infer_ctx = InferTypeContext {};
+                            let cond_type = if_else.condition.infer_type(infer_ctx).normalize();
+                            let allowed = Type::Union { variants: vec![Type::Boolean, Type::Nil] };
+                            let fits_ctx = FitsContext {};
+                            let issues = cond_type.clone().fit_issues(allowed, fits_ctx);
+                            if !issues.is_empty() {
+                                report_error(BagelError {
+                                    src: if_else.condition.slice().clone(),
+                                    severity: RuleSeverity::Error,
+                                    details: BagelErrorDetails::MiscError {
+                                        message: format!(
+                                            "Condition must be 'boolean' or 'nil', but got '{}'",
+                                            cond_type
+                                        ),
+                                    },
+                                });
+                            }
+                        }
                     }
                 }
 

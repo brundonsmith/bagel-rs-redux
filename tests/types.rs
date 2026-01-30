@@ -38,9 +38,10 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                         collect_expression_types(&bin_op.left.clone().upcast(), results);
                         collect_expression_types(&bin_op.right.clone().upcast(), results);
                     }
-                    LocalIdentifier(_local_id) => {
-                        // LocalIdentifier doesn't have sub-expressions
+                    UnaryOperation(unary_op) => {
+                        collect_expression_types(&unary_op.operand.clone().upcast(), results);
                     }
+                    LocalIdentifier(_) => {}
                     Invocation(inv) => {
                         collect_expression_types(&inv.function.clone().upcast(), results);
                         for arg in &inv.arguments {
@@ -49,6 +50,29 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                     }
                     FunctionExpression(func) => {
                         collect_expression_types(&func.body.clone().upcast(), results);
+                    }
+                    ArrayLiteral(arr) => {
+                        for elem in &arr.elements {
+                            collect_expression_types(&elem.clone().upcast(), results);
+                        }
+                    }
+                    ObjectLiteral(obj) => {
+                        for (_, _, value) in &obj.fields {
+                            collect_expression_types(&value.clone().upcast(), results);
+                        }
+                    }
+                    IfElseExpression(if_else) => {
+                        collect_expression_types(&if_else.condition.clone().upcast(), results);
+                        collect_expression_types(&if_else.consequent.clone().upcast(), results);
+                        match &if_else.else_clause {
+                            Some(bagel::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
+                                collect_expression_types(&expression.clone().upcast(), results);
+                            }
+                            Some(bagel::ast::grammar::ElseClause::ElseIf { if_else: nested, .. }) => {
+                                collect_expression_types(&nested.clone().upcast(), results);
+                            }
+                            None => {}
+                        }
                     }
                     _ => {
                         // Leaf expressions (literals) have no children

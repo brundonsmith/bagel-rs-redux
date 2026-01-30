@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    ast::{
-        container::AST,
-        grammar::Expression,
-    },
+    ast::{container::AST, grammar::Expression},
     types::Type,
 };
 
@@ -79,7 +76,16 @@ impl AST<Expression> {
                 FunctionExpression(func) => {
                     // For now, we don't have enough context to infer parameter types
                     // We'd need a symbol table to track what types the parameters are used as
-                    let args = vec![Type::Unknown; func.parameters.len()];
+                    let args = func
+                        .parameters
+                        .into_iter()
+                        .map(|param| {
+                            param
+                                .1
+                                .map(|(_, t)| t.unpack().into())
+                                .unwrap_or(Type::Unknown)
+                        })
+                        .collect();
                     let returns = Arc::new(func.body.infer_type(ctx));
 
                     Type::FuncType {
@@ -120,6 +126,30 @@ impl AST<Expression> {
                     Type::Object {
                         fields,
                         is_open: false,
+                    }
+                }
+
+                IfElseExpression(if_else) => {
+                    let condition_type = if_else.condition.infer_type(ctx);
+                    let consequent_type = if_else.consequent.infer_type(ctx);
+
+                    let alternate_type = match &if_else.else_clause {
+                        Some(crate::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
+                            expression.infer_type(ctx)
+                        }
+                        Some(crate::ast::grammar::ElseClause::ElseIf {
+                            if_else: nested, ..
+                        }) => {
+                            let nested_as_expr: AST<Expression> = nested.clone().upcast();
+                            nested_as_expr.infer_type(ctx)
+                        }
+                        None => Type::Nil,
+                    };
+
+                    Type::IfElse {
+                        condition: Arc::new(condition_type),
+                        consequent: Arc::new(consequent_type),
+                        alternate: Arc::new(alternate_type),
                     }
                 }
             },

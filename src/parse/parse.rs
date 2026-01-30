@@ -65,7 +65,7 @@ macro_rules! binary_operation {
 }
 
 // Reserved keywords that cannot be used as identifiers
-const KEYWORDS: &[&str] = &["nil", "true", "false", "const"];
+const KEYWORDS: &[&str] = &["nil", "true", "false", "const", "if", "else"];
 
 fn is_keyword(s: &str) -> bool {
     KEYWORDS.contains(&s)
@@ -577,6 +577,79 @@ fn object_literal(i: Slice) -> ParseResult<AST<ObjectLiteral>> {
     Ok((remaining, node))
 }
 
+// Parser for IfElseExpression: "if" Expression "{" Expression "}" ("else" ("{" Expression "}" | IfElseExpression))?
+fn if_else_expression(i: Slice) -> ParseResult<AST<IfElseExpression>> {
+    let start = i.clone();
+
+    let (remaining, (if_keyword, mut condition, open_brace, mut consequent, close_brace)) =
+        seq!(
+            tag("if"),
+            expression,
+            expect_tag("{"),
+            expression,
+            expect_tag("}")
+        )(i)?;
+
+    // Try to parse else clause
+    let (remaining, else_clause) = match w(tag("else"))(remaining.clone()) {
+        Ok((after_else, else_keyword)) => {
+            // Try else-if first, then fall back to else block
+            match w(if_else_expression)(after_else.clone()) {
+                Ok((after_else_if, if_else)) => {
+                    let clause = ElseClause::ElseIf {
+                        else_keyword,
+                        if_else,
+                    };
+                    (after_else_if, Some(clause))
+                }
+                Err(_) => {
+                    // Parse else { expression }
+                    let (after_block, (else_open_brace, else_expr, else_close_brace)) =
+                        seq!(expect_tag("{"), expression, expect_tag("}"))(after_else)?;
+
+                    let clause = ElseClause::ElseBlock {
+                        else_keyword,
+                        open_brace: else_open_brace,
+                        expression: else_expr,
+                        close_brace: else_close_brace,
+                    };
+                    (after_block, Some(clause))
+                }
+            }
+        }
+        Err(_) => (remaining, None),
+    };
+
+    let consumed_len = start.len() - remaining.len();
+    let span = start.slice_range(0, Some(consumed_len));
+
+    let if_else_expr = IfElseExpression {
+        if_keyword,
+        condition: condition.clone(),
+        open_brace,
+        consequent: consequent.clone(),
+        close_brace,
+        else_clause,
+    };
+
+    let node = make_ast(span, if_else_expr);
+    condition.set_parent(&node);
+    consequent.set_parent(&node);
+
+    // Set parents on AST children within the else clause
+    match &node.unpack().else_clause {
+        Some(ElseClause::ElseBlock { expression, .. }) => {
+            expression.clone().set_parent(&node);
+        }
+        Some(ElseClause::ElseIf { if_else, .. }) => {
+            if_else.clone().set_parent(&node);
+        }
+        None => {}
+    }
+
+    Ok((remaining, node))
+}
+
 fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
     alt((
         map(nil_literal, |n| n.upcast()),
@@ -585,6 +658,7 @@ fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
         map(string_literal, |n| n.upcast()),
         map(array_literal, |n| n.upcast()),
         map(object_literal, |n| n.upcast()),
+        map(if_else_expression, |n| n.upcast()),
         map(function_expression, |n| n.upcast()),
         map(local_identifier, |n| n.upcast()),
     ))(i)

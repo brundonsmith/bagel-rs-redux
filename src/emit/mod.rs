@@ -170,6 +170,27 @@ where
                             }
                             write!(f, " }}")
                         }
+
+                        Expression::IfElseExpression(if_else) => {
+                            write!(f, "if ")?;
+                            if_else.condition.emit(ctx, f)?;
+                            write!(f, " {{ ")?;
+                            if_else.consequent.emit(ctx, f)?;
+                            write!(f, " }}")?;
+
+                            match &if_else.else_clause {
+                                Some(ElseClause::ElseBlock { expression, .. }) => {
+                                    write!(f, " else {{ ")?;
+                                    expression.emit(ctx, f)?;
+                                    write!(f, " }}")
+                                }
+                                Some(ElseClause::ElseIf { if_else: nested, .. }) => {
+                                    write!(f, " else ")?;
+                                    nested.emit(ctx, f)
+                                }
+                                None => Ok(()),
+                            }
+                        }
                     }
                 }
 

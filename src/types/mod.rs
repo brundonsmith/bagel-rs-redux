@@ -57,6 +57,11 @@ pub enum Type {
         operator: UnaryOperator,
         operand: Arc<Type>,
     },
+    IfElse {
+        condition: Arc<Type>,
+        consequent: Arc<Type>,
+        alternate: Arc<Type>,
+    },
     LocalIdentifier {
         identifier: LocalIdentifier,
     },
@@ -141,6 +146,15 @@ impl Type {
             UnaryOperation { operator, operand } => {
                 normalize_unary_operation(operator, operand.as_ref().clone().normalize())
             }
+            IfElse {
+                condition,
+                consequent,
+                alternate,
+            } => normalize_if_else(
+                condition.as_ref().clone().normalize(),
+                consequent.as_ref().clone().normalize(),
+                alternate.as_ref().clone().normalize(),
+            ),
             Tuple { elements } => Tuple {
                 elements: elements.into_iter().map(|e| e.normalize()).collect(),
             },
@@ -387,6 +401,23 @@ fn normalize_unary_operation(operator: UnaryOperator, operand: Type) -> Type {
     }
 }
 
+/// Normalize an if/else expression type.
+/// If the condition is known to be truthy, return the consequent type.
+/// If the condition is known to be falsy, return the alternate type.
+/// Otherwise, return a union of both branches.
+fn normalize_if_else(condition: Type, consequent: Type, alternate: Type) -> Type {
+    if is_exact_truthy(&condition) {
+        consequent
+    } else if is_exact_falsy(&condition) {
+        alternate
+    } else {
+        Type::Union {
+            variants: vec![consequent, alternate],
+        }
+        .normalize()
+    }
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -399,7 +430,7 @@ impl fmt::Display for Type {
             Type::Number => write!(f, "number"),
             Type::ExactNumber { value } => write!(f, "{}", value),
             Type::String => write!(f, "string"),
-            Type::ExactString { value } => write!(f, "\"{}\"", value.as_str()),
+            Type::ExactString { value } => write!(f, "'{}'", value.as_str()),
             Type::Tuple { elements } => {
                 write!(f, "[")?;
                 for (i, elem) in elements.iter().enumerate() {
@@ -466,6 +497,11 @@ impl fmt::Display for Type {
             Type::UnaryOperation { operator, operand } => {
                 write!(f, "({}{})", operator.as_str(), operand)
             }
+            Type::IfElse {
+                condition,
+                consequent,
+                alternate,
+            } => write!(f, "(if {} {{ {} }} else {{ {} }})", condition, consequent, alternate),
             Type::LocalIdentifier { identifier } => {
                 write!(f, "{}", identifier.identifier.slice().as_str())
             }

@@ -156,6 +156,31 @@ pub struct ArrayLiteral {
     pub close_bracket: Option<Slice>,
 }
 
+/// IfElseExpression node: "if" Expression "{" Expression "}" ("else" ("{" Expression "}" | IfElseExpression))?
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct IfElseExpression {
+    pub if_keyword: Slice,
+    pub condition: AST<Expression>,
+    pub open_brace: Slice,
+    pub consequent: AST<Expression>,
+    pub close_brace: Slice,
+    pub else_clause: Option<ElseClause>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ElseClause {
+    ElseBlock {
+        else_keyword: Slice,
+        open_brace: Slice,
+        expression: AST<Expression>,
+        close_brace: Slice,
+    },
+    ElseIf {
+        else_keyword: Slice,
+        if_else: AST<IfElseExpression>,
+    },
+}
+
 /// ObjectLiteral node: "{" (PlainIdentifier ":" Expression (?:"," PlainIdentifier ":" Expression)*)? ","? "}"
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ObjectLiteral {
@@ -260,6 +285,7 @@ type_hierarchy! {
             FunctionExpression,
             ArrayLiteral,
             ObjectLiteral,
+            IfElseExpression,
         },
         TypeExpression {
             UnknownTypeExpression,

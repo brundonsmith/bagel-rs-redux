@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use crate::{
     ast::{container::AST, grammar::Any},
+    ast::grammar::{ElseClause, IfElseExpression},
     config::Config,
 };
 
@@ -166,6 +167,15 @@ where
                             }
                             write!(f, "}}")
                         }
+
+                        Expression::IfElseExpression(if_else) => {
+                            // if cond { cons } else { alt } -> (cond ? cons : alt)
+                            // if cond { cons } -> (cond ? cons : null)
+                            // else if chains -> nested ternaries
+                            write!(f, "(")?;
+                            compile_if_else_ternary(if_else, ctx, f)?;
+                            write!(f, ")")
+                        }
                     }
                 }
 
@@ -191,5 +201,24 @@ where
                 }
             },
         }
+    }
+}
+
+fn compile_if_else_ternary<W: Write>(
+    if_else: &IfElseExpression,
+    ctx: CompileContext,
+    f: &mut W,
+) -> core::fmt::Result {
+    if_else.condition.compile(ctx, f)?;
+    write!(f, " ? ")?;
+    if_else.consequent.compile(ctx, f)?;
+    write!(f, " : ")?;
+
+    match &if_else.else_clause {
+        Some(ElseClause::ElseBlock { expression, .. }) => expression.compile(ctx, f),
+        Some(ElseClause::ElseIf { if_else: nested, .. }) => {
+            compile_if_else_ternary(&nested.unpack(), ctx, f)
+        }
+        None => write!(f, "null"),
     }
 }
