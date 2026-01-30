@@ -71,6 +71,11 @@ pub struct Rules {
     /// Require that the nil coalescing operator's left operand be
     /// possibly-nil (otherwise the operator does nothing).
     no_unnecessary_nil_coalescing: RuleSeverityOrOff,
+
+    /// Require that all conditionals have the possibility to be either true
+    /// or false (not guaranteed to be just one or the other, based on type
+    /// information)
+    no_unnecessary_conditional: RuleSeverityOrOff,
 }
 
 impl Default for Rules {
@@ -101,6 +106,7 @@ impl Default for Rules {
             },
             no_unnecessary_mutable_variables: Autofix,
             no_unnecessary_nil_coalescing: Autofix,
+            no_unnecessary_conditional: Error,
         }
     }
 }
