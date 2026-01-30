@@ -76,10 +76,20 @@ pub struct Rules {
     /// or false (not guaranteed to be just one or the other, based on type
     /// information)
     no_unnecessary_conditional: RuleSeverityOrOff,
+
+    /// Standardize module-level function declarations to either be all plain
+    /// const declarations, or all use the dedicated function syntax.
+    ///
+    /// Const declarations that have a type definition which can't be
+    /// represented in the dedicated function syntax (eg, a named function
+    /// type) will be ignored by this rule.
+    function_syntax: FunctionSyntaxConfig,
 }
 
 impl Default for Rules {
     fn default() -> Self {
+        use FunctionSyntax::*;
+        use Locality::*;
         use RuleSeverityOrOff::*;
 
         Self {
@@ -102,11 +112,15 @@ impl Default for Rules {
             use_expressions_where_possible: Autofix,
             no_dead_code: NoDeadCodeConfig {
                 severity: Warn,
-                locality: Locality::Project,
+                locality: Project,
             },
             no_unnecessary_mutable_variables: Autofix,
             no_unnecessary_nil_coalescing: Autofix,
             no_unnecessary_conditional: Error,
+            function_syntax: FunctionSyntaxConfig {
+                severity: Autofix,
+                function_syntax: Function,
+            },
         }
     }
 }
@@ -133,6 +147,21 @@ pub struct NoDeadCodeConfig {
 pub enum Locality {
     Module,
     Project,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub struct FunctionSyntaxConfig {
+    severity: RuleSeverityOrOff,
+    function_syntax: FunctionSyntax,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub enum FunctionSyntax {
+    /// Plain const syntax
+    Const,
+
+    /// Named function syntax
+    Function,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
