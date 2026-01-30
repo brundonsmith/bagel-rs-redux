@@ -51,6 +51,21 @@ where
 {
     fn check<'a, F: FnMut(BagelError)>(&self, ctx: &CheckContext<'a>, report_error: &mut F) {
         match self.details() {
+            // Malformed nodes should be reported as errors
+            None => {
+                if let Some(message) = self.malformed_message() {
+                    report_error(BagelError {
+                        src: self.slice().clone(),
+                        severity: RuleSeverity::Error,
+                        details: BagelErrorDetails::ParseError {
+                            message: message.to_string(),
+                        },
+                    });
+                }
+            }
+
+            // Process valid nodes
+            Some(details) => match details {
             Any::Module(module) => {
                 // Recurse to all declarations
                 module.declarations.check(ctx, report_error);
@@ -156,17 +171,7 @@ where
             Any::BinaryOperator(_) => {
                 // Leaf node, nothing to check
             }
-
-            Any::Malformed(_malformed) => {
-                // Report parse error
-                report_error(BagelError {
-                    src: self.slice().clone(),
-                    severity: RuleSeverity::Error,
-                    details: BagelErrorDetails::ParseError {
-                        message: String::from("Failed to parse"),
-                    },
-                });
-            }
+            },
         }
     }
 }

@@ -105,11 +105,11 @@ impl Type {
             (
                 Type::Object {
                     fields: val_fields,
-                    jopen: val_open,
+                    is_open: val_open,
                 },
                 Type::Object {
                     fields: dest_fields,
-                    jopen: dest_open,
+                    is_open: dest_open,
                 },
             ) => {
                 // Check that all required destination fields exist in value and are compatible

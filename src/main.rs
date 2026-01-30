@@ -307,41 +307,52 @@ impl LanguageServer for BagelLanguageServer {
         // Traverse the AST to find declarations
         eprintln!("[DEBUG] inlay_hint() - attempting to downcast to Module");
         if let Some(module) = ast.try_downcast::<ast::grammar::Module>() {
-            let module_data = module.unpack();
-            eprintln!("[DEBUG] inlay_hint() - found Module with {} declarations", module_data.declarations.len());
-
-            for (idx, decl) in module_data.declarations.iter().enumerate() {
-                let decl_data: ast::grammar::Declaration = decl.unpack();
-                eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
-                    idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
-
-                // Skip if there's already an explicit type annotation
-                if decl_data.type_annotation.is_some() {
-                    eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
-                    continue;
+            match module.details() {
+                None => {
+                    eprintln!("[DEBUG] inlay_hint() - module is malformed, skipping");
                 }
+                Some(_) => {
+                    let module_data = module.unpack();
+                    eprintln!("[DEBUG] inlay_hint() - found Module with {} declarations", module_data.declarations.len());
 
-                // Infer the type of the value
-                let ctx = InferTypeContext {};
-                let inferred_type = decl_data.value.infer_type(ctx);
-                eprintln!("[DEBUG] inlay_hint() - inferred type for decl {}: {}", idx, inferred_type);
+                    for (idx, decl) in module_data.declarations.iter().enumerate() {
+                        match (decl.details(), decl.unpack().type_annotation) {
+                            (None, _) => {
+                                eprintln!("[DEBUG] inlay_hint() - declaration {} is malformed, skipping", idx);
+                            }
+                            (Some(_), Some(_)) => {
+                                eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
+                            }
+                            (Some(_), None) => {
+                                let decl_data: ast::grammar::Declaration = decl.unpack();
+                                eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
+                                    idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
 
-                // Get the position after the identifier
-                let identifier_slice = decl_data.identifier.slice();
-                let position = offset_to_position(&text, identifier_slice.end);
-                eprintln!("[DEBUG] inlay_hint() - hint position for decl {}: line={} char={}",
-                    idx, position.line, position.character);
+                                // Infer the type of the value
+                                let ctx = InferTypeContext {};
+                                let inferred_type = decl_data.value.infer_type(ctx);
+                                eprintln!("[DEBUG] inlay_hint() - inferred type for decl {}: {}", idx, inferred_type);
 
-                hints.push(InlayHint {
-                    position,
-                    label: InlayHintLabel::String(format!(": {}", inferred_type)),
-                    kind: Some(InlayHintKind::TYPE),
-                    text_edits: None,
-                    tooltip: None,
-                    padding_left: None,
-                    padding_right: None,
-                    data: None,
-                });
+                                // Get the position after the identifier
+                                let identifier_slice = decl_data.identifier.slice();
+                                let position = offset_to_position(&text, identifier_slice.end);
+                                eprintln!("[DEBUG] inlay_hint() - hint position for decl {}: line={} char={}",
+                                    idx, position.line, position.character);
+
+                                hints.push(InlayHint {
+                                    position,
+                                    label: InlayHintLabel::String(format!(": {}", inferred_type)),
+                                    kind: Some(InlayHintKind::TYPE),
+                                    text_edits: None,
+                                    tooltip: None,
+                                    padding_left: None,
+                                    padding_right: None,
+                                    data: None,
+                                });
+                            }
+                        }
+                    }
+                }
             }
         } else {
             eprintln!("[DEBUG] inlay_hint() - AST is not a Module");
@@ -494,62 +505,66 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
         return None;
     }
 
-    // Try to find a more specific child node
-    let details = ast.details();
+    // Try to find a more specific child node, or return this node if malformed/leaf
+    match ast.details() {
+        // Malformed nodes can't be traversed, return as-is
+        None => {
+            eprintln!("[DEBUG] find_node_at_offset() - node is malformed");
+            Some(ast.clone())
+        }
 
-    match details {
-        Any::Module(module) => {
-            eprintln!("[DEBUG] find_node_at_offset() - node is Module with {} declarations",
-                module.declarations.len());
-            // Check each declaration
-            for (idx, decl) in module.declarations.iter().enumerate() {
-                eprintln!("[DEBUG] find_node_at_offset() - checking declaration {}", idx);
-                if let Some(child) = find_node_at_offset(&decl.clone().upcast(), offset) {
-                    eprintln!("[DEBUG] find_node_at_offset() - found in declaration {}", idx);
-                    return Some(child);
+        // Try to find more specific child nodes
+        Some(details) => {
+            let child = match details {
+                Any::Module(module) => {
+                    eprintln!("[DEBUG] find_node_at_offset() - node is Module with {} declarations",
+                        module.declarations.len());
+                    // Check each declaration
+                    module.declarations.iter().enumerate()
+                        .find_map(|(idx, decl)| {
+                            eprintln!("[DEBUG] find_node_at_offset() - checking declaration {}", idx);
+                            find_node_at_offset(&decl.clone().upcast(), offset)
+                                .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in declaration {}", idx))
+                        })
                 }
-            }
-        }
-        Any::Declaration(decl) => {
-            eprintln!("[DEBUG] find_node_at_offset() - node is Declaration");
-            // Check if offset is in the value expression
-            if let Some(child) = find_node_at_offset(&decl.value.clone().upcast(), offset) {
-                eprintln!("[DEBUG] find_node_at_offset() - found in declaration value");
-                return Some(child);
-            }
-        }
-        Any::Expression(expr) => {
-            eprintln!("[DEBUG] find_node_at_offset() - node is Expression: {:?}",
-                std::mem::discriminant(expr));
-            match expr {
-                ast::grammar::Expression::BinaryOperation(bin_op) => {
-                    eprintln!("[DEBUG] find_node_at_offset() - Expression is BinaryOperation");
-                    // Check left operand
-                    if let Some(child) = find_node_at_offset(&bin_op.left.clone().upcast(), offset)
-                    {
-                        eprintln!("[DEBUG] find_node_at_offset() - found in left operand");
-                        return Some(child);
-                    }
-                    // Check right operand
-                    if let Some(child) = find_node_at_offset(&bin_op.right.clone().upcast(), offset)
-                    {
-                        eprintln!("[DEBUG] find_node_at_offset() - found in right operand");
-                        return Some(child);
+                Any::Declaration(decl) => {
+                    eprintln!("[DEBUG] find_node_at_offset() - node is Declaration");
+                    find_node_at_offset(&decl.value.clone().upcast(), offset)
+                        .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in declaration value"))
+                }
+                Any::Expression(expr) => {
+                    eprintln!("[DEBUG] find_node_at_offset() - node is Expression: {:?}",
+                        std::mem::discriminant(expr));
+                    match expr {
+                        ast::grammar::Expression::BinaryOperation(bin_op) => {
+                            eprintln!("[DEBUG] find_node_at_offset() - Expression is BinaryOperation");
+                            // Check left operand, then right operand
+                            find_node_at_offset(&bin_op.left.clone().upcast(), offset)
+                                .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in left operand"))
+                                .or_else(|| {
+                                    find_node_at_offset(&bin_op.right.clone().upcast(), offset)
+                                        .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in right operand"))
+                                })
+                        }
+                        _ => {
+                            eprintln!("[DEBUG] find_node_at_offset() - Expression is a leaf type");
+                            None
+                        }
                     }
                 }
                 _ => {
-                    eprintln!("[DEBUG] find_node_at_offset() - Expression is a leaf type");
+                    eprintln!("[DEBUG] find_node_at_offset() - node is other type");
+                    None
                 }
-            }
-        }
-        _ => {
-            eprintln!("[DEBUG] find_node_at_offset() - node is other type");
+            };
+
+            // If no child contains the offset, return this node
+            child.or_else(|| {
+                eprintln!("[DEBUG] find_node_at_offset() - no child found, returning this node");
+                Some(ast.clone())
+            })
         }
     }
-
-    // If no child contains the offset, return this node
-    eprintln!("[DEBUG] find_node_at_offset() - no child found, returning this node");
-    Some(ast.clone())
 }
 
 #[tokio::main]

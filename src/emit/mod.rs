@@ -25,6 +25,11 @@ where
         use crate::ast::grammar::*;
 
         match self.details() {
+            // Malformed nodes - emit original text
+            None => write!(f, "{}", self.slice().as_str()),
+
+            // Process valid nodes
+            Some(details) => match details {
             Any::Module(module) => {
                 // Emit all declarations separated by newlines
                 for (i, decl) in module.declarations.iter().enumerate() {
@@ -201,11 +206,7 @@ where
             Any::BinaryOperator(op) => {
                 write!(f, "{}", op.as_str())
             }
-
-            Any::Malformed(_) => {
-                // Emit the original malformed text as-is
-                write!(f, "{}", self.slice().as_str())
-            }
+            },
         }
     }
 }

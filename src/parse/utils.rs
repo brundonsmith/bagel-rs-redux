@@ -172,3 +172,65 @@ fn expect_inner<TResult, F: FnMut(Slice) -> ParseResult<TResult>>(
         }
     }
 }
+
+/// Wraps a parser to backtrack to the matching closing delimiter on failure.
+///
+/// When parsing paired delimiters (like `()`, `[]`, `{}`), this combinator will
+/// attempt the provided parser. If it fails, it will search for the matching
+/// closing delimiter and skip to it, returning the slice that was skipped.
+///
+/// This enables better error recovery when parsing incomplete or malformed code.
+///
+/// # Parameters
+/// - `f`: The parser to attempt
+/// - `closing_char`: The closing delimiter to search for (e.g., ")", "]", "}")
+/// - `opening_char`: The opening delimiter for depth tracking (e.g., "(", "[", "{")
+///
+/// # Example
+/// ```ignore
+/// // Parse closing paren with backtracking on error
+/// let (remaining, close_paren) = backtrack(
+///     tag(")"),
+///     ")",
+///     "("
+/// )(input)?;
+/// ```
+pub fn backtrack<'a>(
+    mut f: impl FnMut(Slice) -> ParseResult<Slice> + 'a,
+    closing_char: &'a str,
+    opening_char: &'a str,
+) -> impl FnMut(Slice) -> ParseResult<Option<Slice>> + 'a {
+    move |i: Slice| {
+        match f(i.clone()) {
+            Ok((remaining, matched)) => Ok((remaining, Some(matched))),
+            Err(_) => {
+                // Try to recover by finding matching closing delimiter
+                let mut depth = 1;
+                let mut pos = 0;
+                let text = i.as_str();
+
+                for (idx, _) in text.char_indices() {
+                    if text[idx..].starts_with(opening_char) {
+                        depth += 1;
+                    } else if text[idx..].starts_with(closing_char) {
+                        depth -= 1;
+                        if depth == 0 {
+                            pos = idx;
+                            break;
+                        }
+                    }
+                }
+
+                if depth == 0 {
+                    // Found matching delimiter - skip to it
+                    let matched = i.clone().slice_range(pos, Some(pos + closing_char.len()));
+                    let remaining = i.slice_range(pos + closing_char.len(), None);
+                    Ok((remaining, Some(matched)))
+                } else {
+                    // No matching delimiter found - consume nothing
+                    Ok((i, None))
+                }
+            }
+        }
+    }
+}

@@ -32,6 +32,11 @@ where
         use crate::ast::grammar::*;
 
         match self.details() {
+            // Malformed nodes - emit original text as best effort
+            None => write!(f, "{}", self.slice().as_str()),
+
+            // Process valid nodes
+            Some(details) => match details {
             Any::Module(module) => {
                 // Compile all declarations separated by semicolons and newlines
                 for (i, decl) in module.declarations.iter().enumerate() {
@@ -138,11 +143,7 @@ where
                 // +, -, *, / are the same in JavaScript
                 write!(f, "{}", op.as_str())
             }
-
-            Any::Malformed(_) => {
-                // Emit the original malformed text as-is (best effort)
-                write!(f, "{}", self.slice().as_str())
-            }
+            },
         }
     }
 }

@@ -1,5 +1,5 @@
 use bagel_language_server::ast::container::AST;
-use bagel_language_server::ast::grammar::{Any, Expression, Module};
+use bagel_language_server::ast::grammar::{Any, Expression};
 use bagel_language_server::ast::slice::Slice;
 use bagel_language_server::parse::parse;
 use bagel_language_server::types::infer::InferTypeContext;
@@ -21,41 +21,43 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
     }
 
     // Recursively visit children
-    match ast.details() {
-        Any::Module(module) => {
-            for decl in &module.declarations {
-                collect_expression_types(&decl.clone().upcast(), results);
+    if let Some(details) = ast.details() {
+        match details {
+            Any::Module(module) => {
+                for decl in &module.declarations {
+                    collect_expression_types(&decl.clone().upcast(), results);
+                }
             }
-        }
-        Any::Declaration(decl) => {
-            collect_expression_types(&decl.value.clone().upcast(), results);
-        }
-        Any::Expression(expr) => {
-            use bagel_language_server::ast::grammar::Expression::*;
-            match expr {
-                BinaryOperation(bin_op) => {
-                    collect_expression_types(&bin_op.left.clone().upcast(), results);
-                    collect_expression_types(&bin_op.right.clone().upcast(), results);
-                }
-                LocalIdentifier(local_id) => {
-                    // LocalIdentifier doesn't have sub-expressions
-                }
-                Invocation(inv) => {
-                    collect_expression_types(&inv.function.clone().upcast(), results);
-                    for arg in &inv.arguments {
-                        collect_expression_types(&arg.clone().upcast(), results);
+            Any::Declaration(decl) => {
+                collect_expression_types(&decl.value.clone().upcast(), results);
+            }
+            Any::Expression(expr) => {
+                use bagel_language_server::ast::grammar::Expression::*;
+                match expr {
+                    BinaryOperation(bin_op) => {
+                        collect_expression_types(&bin_op.left.clone().upcast(), results);
+                        collect_expression_types(&bin_op.right.clone().upcast(), results);
+                    }
+                    LocalIdentifier(_local_id) => {
+                        // LocalIdentifier doesn't have sub-expressions
+                    }
+                    Invocation(inv) => {
+                        collect_expression_types(&inv.function.clone().upcast(), results);
+                        for arg in &inv.arguments {
+                            collect_expression_types(&arg.clone().upcast(), results);
+                        }
+                    }
+                    FunctionExpression(func) => {
+                        collect_expression_types(&func.body.clone().upcast(), results);
+                    }
+                    _ => {
+                        // Leaf expressions (literals) have no children
                     }
                 }
-                FunctionExpression(func) => {
-                    collect_expression_types(&func.body.clone().upcast(), results);
-                }
-                _ => {
-                    // Leaf expressions (literals) have no children
-                }
             }
-        }
-        _ => {
-            // Other node types don't contain expressions
+            _ => {
+                // Other node types don't contain expressions
+            }
         }
     }
 }

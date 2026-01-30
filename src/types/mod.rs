@@ -35,7 +35,7 @@ pub enum Type {
         fields: BTreeMap<String, Type>,
 
         /// If true, object may have additional fields (row polymorphic)
-        jopen: bool,
+        is_open: bool,
     },
     FuncType {
         args: Vec<Type>,
@@ -119,7 +119,7 @@ impl fmt::Display for Type {
                 write!(f, "]")
             }
             Type::Array { element } => write!(f, "{}[]", element),
-            Type::Object { fields, jopen } => {
+            Type::Object { fields, is_open: jopen } => {
                 write!(f, "{{")?;
                 for (i, (key, value)) in fields.iter().enumerate() {
                     if i > 0 {
@@ -201,7 +201,7 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
                     .collect();
                 Type::Object {
                     fields,
-                    jopen: false,
+                    is_open: false,
                 }
             }
             FunctionTypeExpression(func) => {

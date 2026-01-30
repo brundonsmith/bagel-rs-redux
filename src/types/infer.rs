@@ -22,7 +22,12 @@ impl AST<Expression> {
         eprintln!("[DEBUG] infer_type({:?})", self);
         eprintln!("[DEBUG]   Slice: {:?}", self.slice());
 
-        match self.unpack() {
+        match self.details() {
+            // Malformed expressions have unknown type
+            None => Type::Unknown,
+
+            // Infer type from valid expressions
+            Some(_) => match self.unpack() {
             NilLiteral(_) => Type::Nil,
 
             BooleanLiteral(lit) => Type::ExactBoolean { value: lit.value },
@@ -102,7 +107,8 @@ impl AST<Expression> {
                     args_spread: None,
                     returns,
                 }
-            }
+            },
+            },
         }
     }
 }

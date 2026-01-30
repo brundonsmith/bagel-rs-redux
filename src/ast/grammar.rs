@@ -6,7 +6,7 @@
 
 use type_hierarchy::type_hierarchy;
 
-use super::container::{Malformed, AST};
+use super::container::AST;
 use super::slice::Slice;
 
 /// Terminal nodes (literals and identifiers)
@@ -196,7 +196,6 @@ type_hierarchy! {
             UnionTypeExpression,
         },
         PlainIdentifier,
-        BinaryOperator,
-        Malformed
+        BinaryOperator
     }
 }

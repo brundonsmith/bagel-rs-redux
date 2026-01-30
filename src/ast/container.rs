@@ -11,30 +11,36 @@ use crate::ast::slice::Slice;
 
 /// Generic wrapper for all AST nodes in Bagel.
 ///
-/// `AST<TKind>` wraps an `ASTInner` in an `Arc` for cheap cloning, and uses
-/// `PhantomData` to represent the specific type of AST node contained within.
-/// This allows type-safe casting between AST node types without unwrapping or
-/// cloning the underlying `Arc`.
+/// `AST<TKind>` is an enum that represents either a valid parsed node or a malformed node.
+/// This design acknowledges that any AST node can fail to parse, and forces proper handling
+/// of malformed cases throughout the codebase.
 ///
 /// # Type Parameters
 /// - `TKind`: The specific AST node type (e.g., `Expression`, `Declaration`, `Module`)
 ///
 /// # Example
 /// ```ignore
-/// // Create a new AST node
+/// // Create a valid AST node
 /// let node = make_ast(slice, NumberLiteral);
 ///
-/// // Upcast to a more general type
-/// let expr: AST<Expression> = node.upcast();
-///
-/// // Try to downcast back
-/// let number: Option<AST<NumberLiteral>> = expr.try_downcast();
+/// // Pattern match to handle both cases
+/// match node {
+///     AST::Valid(inner, _) => { /* work with valid node */ }
+///     AST::Malformed { inner, message } => { /* handle error */ }
+/// }
 /// ```
 #[derive(Clone, PartialEq, Eq)]
-pub struct AST<TKind>(Arc<ASTInner>, PhantomData<TKind>)
+pub enum AST<TKind>
 where
     TKind: Clone + TryFrom<Any>,
-    Any: From<TKind>;
+    Any: From<TKind>,
+{
+    Valid(Arc<ASTInner>, PhantomData<TKind>),
+    Malformed {
+        inner: Arc<ASTInner>,
+        message: String,
+    },
+}
 
 impl<TKind> std::hash::Hash for AST<TKind>
 where
@@ -42,7 +48,10 @@ where
     Any: From<TKind>,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        Arc::as_ptr(&self.0).hash(state);
+        match self {
+            AST::Valid(inner, _) => Arc::as_ptr(inner).hash(state),
+            AST::Malformed { inner, .. } => Arc::as_ptr(inner).hash(state),
+        }
     }
 }
 
@@ -52,7 +61,14 @@ where
     Any: From<TKind>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("AST").field(&self.0).finish()
+        match self {
+            AST::Valid(inner, _) => f.debug_tuple("AST").field(inner).finish(),
+            AST::Malformed { inner, message } => f
+                .debug_struct("AST::Malformed")
+                .field("inner", inner)
+                .field("message", message)
+                .finish(),
+        }
     }
 }
 
@@ -61,11 +77,26 @@ where
     TKind: Clone + TryFrom<Any>,
     Any: From<TKind>,
 {
-    /// Creates a new AST node from an ASTInner.
+    /// Creates a new valid AST node from an ASTInner.
     ///
     /// This is typically called from parser functions via the `make_ast` helper.
     pub fn new(inner: Arc<ASTInner>) -> Self {
-        AST(inner, PhantomData)
+        AST::Valid(inner, PhantomData)
+    }
+
+    /// Creates a new malformed AST node with an error message.
+    pub fn new_malformed(inner: Arc<ASTInner>, message: String) -> Self {
+        AST::Malformed { inner, message }
+    }
+
+    /// Returns true if this is a valid (non-malformed) node.
+    pub fn is_valid(&self) -> bool {
+        matches!(self, AST::Valid(_, _))
+    }
+
+    /// Returns true if this is a malformed node.
+    pub fn is_malformed(&self) -> bool {
+        matches!(self, AST::Malformed { .. })
     }
 
     /// Returns the source code slice for this AST node.
@@ -73,11 +104,26 @@ where
     /// Every AST node stores the `Slice` representing the portion of source code
     /// it was parsed from. This allows zero-allocation substring references.
     pub fn slice(&self) -> &Slice {
-        &self.0.slice
+        match self {
+            AST::Valid(inner, _) => &inner.slice,
+            AST::Malformed { inner, .. } => &inner.slice,
+        }
     }
 
-    pub fn details(&self) -> &Any {
-        &self.0.details
+    /// Returns the details of this AST node if it's valid, or None if malformed.
+    pub fn details(&self) -> Option<&Any> {
+        match self {
+            AST::Valid(inner, _) => Some(&inner.details),
+            AST::Malformed { .. } => None,
+        }
+    }
+
+    /// Returns the error message if this is a malformed node.
+    pub fn malformed_message(&self) -> Option<&str> {
+        match self {
+            AST::Malformed { message, .. } => Some(message),
+            _ => None,
+        }
     }
 
     pub fn ptr_eq<TOtherKind>(&self, other: &AST<TOtherKind>) -> bool
@@ -85,17 +131,29 @@ where
         TOtherKind: Clone + TryFrom<Any>,
         Any: From<TOtherKind>,
     {
-        Arc::ptr_eq(&self.0, &other.0)
+        let self_ptr = match self {
+            AST::Valid(inner, _) => Arc::as_ptr(inner),
+            AST::Malformed { inner, .. } => Arc::as_ptr(inner),
+        };
+        let other_ptr = match other {
+            AST::Valid(inner, _) => Arc::as_ptr(inner),
+            AST::Malformed { inner, .. } => Arc::as_ptr(inner),
+        };
+        std::ptr::eq(self_ptr, other_ptr)
     }
 
     pub fn parent(&self) -> Option<AST<Any>> {
-        self.0
+        let inner = match self {
+            AST::Valid(inner, _) => inner,
+            AST::Malformed { inner, .. } => inner,
+        };
+        inner
             .parent
             .read()
             .unwrap()
             .as_ref()
             .and_then(|weak| weak.upgrade())
-            .map(|node| AST::<Any>(node, PhantomData))
+            .map(|node| AST::<Any>::Valid(node, PhantomData))
     }
 
     pub fn contains_child(&self, other: &AST<Any>) -> bool {
@@ -109,7 +167,7 @@ where
             current = some_current.parent();
         }
 
-        return false;
+        false
     }
 
     pub fn upcast<TExpected>(self) -> AST<TExpected>
@@ -117,7 +175,10 @@ where
         TExpected: Clone + TryFrom<Any> + From<TKind>,
         Any: From<TExpected>,
     {
-        AST::<TExpected>(self.0, PhantomData)
+        match self {
+            AST::Valid(inner, _) => AST::<TExpected>::Valid(inner, PhantomData),
+            AST::Malformed { inner, message } => AST::<TExpected>::Malformed { inner, message },
+        }
     }
 
     pub fn try_downcast<TExpected>(self) -> Option<AST<TExpected>>
@@ -125,15 +186,25 @@ where
         TExpected: Clone + TryFrom<Any> + TryFrom<TKind>,
         Any: From<TExpected>,
     {
-        TExpected::try_from(self.0.details.clone())
-            .ok()
-            .map(|_| AST::<TExpected>(self.0, PhantomData))
+        match self {
+            AST::Valid(inner, _) => {
+                TExpected::try_from(inner.details.clone())
+                    .ok()
+                    .map(|_| AST::<TExpected>::Valid(inner, PhantomData))
+            }
+            AST::Malformed { inner, message } => {
+                Some(AST::<TExpected>::Malformed { inner, message })
+            }
+        }
     }
 
     pub fn unpack(&self) -> TKind {
-        match TKind::try_from(self.0.details.clone()) {
-            Ok(res) => res,
-            Err(_) => unreachable!(),
+        match self {
+            AST::Valid(inner, _) => match TKind::try_from(inner.details.clone()) {
+                Ok(res) => res,
+                Err(_) => unreachable!(),
+            },
+            AST::Malformed { .. } => panic!("Cannot unpack malformed AST node"),
         }
     }
 
@@ -142,7 +213,10 @@ where
         TExpected: TryFrom<Any>,
         Any: From<TExpected>,
     {
-        TExpected::try_from(self.0.details.clone()).ok()
+        match self {
+            AST::Valid(inner, _) => TExpected::try_from(inner.details.clone()).ok(),
+            AST::Malformed { .. } => None,
+        }
     }
 }
 
@@ -181,7 +255,15 @@ where
         TParentKind: Clone + TryFrom<Any>,
         Any: From<TParentKind>,
     {
-        *self.0.as_ref().parent.write().unwrap() = Some(Arc::downgrade(&parent.0));
+        let self_inner = match self {
+            AST::Valid(inner, _) => inner,
+            AST::Malformed { inner, .. } => inner,
+        };
+        let parent_inner = match parent {
+            AST::Valid(inner, _) => inner,
+            AST::Malformed { inner, .. } => inner,
+        };
+        *self_inner.as_ref().parent.write().unwrap() = Some(Arc::downgrade(parent_inner));
     }
 }
 
@@ -270,6 +352,3 @@ impl PartialEq for ASTInner {
 }
 
 impl Eq for ASTInner {}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Malformed(Slice);

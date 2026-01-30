@@ -2,11 +2,10 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
     character::complete::char,
-    combinator::{map, opt, recognize, verify},
+    combinator::{map, opt, recognize},
     multi::{many0, many1},
     sequence::{preceded, tuple},
 };
-use std::cell::RefCell;
 use std::sync::Arc;
 
 use crate::ast::{
@@ -15,7 +14,7 @@ use crate::ast::{
     slice::Slice,
 };
 
-use super::utils::{expect_tag, w, whitespace, ParseResult, RawParseError, RawParseErrorDetails};
+use super::utils::{backtrack, expect_tag, w, whitespace, ParseResult};
 
 macro_rules! seq {
     ($( $s:expr ),* $(,)?) => {
@@ -194,9 +193,9 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
             }
         }
 
-        // Expect closing paren, arrow, and body expression
-        let (remaining, (close_paren, arrow, mut body)) =
-            seq!(expect_tag(")"), expect_tag("=>"), expression)(current)?;
+        // Parse closing paren with backtracking, then arrow and body
+        let (current, close_paren) = w(backtrack(tag(")"), ")", "("))(current)?;
+        let (remaining, (arrow, mut body)) = seq!(expect_tag("=>"), expression)(current)?;
 
         let consumed_len = start.len() - remaining.len();
         let span = start.slice_range(0, Some(consumed_len));
@@ -206,7 +205,7 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
             parameters: parameters.clone(),
             commas,
             trailing_comma,
-            close_paren: Some(close_paren),
+            close_paren,
             arrow,
             body: body.clone(),
         };
@@ -288,36 +287,7 @@ fn parse_invocation_args(
     }
 
     // Try to parse closing paren, recover on error
-    let (remaining, close_paren) = match w(tag(")"))(current.clone()) {
-        Ok((r, cp)) => (r, Some(cp)),
-        Err(_) => {
-            // Try to recover by finding matching close paren
-            let mut depth = 1;
-            let mut pos = 0;
-            for (idx, ch) in current.as_str().char_indices() {
-                match ch {
-                    '(' => depth += 1,
-                    ')' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            pos = idx;
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            if depth == 0 {
-                // Found matching paren - skip to it
-                let close_paren = current.clone().slice_range(pos, Some(pos + 1));
-                let remaining = current.slice_range(pos + 1, None);
-                (remaining, Some(close_paren))
-            } else {
-                // No matching paren found
-                (current, None)
-            }
-        }
-    };
+    let (remaining, close_paren) = w(backtrack(tag(")"), ")", "("))(current)?;
 
     Ok((
         remaining,
@@ -327,7 +297,6 @@ fn parse_invocation_args(
 
 // Postfix expressions: primary followed by zero or more invocations
 fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
-    let start = i.clone();
     map(
         tuple((atom_expression, many0(w(parse_invocation_args)))),
         move |(first, invocations)| {
@@ -407,22 +376,26 @@ fn string_type_expression(i: Slice) -> ParseResult<AST<StringTypeExpression>> {
 }
 
 fn array_type_expression(i: Slice) -> ParseResult<AST<ArrayTypeExpression>> {
-    map(
-        tuple((primary_type_expression, seq!(tag("["), tag("]")))),
-        |(mut element, (open_bracket, close_bracket))| {
-            let span = element.slice().spanning(&close_bracket);
-            let node = make_ast(
-                span,
-                ArrayTypeExpression {
-                    element: element.clone(),
-                    open_bracket,
-                    close_bracket,
-                },
-            );
-            element.set_parent(&node);
-            node
+    let (remaining, mut element) = primary_type_expression(i)?;
+    let (remaining, open_bracket) = w(tag("["))(remaining)?;
+    let (remaining, close_bracket_opt) = w(backtrack(tag("]"), "]", "["))(remaining)?;
+
+    let close_bracket = close_bracket_opt.unwrap_or_else(|| {
+        // If no closing bracket found, use a zero-width slice at the end
+        remaining.clone().slice_range(0, Some(0))
+    });
+
+    let span = element.slice().spanning(&close_bracket);
+    let node = make_ast(
+        span,
+        ArrayTypeExpression {
+            element: element.clone(),
+            open_bracket,
+            close_bracket,
         },
-    )(i)
+    );
+    element.set_parent(&node);
+    Ok((remaining, node))
 }
 
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
