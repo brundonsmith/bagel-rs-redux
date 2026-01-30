@@ -67,7 +67,10 @@ impl Type {
 
             // Array type compatibility: element types must be compatible
             (Type::Array { element: val_elem }, Type::Array { element: dest_elem }) => {
-                let elem_issues = val_elem.as_ref().clone().fit_issues(dest_elem.as_ref().clone(), _ctx);
+                let elem_issues = val_elem
+                    .as_ref()
+                    .clone()
+                    .fit_issues(dest_elem.as_ref().clone(), _ctx);
                 if elem_issues.is_empty() {
                     vec![]
                 } else {
@@ -79,7 +82,14 @@ impl Type {
             }
 
             // Tuple type compatibility: must have same length and each element must fit
-            (Type::Tuple { elements: val_elems }, Type::Tuple { elements: dest_elems }) => {
+            (
+                Type::Tuple {
+                    elements: val_elems,
+                },
+                Type::Tuple {
+                    elements: dest_elems,
+                },
+            ) => {
                 if val_elems.len() != dest_elems.len() {
                     return vec![format!(
                         "Tuple of length {} is not assignable to tuple of length {}.",
@@ -88,7 +98,9 @@ impl Type {
                     )];
                 }
 
-                for (i, (val_elem, dest_elem)) in val_elems.iter().zip(dest_elems.iter()).enumerate() {
+                for (i, (val_elem, dest_elem)) in
+                    val_elems.iter().zip(dest_elems.iter()).enumerate()
+                {
                     let elem_issues = val_elem.clone().fit_issues(dest_elem.clone(), _ctx);
                     if !elem_issues.is_empty() {
                         return vec![format!(
@@ -172,7 +184,9 @@ impl Type {
                 }
 
                 // Check parameter types (contravariant)
-                for (i, (val_param, dest_param)) in val_args.iter().zip(dest_args.iter()).enumerate() {
+                for (i, (val_param, dest_param)) in
+                    val_args.iter().zip(dest_args.iter()).enumerate()
+                {
                     let param_issues = dest_param.clone().fit_issues(val_param.clone(), _ctx);
                     if !param_issues.is_empty() {
                         return vec![format!(
@@ -183,7 +197,10 @@ impl Type {
                 }
 
                 // Check return type (covariant)
-                let return_issues = val_returns.as_ref().clone().fit_issues(dest_returns.as_ref().clone(), _ctx);
+                let return_issues = val_returns
+                    .as_ref()
+                    .clone()
+                    .fit_issues(dest_returns.as_ref().clone(), _ctx);
                 if !return_issues.is_empty() {
                     return vec![format!(
                         "Return type is not compatible: {}",
@@ -195,7 +212,12 @@ impl Type {
             }
 
             // Union type as destination: value must fit into at least one variant
-            (_, Type::Union { variants: dest_variants }) => {
+            (
+                _,
+                Type::Union {
+                    variants: dest_variants,
+                },
+            ) => {
                 for variant in dest_variants {
                     let issues = value.clone().fit_issues(variant.clone(), _ctx);
                     if issues.is_empty() {
@@ -209,7 +231,12 @@ impl Type {
             }
 
             // Union type as value: all variants must fit into destination
-            (Type::Union { variants: val_variants }, _) => {
+            (
+                Type::Union {
+                    variants: val_variants,
+                },
+                _,
+            ) => {
                 for variant in val_variants {
                     let issues = variant.clone().fit_issues(destination.clone(), _ctx);
                     if !issues.is_empty() {

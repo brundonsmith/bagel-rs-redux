@@ -75,9 +75,15 @@ impl LanguageServer for BagelLanguageServer {
         let uri = params.text_document.uri.to_string();
         eprintln!("[DEBUG] did_open() called - uri: {}", uri);
         let text = params.text_document.text;
-        eprintln!("[DEBUG] did_open() - document length: {} bytes, {} lines",
-            text.len(), text.lines().count());
-        self.documents.write().await.insert(uri.clone(), text.clone());
+        eprintln!(
+            "[DEBUG] did_open() - document length: {} bytes, {} lines",
+            text.len(),
+            text.lines().count()
+        );
+        self.documents
+            .write()
+            .await
+            .insert(uri.clone(), text.clone());
         eprintln!("[DEBUG] did_open() completed - stored document for {}", uri);
 
         // Publish diagnostics
@@ -90,11 +96,20 @@ impl LanguageServer for BagelLanguageServer {
         let num_changes = params.content_changes.len();
         eprintln!("[DEBUG] did_change() - number of changes: {}", num_changes);
         if let Some(change) = params.content_changes.into_iter().next() {
-            eprintln!("[DEBUG] did_change() - new document length: {} bytes, {} lines",
-                change.text.len(), change.text.lines().count());
+            eprintln!(
+                "[DEBUG] did_change() - new document length: {} bytes, {} lines",
+                change.text.len(),
+                change.text.lines().count()
+            );
             let text = change.text;
-            self.documents.write().await.insert(uri.clone(), text.clone());
-            eprintln!("[DEBUG] did_change() completed - updated document for {}", uri);
+            self.documents
+                .write()
+                .await
+                .insert(uri.clone(), text.clone());
+            eprintln!(
+                "[DEBUG] did_change() completed - updated document for {}",
+                uri
+            );
 
             // Publish diagnostics
             self.publish_diagnostics(&uri, &text).await;
@@ -108,7 +123,10 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] did_close() called - uri: {}", uri);
         let removed = self.documents.write().await.remove(&uri);
         if removed.is_some() {
-            eprintln!("[DEBUG] did_close() completed - removed document for {}", uri);
+            eprintln!(
+                "[DEBUG] did_close() completed - removed document for {}",
+                uri
+            );
         } else {
             eprintln!("[DEBUG] did_close() - document not found in store");
         }
@@ -200,14 +218,22 @@ impl LanguageServer for BagelLanguageServer {
             .uri
             .to_string();
         let position = params.text_document_position_params.position;
-        eprintln!("[DEBUG] hover() called - uri: {}, position: line={} char={}",
-            uri, position.line, position.character);
+        eprintln!(
+            "[DEBUG] hover() called - uri: {}, position: line={} char={}",
+            uri, position.line, position.character
+        );
 
         let documents = self.documents.read().await;
-        eprintln!("[DEBUG] hover() - acquired document lock, total docs: {}", documents.len());
+        eprintln!(
+            "[DEBUG] hover() - acquired document lock, total docs: {}",
+            documents.len()
+        );
         let text = match documents.get(&uri) {
             Some(text) => {
-                eprintln!("[DEBUG] hover() - found document, length: {} bytes", text.len());
+                eprintln!(
+                    "[DEBUG] hover() - found document, length: {} bytes",
+                    text.len()
+                );
                 text.clone()
             }
             None => {
@@ -238,8 +264,11 @@ impl LanguageServer for BagelLanguageServer {
         // Find the AST node at this position
         eprintln!("[DEBUG] hover() - searching for node at offset {}", offset);
         if let Some(node) = find_node_at_offset(&ast, offset) {
-            eprintln!("[DEBUG] hover() - found node at offset, slice: {}..{}",
-                node.slice().start, node.slice().end);
+            eprintln!(
+                "[DEBUG] hover() - found node at offset, slice: {}..{}",
+                node.slice().start,
+                node.slice().end
+            );
 
             // Try to get the type if it's an expression
             let type_info = if let Some(expr) = node.clone().try_downcast::<Expression>() {
@@ -275,10 +304,16 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] inlay_hint() - range: {:?}", params.range);
 
         let documents = self.documents.read().await;
-        eprintln!("[DEBUG] inlay_hint() - acquired document lock, total docs: {}", documents.len());
+        eprintln!(
+            "[DEBUG] inlay_hint() - acquired document lock, total docs: {}",
+            documents.len()
+        );
         let text = match documents.get(&uri) {
             Some(text) => {
-                eprintln!("[DEBUG] inlay_hint() - found document, length: {} bytes", text.len());
+                eprintln!(
+                    "[DEBUG] inlay_hint() - found document, length: {} bytes",
+                    text.len()
+                );
                 text.clone()
             }
             None => {
@@ -313,12 +348,18 @@ impl LanguageServer for BagelLanguageServer {
                 }
                 Some(_) => {
                     let module_data = module.unpack();
-                    eprintln!("[DEBUG] inlay_hint() - found Module with {} declarations", module_data.declarations.len());
+                    eprintln!(
+                        "[DEBUG] inlay_hint() - found Module with {} declarations",
+                        module_data.declarations.len()
+                    );
 
                     for (idx, decl) in module_data.declarations.iter().enumerate() {
                         match (decl.details(), decl.unpack().type_annotation) {
                             (None, _) => {
-                                eprintln!("[DEBUG] inlay_hint() - declaration {} is malformed, skipping", idx);
+                                eprintln!(
+                                    "[DEBUG] inlay_hint() - declaration {} is malformed, skipping",
+                                    idx
+                                );
                             }
                             (Some(_), Some(_)) => {
                                 eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
@@ -331,7 +372,10 @@ impl LanguageServer for BagelLanguageServer {
                                 // Infer the type of the value
                                 let ctx = InferTypeContext {};
                                 let inferred_type = decl_data.value.infer_type(ctx);
-                                eprintln!("[DEBUG] inlay_hint() - inferred type for decl {}: {}", idx, inferred_type);
+                                eprintln!(
+                                    "[DEBUG] inlay_hint() - inferred type for decl {}: {}",
+                                    idx, inferred_type
+                                );
 
                                 // Get the position after the identifier
                                 let identifier_slice = decl_data.identifier.slice();
@@ -378,11 +422,7 @@ impl BagelLanguageServer {
                 eprintln!("[DEBUG] publish_diagnostics() - parse failed: {:?}", e);
                 // On parse failure, publish empty diagnostics
                 self.client
-                    .publish_diagnostics(
-                        uri.parse().unwrap(),
-                        vec![],
-                        None,
-                    )
+                    .publish_diagnostics(uri.parse().unwrap(), vec![], None)
                     .await;
                 return;
             }
@@ -396,7 +436,10 @@ impl BagelLanguageServer {
             errors.push(error);
         });
 
-        eprintln!("[DEBUG] publish_diagnostics() - found {} errors", errors.len());
+        eprintln!(
+            "[DEBUG] publish_diagnostics() - found {} errors",
+            errors.len()
+        );
 
         // Convert errors to LSP diagnostics
         let diagnostics: Vec<Diagnostic> = errors
@@ -404,15 +447,14 @@ impl BagelLanguageServer {
             .map(|error| bagel_error_to_diagnostic(text, error))
             .collect();
 
-        eprintln!("[DEBUG] publish_diagnostics() - publishing {} diagnostics", diagnostics.len());
+        eprintln!(
+            "[DEBUG] publish_diagnostics() - publishing {} diagnostics",
+            diagnostics.len()
+        );
 
         // Publish diagnostics
         self.client
-            .publish_diagnostics(
-                uri.parse().unwrap(),
-                diagnostics,
-                None,
-            )
+            .publish_diagnostics(uri.parse().unwrap(), diagnostics, None)
             .await;
 
         eprintln!("[DEBUG] publish_diagnostics() completed");
@@ -495,13 +537,17 @@ fn offset_to_position(text: &str, offset: usize) -> Position {
 
 fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
     let slice = ast.slice();
-    eprintln!("[DEBUG] find_node_at_offset() - checking node at {}..{}, offset={}",
-        slice.start, slice.end, offset);
+    eprintln!(
+        "[DEBUG] find_node_at_offset() - checking node at {}..{}, offset={}",
+        slice.start, slice.end, offset
+    );
 
     // Check if offset is within this node's range
     if offset < slice.start || offset > slice.end {
-        eprintln!("[DEBUG] find_node_at_offset() - offset {} outside node range {}..{}",
-            offset, slice.start, slice.end);
+        eprintln!(
+            "[DEBUG] find_node_at_offset() - offset {} outside node range {}..{}",
+            offset, slice.start, slice.end
+        );
         return None;
     }
 
@@ -517,27 +563,44 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
         Some(details) => {
             let child = match details {
                 Any::Module(module) => {
-                    eprintln!("[DEBUG] find_node_at_offset() - node is Module with {} declarations",
-                        module.declarations.len());
+                    eprintln!(
+                        "[DEBUG] find_node_at_offset() - node is Module with {} declarations",
+                        module.declarations.len()
+                    );
                     // Check each declaration
-                    module.declarations.iter().enumerate()
+                    module
+                        .declarations
+                        .iter()
+                        .enumerate()
                         .find_map(|(idx, decl)| {
-                            eprintln!("[DEBUG] find_node_at_offset() - checking declaration {}", idx);
-                            find_node_at_offset(&decl.clone().upcast(), offset)
-                                .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in declaration {}", idx))
+                            eprintln!(
+                                "[DEBUG] find_node_at_offset() - checking declaration {}",
+                                idx
+                            );
+                            find_node_at_offset(&decl.clone().upcast(), offset).inspect(|_| {
+                                eprintln!(
+                                    "[DEBUG] find_node_at_offset() - found in declaration {}",
+                                    idx
+                                )
+                            })
                         })
                 }
                 Any::Declaration(decl) => {
                     eprintln!("[DEBUG] find_node_at_offset() - node is Declaration");
-                    find_node_at_offset(&decl.value.clone().upcast(), offset)
-                        .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in declaration value"))
+                    find_node_at_offset(&decl.value.clone().upcast(), offset).inspect(|_| {
+                        eprintln!("[DEBUG] find_node_at_offset() - found in declaration value")
+                    })
                 }
                 Any::Expression(expr) => {
-                    eprintln!("[DEBUG] find_node_at_offset() - node is Expression: {:?}",
-                        std::mem::discriminant(expr));
+                    eprintln!(
+                        "[DEBUG] find_node_at_offset() - node is Expression: {:?}",
+                        std::mem::discriminant(expr)
+                    );
                     match expr {
                         ast::grammar::Expression::BinaryOperation(bin_op) => {
-                            eprintln!("[DEBUG] find_node_at_offset() - Expression is BinaryOperation");
+                            eprintln!(
+                                "[DEBUG] find_node_at_offset() - Expression is BinaryOperation"
+                            );
                             // Check left operand, then right operand
                             find_node_at_offset(&bin_op.left.clone().upcast(), offset)
                                 .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in left operand"))

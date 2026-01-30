@@ -415,11 +415,7 @@ fn array_literal(i: Slice) -> ParseResult<AST<ArrayLiteral>> {
     // Try to parse closing bracket with backtracking
     let (remaining, close_bracket) = w(backtrack(tag("]"), "]", "["))(current)?;
 
-    let span = open_bracket.spanning(
-        close_bracket
-            .as_ref()
-            .unwrap_or(&open_bracket)
-    );
+    let span = open_bracket.spanning(close_bracket.as_ref().unwrap_or(&open_bracket));
 
     let array_lit = ArrayLiteral {
         open_bracket,
@@ -482,11 +478,7 @@ fn object_literal(i: Slice) -> ParseResult<AST<ObjectLiteral>> {
     // Try to parse closing brace with backtracking
     let (remaining, close_brace) = w(backtrack(tag("}"), "}", "{"))(current)?;
 
-    let span = open_brace.spanning(
-        close_brace
-            .as_ref()
-            .unwrap_or(&open_brace)
-    );
+    let span = open_brace.spanning(close_brace.as_ref().unwrap_or(&open_brace));
 
     let obj_lit = ObjectLiteral {
         open_brace,

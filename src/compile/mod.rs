@@ -37,145 +37,147 @@ where
 
             // Process valid nodes
             Some(details) => match details {
-            Any::Module(module) => {
-                // Compile all declarations separated by semicolons and newlines
-                for (i, decl) in module.declarations.iter().enumerate() {
-                    if i > 0 {
-                        writeln!(f)?;
+                Any::Module(module) => {
+                    // Compile all declarations separated by semicolons and newlines
+                    for (i, decl) in module.declarations.iter().enumerate() {
+                        if i > 0 {
+                            writeln!(f)?;
+                        }
+                        decl.compile(ctx, f)?;
+                        write!(f, ";")?;
                     }
-                    decl.compile(ctx, f)?;
-                    write!(f, ";")?;
+                    Ok(())
                 }
-                Ok(())
-            }
 
-            Any::Declaration(declaration) => {
-                // const identifier = value  ->  const identifier = value
-                write!(f, "const ")?;
-                declaration.identifier.compile(ctx, f)?;
-                write!(f, " = ")?;
-                declaration.value.compile(ctx, f)?;
-                Ok(())
-            }
+                Any::Declaration(declaration) => {
+                    // const identifier = value  ->  const identifier = value
+                    write!(f, "const ")?;
+                    declaration.identifier.compile(ctx, f)?;
+                    write!(f, " = ")?;
+                    declaration.value.compile(ctx, f)?;
+                    Ok(())
+                }
 
-            Any::Expression(expression) => {
-                match expression {
-                    Expression::NilLiteral(_) => {
-                        // nil -> null
-                        write!(f, "null")
-                    }
-
-                    Expression::BooleanLiteral(lit) => {
-                        // true/false -> true/false (same in JS)
-                        if lit.value {
-                            write!(f, "true")
-                        } else {
-                            write!(f, "false")
+                Any::Expression(expression) => {
+                    match expression {
+                        Expression::NilLiteral(_) => {
+                            // nil -> null
+                            write!(f, "null")
                         }
-                    }
 
-                    Expression::NumberLiteral(_) => {
-                        // Use the original slice text to preserve exact formatting
-                        write!(f, "{}", self.slice().as_str())
-                    }
-
-                    Expression::StringLiteral(str_lit) => {
-                        // 'string' -> 'string' (same in JS)
-                        write!(f, "'")?;
-                        write!(f, "{}", str_lit.contents.as_str())?;
-                        write!(f, "'")
-                    }
-
-                    Expression::LocalIdentifier(local_id) => local_id.identifier.compile(ctx, f),
-
-                    Expression::BinaryOperation(bin_op) => {
-                        // Emit with parentheses to preserve precedence
-                        bin_op.left.compile(ctx, f)?;
-                        write!(f, " ")?;
-                        bin_op.operator.compile(ctx, f)?;
-                        write!(f, " ")?;
-                        bin_op.right.compile(ctx, f)
-                    }
-
-                    Expression::Invocation(inv) => {
-                        // function(arg1, arg2) -> function(arg1, arg2) (same in JS)
-                        inv.function.compile(ctx, f)?;
-                        write!(f, "(")?;
-
-                        for (i, arg) in inv.arguments.iter().enumerate() {
-                            if i > 0 {
-                                write!(f, ", ")?;
+                        Expression::BooleanLiteral(lit) => {
+                            // true/false -> true/false (same in JS)
+                            if lit.value {
+                                write!(f, "true")
+                            } else {
+                                write!(f, "false")
                             }
-                            arg.compile(ctx, f)?;
                         }
 
-                        write!(f, ")")
-                    }
+                        Expression::NumberLiteral(_) => {
+                            // Use the original slice text to preserve exact formatting
+                            write!(f, "{}", self.slice().as_str())
+                        }
 
-                    Expression::FunctionExpression(func) => {
-                        // (param1, param2) => body  ->  (param1, param2) => body (same in JS)
-                        if func.parameters.len() == 1 && func.open_paren.is_none() {
-                            // Single parameter without parens
-                            func.parameters[0].compile(ctx, f)?;
-                        } else {
-                            // Multiple parameters or explicit parens
+                        Expression::StringLiteral(str_lit) => {
+                            // 'string' -> 'string' (same in JS)
+                            write!(f, "'")?;
+                            write!(f, "{}", str_lit.contents.as_str())?;
+                            write!(f, "'")
+                        }
+
+                        Expression::LocalIdentifier(local_id) => {
+                            local_id.identifier.compile(ctx, f)
+                        }
+
+                        Expression::BinaryOperation(bin_op) => {
+                            // Emit with parentheses to preserve precedence
+                            bin_op.left.compile(ctx, f)?;
+                            write!(f, " ")?;
+                            bin_op.operator.compile(ctx, f)?;
+                            write!(f, " ")?;
+                            bin_op.right.compile(ctx, f)
+                        }
+
+                        Expression::Invocation(inv) => {
+                            // function(arg1, arg2) -> function(arg1, arg2) (same in JS)
+                            inv.function.compile(ctx, f)?;
                             write!(f, "(")?;
-                            for (i, param) in func.parameters.iter().enumerate() {
+
+                            for (i, arg) in inv.arguments.iter().enumerate() {
                                 if i > 0 {
                                     write!(f, ", ")?;
                                 }
-                                param.compile(ctx, f)?;
+                                arg.compile(ctx, f)?;
                             }
-                            write!(f, ")")?;
+
+                            write!(f, ")")
                         }
 
-                        write!(f, " => ")?;
-                        func.body.compile(ctx, f)
-                    }
-
-                    Expression::ArrayLiteral(arr) => {
-                        // [1, 2, 3] -> [1, 2, 3] (same in JS)
-                        write!(f, "[")?;
-                        for (i, elem) in arr.elements.iter().enumerate() {
-                            if i > 0 {
-                                write!(f, ", ")?;
+                        Expression::FunctionExpression(func) => {
+                            // (param1, param2) => body  ->  (param1, param2) => body (same in JS)
+                            if func.parameters.len() == 1 && func.open_paren.is_none() {
+                                // Single parameter without parens
+                                func.parameters[0].compile(ctx, f)?;
+                            } else {
+                                // Multiple parameters or explicit parens
+                                write!(f, "(")?;
+                                for (i, param) in func.parameters.iter().enumerate() {
+                                    if i > 0 {
+                                        write!(f, ", ")?;
+                                    }
+                                    param.compile(ctx, f)?;
+                                }
+                                write!(f, ")")?;
                             }
-                            elem.compile(ctx, f)?;
-                        }
-                        write!(f, "]")
-                    }
 
-                    Expression::ObjectLiteral(obj) => {
-                        // {a: 1, b: 2} -> {a: 1, b: 2} (same in JS)
-                        write!(f, "{{")?;
-                        for (i, (key, _, value)) in obj.fields.iter().enumerate() {
-                            if i > 0 {
-                                write!(f, ", ")?;
-                            }
-                            key.compile(ctx, f)?;
-                            write!(f, ": ")?;
-                            value.compile(ctx, f)?;
+                            write!(f, " => ")?;
+                            func.body.compile(ctx, f)
                         }
-                        write!(f, "}}")
+
+                        Expression::ArrayLiteral(arr) => {
+                            // [1, 2, 3] -> [1, 2, 3] (same in JS)
+                            write!(f, "[")?;
+                            for (i, elem) in arr.elements.iter().enumerate() {
+                                if i > 0 {
+                                    write!(f, ", ")?;
+                                }
+                                elem.compile(ctx, f)?;
+                            }
+                            write!(f, "]")
+                        }
+
+                        Expression::ObjectLiteral(obj) => {
+                            // {a: 1, b: 2} -> {a: 1, b: 2} (same in JS)
+                            write!(f, "{{")?;
+                            for (i, (key, _, value)) in obj.fields.iter().enumerate() {
+                                if i > 0 {
+                                    write!(f, ", ")?;
+                                }
+                                key.compile(ctx, f)?;
+                                write!(f, ": ")?;
+                                value.compile(ctx, f)?;
+                            }
+                            write!(f, "}}")
+                        }
                     }
                 }
-            }
 
-            Any::TypeExpression(_type_expression) => {
-                // Type expressions are not emitted in JavaScript compilation
-                // (JavaScript is untyped at runtime)
-                Ok(())
-            }
+                Any::TypeExpression(_type_expression) => {
+                    // Type expressions are not emitted in JavaScript compilation
+                    // (JavaScript is untyped at runtime)
+                    Ok(())
+                }
 
-            Any::PlainIdentifier(_) => {
-                // Use the original slice text
-                write!(f, "{}", self.slice().as_str())
-            }
+                Any::PlainIdentifier(_) => {
+                    // Use the original slice text
+                    write!(f, "{}", self.slice().as_str())
+                }
 
-            Any::BinaryOperator(op) => {
-                // +, -, *, / are the same in JavaScript
-                write!(f, "{}", op.as_str())
-            }
+                Any::BinaryOperator(op) => {
+                    // +, -, *, / are the same in JavaScript
+                    write!(f, "{}", op.as_str())
+                }
             },
         }
     }

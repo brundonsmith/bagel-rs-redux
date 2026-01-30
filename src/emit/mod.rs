@@ -30,218 +30,218 @@ where
 
             // Process valid nodes
             Some(details) => match details {
-            Any::Module(module) => {
-                // Emit all declarations separated by newlines
-                for (i, decl) in module.declarations.iter().enumerate() {
-                    if i > 0 {
-                        writeln!(f)?;
-                    }
-                    decl.emit(ctx, f)?;
-                }
-                Ok(())
-            }
-
-            Any::Declaration(declaration) => {
-                // const identifier: type = value
-                write!(f, "const ")?;
-                declaration.identifier.emit(ctx, f)?;
-
-                // Emit type annotation if present
-                if let Some((_, type_expr)) = &declaration.type_annotation {
-                    write!(f, ": ")?;
-                    type_expr.emit(ctx, f)?;
-                }
-
-                write!(f, " = ")?;
-                declaration.value.emit(ctx, f)?;
-                Ok(())
-            }
-
-            Any::Expression(expression) => {
-                match expression {
-                    Expression::NilLiteral(_) => write!(f, "nil"),
-
-                    Expression::BooleanLiteral(lit) => {
-                        if lit.value {
-                            write!(f, "true")
-                        } else {
-                            write!(f, "false")
+                Any::Module(module) => {
+                    // Emit all declarations separated by newlines
+                    for (i, decl) in module.declarations.iter().enumerate() {
+                        if i > 0 {
+                            writeln!(f)?;
                         }
+                        decl.emit(ctx, f)?;
+                    }
+                    Ok(())
+                }
+
+                Any::Declaration(declaration) => {
+                    // const identifier: type = value
+                    write!(f, "const ")?;
+                    declaration.identifier.emit(ctx, f)?;
+
+                    // Emit type annotation if present
+                    if let Some((_, type_expr)) = &declaration.type_annotation {
+                        write!(f, ": ")?;
+                        type_expr.emit(ctx, f)?;
                     }
 
-                    Expression::NumberLiteral(_) => {
-                        // Use the original slice text to preserve exact formatting
-                        write!(f, "{}", self.slice().as_str())
-                    }
+                    write!(f, " = ")?;
+                    declaration.value.emit(ctx, f)?;
+                    Ok(())
+                }
 
-                    Expression::StringLiteral(str_lit) => {
-                        write!(f, "'")?;
-                        write!(f, "{}", str_lit.contents.as_str())?;
-                        write!(f, "'")
-                    }
+                Any::Expression(expression) => {
+                    match expression {
+                        Expression::NilLiteral(_) => write!(f, "nil"),
 
-                    Expression::LocalIdentifier(local_id) => local_id.identifier.emit(ctx, f),
-
-                    Expression::BinaryOperation(bin_op) => {
-                        bin_op.left.emit(ctx, f)?;
-                        write!(f, " ")?;
-                        bin_op.operator.emit(ctx, f)?;
-                        write!(f, " ")?;
-                        bin_op.right.emit(ctx, f)
-                    }
-
-                    Expression::Invocation(inv) => {
-                        inv.function.emit(ctx, f)?;
-                        write!(f, "(")?;
-
-                        for (i, arg) in inv.arguments.iter().enumerate() {
-                            if i > 0 {
-                                write!(f, ", ")?;
+                        Expression::BooleanLiteral(lit) => {
+                            if lit.value {
+                                write!(f, "true")
+                            } else {
+                                write!(f, "false")
                             }
-                            arg.emit(ctx, f)?;
                         }
 
-                        if inv.trailing_comma.is_some() {
-                            write!(f, ",")?;
+                        Expression::NumberLiteral(_) => {
+                            // Use the original slice text to preserve exact formatting
+                            write!(f, "{}", self.slice().as_str())
                         }
 
-                        write!(f, ")")
-                    }
+                        Expression::StringLiteral(str_lit) => {
+                            write!(f, "'")?;
+                            write!(f, "{}", str_lit.contents.as_str())?;
+                            write!(f, "'")
+                        }
 
-                    Expression::FunctionExpression(func) => {
-                        // (param1, param2) => body  or  param => body
-                        if func.parameters.len() == 1 && func.open_paren.is_none() {
-                            // Single parameter without parens
-                            func.parameters[0].emit(ctx, f)?;
-                        } else {
-                            // Multiple parameters or explicit parens
+                        Expression::LocalIdentifier(local_id) => local_id.identifier.emit(ctx, f),
+
+                        Expression::BinaryOperation(bin_op) => {
+                            bin_op.left.emit(ctx, f)?;
+                            write!(f, " ")?;
+                            bin_op.operator.emit(ctx, f)?;
+                            write!(f, " ")?;
+                            bin_op.right.emit(ctx, f)
+                        }
+
+                        Expression::Invocation(inv) => {
+                            inv.function.emit(ctx, f)?;
                             write!(f, "(")?;
-                            for (i, param) in func.parameters.iter().enumerate() {
+
+                            for (i, arg) in inv.arguments.iter().enumerate() {
                                 if i > 0 {
                                     write!(f, ", ")?;
                                 }
-                                param.emit(ctx, f)?;
+                                arg.emit(ctx, f)?;
                             }
-                            if func.trailing_comma.is_some() {
+
+                            if inv.trailing_comma.is_some() {
                                 write!(f, ",")?;
                             }
-                            write!(f, ")")?;
+
+                            write!(f, ")")
                         }
 
-                        write!(f, " => ")?;
-                        func.body.emit(ctx, f)
-                    }
+                        Expression::FunctionExpression(func) => {
+                            // (param1, param2) => body  or  param => body
+                            if func.parameters.len() == 1 && func.open_paren.is_none() {
+                                // Single parameter without parens
+                                func.parameters[0].emit(ctx, f)?;
+                            } else {
+                                // Multiple parameters or explicit parens
+                                write!(f, "(")?;
+                                for (i, param) in func.parameters.iter().enumerate() {
+                                    if i > 0 {
+                                        write!(f, ", ")?;
+                                    }
+                                    param.emit(ctx, f)?;
+                                }
+                                if func.trailing_comma.is_some() {
+                                    write!(f, ",")?;
+                                }
+                                write!(f, ")")?;
+                            }
 
-                    Expression::ArrayLiteral(arr) => {
+                            write!(f, " => ")?;
+                            func.body.emit(ctx, f)
+                        }
+
+                        Expression::ArrayLiteral(arr) => {
+                            write!(f, "[")?;
+                            for (i, elem) in arr.elements.iter().enumerate() {
+                                if i > 0 {
+                                    write!(f, ", ")?;
+                                }
+                                elem.emit(ctx, f)?;
+                            }
+                            if arr.trailing_comma.is_some() {
+                                write!(f, ",")?;
+                            }
+                            write!(f, "]")
+                        }
+
+                        Expression::ObjectLiteral(obj) => {
+                            write!(f, "{{ ")?;
+                            for (i, (key, _, value)) in obj.fields.iter().enumerate() {
+                                if i > 0 {
+                                    write!(f, ", ")?;
+                                }
+                                key.emit(ctx, f)?;
+                                write!(f, ": ")?;
+                                value.emit(ctx, f)?;
+                            }
+                            if obj.trailing_comma.is_some() {
+                                write!(f, ",")?;
+                            }
+                            write!(f, " }}")
+                        }
+                    }
+                }
+
+                Any::TypeExpression(type_expression) => match type_expression {
+                    TypeExpression::UnknownTypeExpression(_) => write!(f, "unknown"),
+                    TypeExpression::NilTypeExpression(_) => write!(f, "nil"),
+                    TypeExpression::BooleanTypeExpression(_) => write!(f, "boolean"),
+                    TypeExpression::NumberTypeExpression(_) => write!(f, "number"),
+                    TypeExpression::StringTypeExpression(_) => write!(f, "string"),
+
+                    TypeExpression::TupleTypeExpression(tuple) => {
                         write!(f, "[")?;
-                        for (i, elem) in arr.elements.iter().enumerate() {
+                        for (i, elem) in tuple.elements.iter().enumerate() {
                             if i > 0 {
                                 write!(f, ", ")?;
                             }
                             elem.emit(ctx, f)?;
                         }
-                        if arr.trailing_comma.is_some() {
+                        if tuple.trailing_comma.is_some() {
                             write!(f, ",")?;
                         }
                         write!(f, "]")
                     }
 
-                    Expression::ObjectLiteral(obj) => {
-                        write!(f, "{{ ")?;
-                        for (i, (key, _, value)) in obj.fields.iter().enumerate() {
+                    TypeExpression::ArrayTypeExpression(array) => {
+                        array.element.emit(ctx, f)?;
+                        write!(f, "[]")
+                    }
+
+                    TypeExpression::ObjectTypeExpression(obj) => {
+                        write!(f, "{{")?;
+                        for (i, (name, _, type_expr)) in obj.fields.iter().enumerate() {
                             if i > 0 {
                                 write!(f, ", ")?;
                             }
-                            key.emit(ctx, f)?;
+                            name.emit(ctx, f)?;
                             write!(f, ": ")?;
-                            value.emit(ctx, f)?;
+                            type_expr.emit(ctx, f)?;
                         }
                         if obj.trailing_comma.is_some() {
                             write!(f, ",")?;
                         }
-                        write!(f, " }}")
+                        write!(f, "}}")
                     }
-                }
-            }
 
-            Any::TypeExpression(type_expression) => match type_expression {
-                TypeExpression::UnknownTypeExpression(_) => write!(f, "unknown"),
-                TypeExpression::NilTypeExpression(_) => write!(f, "nil"),
-                TypeExpression::BooleanTypeExpression(_) => write!(f, "boolean"),
-                TypeExpression::NumberTypeExpression(_) => write!(f, "number"),
-                TypeExpression::StringTypeExpression(_) => write!(f, "string"),
-
-                TypeExpression::TupleTypeExpression(tuple) => {
-                    write!(f, "[")?;
-                    for (i, elem) in tuple.elements.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
+                    TypeExpression::FunctionTypeExpression(func) => {
+                        write!(f, "(")?;
+                        for (i, (name, _, type_expr)) in func.parameters.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            name.emit(ctx, f)?;
+                            write!(f, ": ")?;
+                            type_expr.emit(ctx, f)?;
                         }
-                        elem.emit(ctx, f)?;
-                    }
-                    if tuple.trailing_comma.is_some() {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "]")
-                }
-
-                TypeExpression::ArrayTypeExpression(array) => {
-                    array.element.emit(ctx, f)?;
-                    write!(f, "[]")
-                }
-
-                TypeExpression::ObjectTypeExpression(obj) => {
-                    write!(f, "{{")?;
-                    for (i, (name, _, type_expr)) in obj.fields.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
+                        if func.trailing_comma.is_some() {
+                            write!(f, ",")?;
                         }
-                        name.emit(ctx, f)?;
-                        write!(f, ": ")?;
-                        type_expr.emit(ctx, f)?;
+                        write!(f, ") => ")?;
+                        func.return_type.emit(ctx, f)
                     }
-                    if obj.trailing_comma.is_some() {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "}}")
-                }
 
-                TypeExpression::FunctionTypeExpression(func) => {
-                    write!(f, "(")?;
-                    for (i, (name, _, type_expr)) in func.parameters.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
+                    TypeExpression::UnionTypeExpression(union) => {
+                        for (i, variant) in union.variants.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, " | ")?;
+                            }
+                            variant.emit(ctx, f)?;
                         }
-                        name.emit(ctx, f)?;
-                        write!(f, ": ")?;
-                        type_expr.emit(ctx, f)?;
+                        Ok(())
                     }
-                    if func.trailing_comma.is_some() {
-                        write!(f, ",")?;
-                    }
-                    write!(f, ") => ")?;
-                    func.return_type.emit(ctx, f)
+                },
+
+                Any::PlainIdentifier(_) => {
+                    // Use the original slice text
+                    write!(f, "{}", self.slice().as_str())
                 }
 
-                TypeExpression::UnionTypeExpression(union) => {
-                    for (i, variant) in union.variants.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, " | ")?;
-                        }
-                        variant.emit(ctx, f)?;
-                    }
-                    Ok(())
+                Any::BinaryOperator(op) => {
+                    write!(f, "{}", op.as_str())
                 }
-            },
-
-            Any::PlainIdentifier(_) => {
-                // Use the original slice text
-                write!(f, "{}", self.slice().as_str())
-            }
-
-            Any::BinaryOperator(op) => {
-                write!(f, "{}", op.as_str())
-            }
             },
         }
     }

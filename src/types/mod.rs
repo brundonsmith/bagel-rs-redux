@@ -119,7 +119,10 @@ impl fmt::Display for Type {
                 write!(f, "]")
             }
             Type::Array { element } => write!(f, "{}[]", element),
-            Type::Object { fields, is_open: jopen } => {
+            Type::Object {
+                fields,
+                is_open: jopen,
+            } => {
                 write!(f, "{{")?;
                 for (i, (key, value)) in fields.iter().enumerate() {
                     if i > 0 {

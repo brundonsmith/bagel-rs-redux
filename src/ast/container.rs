@@ -187,11 +187,9 @@ where
         Any: From<TExpected>,
     {
         match self {
-            AST::Valid(inner, _) => {
-                TExpected::try_from(inner.details.clone())
-                    .ok()
-                    .map(|_| AST::<TExpected>::Valid(inner, PhantomData))
-            }
+            AST::Valid(inner, _) => TExpected::try_from(inner.details.clone())
+                .ok()
+                .map(|_| AST::<TExpected>::Valid(inner, PhantomData)),
             AST::Malformed { inner, message } => {
                 Some(AST::<TExpected>::Malformed { inner, message })
             }

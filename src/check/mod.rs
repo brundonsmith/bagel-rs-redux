@@ -66,119 +66,119 @@ where
 
             // Process valid nodes
             Some(details) => match details {
-            Any::Module(module) => {
-                // Recurse to all declarations
-                module.declarations.check(ctx, report_error);
-            }
+                Any::Module(module) => {
+                    // Recurse to all declarations
+                    module.declarations.check(ctx, report_error);
+                }
 
-            Any::Declaration(declaration) => {
-                // Recurse to children
-                declaration.identifier.check(ctx, report_error);
-                declaration.type_annotation.check(ctx, report_error);
-                declaration.value.check(ctx, report_error);
+                Any::Declaration(declaration) => {
+                    // Recurse to children
+                    declaration.identifier.check(ctx, report_error);
+                    declaration.type_annotation.check(ctx, report_error);
+                    declaration.value.check(ctx, report_error);
 
-                // Check type compatibility if there's a type annotation
-                if let Some((_colon, type_expr)) = &declaration.type_annotation {
-                    // Convert TypeExpression to Type
-                    let declared_type = Type::from(type_expr.unpack());
+                    // Check type compatibility if there's a type annotation
+                    if let Some((_colon, type_expr)) = &declaration.type_annotation {
+                        // Convert TypeExpression to Type
+                        let declared_type = Type::from(type_expr.unpack());
 
-                    // Infer the type of the value expression
-                    let infer_ctx = InferTypeContext {};
-                    let inferred_type = declaration.value.infer_type(infer_ctx);
+                        // Infer the type of the value expression
+                        let infer_ctx = InferTypeContext {};
+                        let inferred_type = declaration.value.infer_type(infer_ctx);
 
-                    // Check if the inferred type fits the declared type
-                    let fits_ctx = FitsContext {};
-                    let issues = inferred_type.fit_issues(declared_type, fits_ctx);
-                    if issues.len() > 0 {
-                        report_error(BagelError {
-                            src: declaration.value.slice().clone(),
-                            severity: RuleSeverity::Error,
-                            details: BagelErrorDetails::MiscError {
-                                message: issues.join("\n"),
-                            },
-                        });
+                        // Check if the inferred type fits the declared type
+                        let fits_ctx = FitsContext {};
+                        let issues = inferred_type.fit_issues(declared_type, fits_ctx);
+                        if issues.len() > 0 {
+                            report_error(BagelError {
+                                src: declaration.value.slice().clone(),
+                                severity: RuleSeverity::Error,
+                                details: BagelErrorDetails::MiscError {
+                                    message: issues.join("\n"),
+                                },
+                            });
+                        }
                     }
                 }
-            }
 
-            Any::Expression(expression) => {
-                use crate::ast::grammar::Expression::*;
-                match expression {
-                    NilLiteral(_) | BooleanLiteral(_) | NumberLiteral(_) | StringLiteral(_) => {
-                        // Leaf nodes, nothing to check
-                    }
-                    LocalIdentifier(local_id) => {
-                        // Recurse to identifier
-                        local_id.identifier.check(ctx, report_error);
-                    }
-                    BinaryOperation(bin_op) => {
-                        // Recurse to children
-                        bin_op.left.check(ctx, report_error);
-                        bin_op.operator.check(ctx, report_error);
-                        bin_op.right.check(ctx, report_error);
-                    }
-                    Invocation(inv) => {
-                        // Recurse to children
-                        inv.function.check(ctx, report_error);
-                        inv.arguments.check(ctx, report_error);
-                    }
-                    FunctionExpression(func) => {
-                        // Recurse to children
-                        func.parameters.check(ctx, report_error);
-                        func.body.check(ctx, report_error);
-                    }
-                    ArrayLiteral(arr) => {
-                        // Recurse to elements
-                        arr.elements.check(ctx, report_error);
-                    }
-                    ObjectLiteral(obj) => {
-                        // Recurse to fields
-                        obj.fields.check(ctx, report_error);
+                Any::Expression(expression) => {
+                    use crate::ast::grammar::Expression::*;
+                    match expression {
+                        NilLiteral(_) | BooleanLiteral(_) | NumberLiteral(_) | StringLiteral(_) => {
+                            // Leaf nodes, nothing to check
+                        }
+                        LocalIdentifier(local_id) => {
+                            // Recurse to identifier
+                            local_id.identifier.check(ctx, report_error);
+                        }
+                        BinaryOperation(bin_op) => {
+                            // Recurse to children
+                            bin_op.left.check(ctx, report_error);
+                            bin_op.operator.check(ctx, report_error);
+                            bin_op.right.check(ctx, report_error);
+                        }
+                        Invocation(inv) => {
+                            // Recurse to children
+                            inv.function.check(ctx, report_error);
+                            inv.arguments.check(ctx, report_error);
+                        }
+                        FunctionExpression(func) => {
+                            // Recurse to children
+                            func.parameters.check(ctx, report_error);
+                            func.body.check(ctx, report_error);
+                        }
+                        ArrayLiteral(arr) => {
+                            // Recurse to elements
+                            arr.elements.check(ctx, report_error);
+                        }
+                        ObjectLiteral(obj) => {
+                            // Recurse to fields
+                            obj.fields.check(ctx, report_error);
+                        }
                     }
                 }
-            }
 
-            Any::TypeExpression(type_expression) => {
-                use crate::ast::grammar::TypeExpression::*;
-                match type_expression {
-                    UnknownTypeExpression(_)
-                    | NilTypeExpression(_)
-                    | BooleanTypeExpression(_)
-                    | NumberTypeExpression(_)
-                    | StringTypeExpression(_) => {
-                        // Leaf nodes, nothing to check
-                    }
-                    TupleTypeExpression(tuple) => {
-                        // Recurse to elements
-                        tuple.elements.check(ctx, report_error);
-                    }
-                    ArrayTypeExpression(array) => {
-                        // Recurse to element type
-                        array.element.check(ctx, report_error);
-                    }
-                    ObjectTypeExpression(obj) => {
-                        // Recurse to field types
-                        obj.fields.check(ctx, report_error);
-                    }
-                    FunctionTypeExpression(func) => {
-                        // Recurse to parameter types and return type
-                        func.parameters.check(ctx, report_error);
-                        func.return_type.check(ctx, report_error);
-                    }
-                    UnionTypeExpression(union) => {
-                        // Recurse to variants
-                        union.variants.check(ctx, report_error);
+                Any::TypeExpression(type_expression) => {
+                    use crate::ast::grammar::TypeExpression::*;
+                    match type_expression {
+                        UnknownTypeExpression(_)
+                        | NilTypeExpression(_)
+                        | BooleanTypeExpression(_)
+                        | NumberTypeExpression(_)
+                        | StringTypeExpression(_) => {
+                            // Leaf nodes, nothing to check
+                        }
+                        TupleTypeExpression(tuple) => {
+                            // Recurse to elements
+                            tuple.elements.check(ctx, report_error);
+                        }
+                        ArrayTypeExpression(array) => {
+                            // Recurse to element type
+                            array.element.check(ctx, report_error);
+                        }
+                        ObjectTypeExpression(obj) => {
+                            // Recurse to field types
+                            obj.fields.check(ctx, report_error);
+                        }
+                        FunctionTypeExpression(func) => {
+                            // Recurse to parameter types and return type
+                            func.parameters.check(ctx, report_error);
+                            func.return_type.check(ctx, report_error);
+                        }
+                        UnionTypeExpression(union) => {
+                            // Recurse to variants
+                            union.variants.check(ctx, report_error);
+                        }
                     }
                 }
-            }
 
-            Any::PlainIdentifier(_) => {
-                // Leaf node, nothing to check
-            }
+                Any::PlainIdentifier(_) => {
+                    // Leaf node, nothing to check
+                }
 
-            Any::BinaryOperator(_) => {
-                // Leaf node, nothing to check
-            }
+                Any::BinaryOperator(_) => {
+                    // Leaf node, nothing to check
+                }
             },
         }
     }
