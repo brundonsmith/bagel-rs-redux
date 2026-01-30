@@ -2,10 +2,9 @@ use std::fmt::Write;
 use std::path::Path;
 
 use crate::{
-    ast::grammar::{BinaryOperator, Declaration, FunctionBody, Statement},
-    ast::{container::AST, grammar::Any, slice::Slice},
+    ast::{container::AST, grammar::{Any, BinaryOperator, Declaration, ElseClause, Expression, FunctionBody, Statement, TypeExpression, UnaryOperator}, slice::Slice},
     config::{Config, RuleSeverity},
-    types::{fits::FitsContext, infer::InferTypeContext, Type},
+    types::{Type, fits::FitsContext, infer::InferTypeContext},
 };
 
 #[derive(Debug, Clone)]
@@ -247,34 +246,11 @@ where
                         decl.identifier.check(ctx, report_error);
                         decl.type_annotation.check(ctx, report_error);
                         decl.value.check(ctx, report_error);
-
-                        // Check type compatibility if there's a type annotation
-                        if let Some((_colon, type_expr)) = &decl.type_annotation {
-                            // Convert TypeExpression to Type
-                            let declared_type: Type = Type::from(type_expr.unpack());
-
-                            // Infer the type of the value expression
-                            let infer_ctx = InferTypeContext {};
-                            let inferred_type = decl.value.infer_type(infer_ctx);
-
-                            // Check if the inferred type fits the declared type
-                            let fits_ctx = FitsContext {};
-                            let issues = inferred_type.fit_issues(declared_type, fits_ctx);
-                            if issues.len() > 0 {
-                                report_error(BagelError {
-                                    src: decl.value.slice().clone(),
-                                    severity: RuleSeverity::Error,
-                                    details: BagelErrorDetails::MiscError {
-                                        message: issues.join("\n"),
-                                    },
-                                });
-                            }
-                        }
                     }
                 },
 
                 Any::Expression(expression) => {
-                    use crate::ast::grammar::Expression::*;
+                    use Expression::*;
                     match expression {
                         NilLiteral(_) | BooleanLiteral(_) | NumberLiteral(_) | StringLiteral(_) => {
                             // Leaf nodes, nothing to check
@@ -415,7 +391,7 @@ where
                             let operand_type = unary_op.operand.infer_type(infer_ctx).normalize();
 
                             match unary_op.operator.unpack() {
-                                crate::ast::grammar::UnaryOperator::Not => {
+                                UnaryOperator::Not => {
                                     // ! only allows booleans or nil
                                     let allowed = Type::Union {
                                         variants: vec![Type::Boolean { value: None }, Type::Nil],
@@ -447,33 +423,6 @@ where
                             func.parameters.check(ctx, report_error);
                             func.return_type.check(ctx, report_error);
                             func.body.check(ctx, report_error);
-
-                            if let Some((_, return_type)) = func.return_type.clone() {
-                                let infer_ctx = InferTypeContext {};
-                                let return_type: Type = return_type.unpack().into();
-                                let body_type = match func.body.unpack() {
-                                    FunctionBody::Expression(ast) => {
-                                        ast.infer_type(infer_ctx).normalize()
-                                    }
-                                    FunctionBody::Block(ast) => Type::Never,
-                                };
-
-                                let fits_ctx = FitsContext {};
-                                let issues =
-                                    body_type.clone().fit_issues(return_type.clone(), fits_ctx);
-                                if !issues.is_empty() {
-                                    report_error(BagelError {
-                                        src: func.body.slice().clone(),
-                                        severity: RuleSeverity::Error,
-                                        details: BagelErrorDetails::MiscError {
-                                            message: format!(
-                                                "Expected return type '{}', but found '{}'",
-                                                return_type, body_type
-                                            ),
-                                        },
-                                    });
-                                }
-                            }
                         }
                         ArrayLiteral(arr) => {
                             // Recurse to elements
@@ -489,13 +438,13 @@ where
                             if_else.consequent.check(ctx, report_error);
 
                             match &if_else.else_clause {
-                                Some(crate::ast::grammar::ElseClause::ElseBlock {
+                                Some(ElseClause::ElseBlock {
                                     expression,
                                     ..
                                 }) => {
                                     expression.check(ctx, report_error);
                                 }
-                                Some(crate::ast::grammar::ElseClause::ElseIf {
+                                Some(ElseClause::ElseIf {
                                     if_else: nested,
                                     ..
                                 }) => {
@@ -526,10 +475,36 @@ where
                             }
                         }
                     }
+
+                    // Generalized expected-type check: if this expression
+                    // appears in a context that expects a specific type,
+                    // verify that its inferred type fits.
+                    let expr_node: AST<Expression> = match self {
+                        AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
+                        AST::Malformed { inner, message } => AST::<Expression>::new_malformed(inner.clone(), message.clone()),
+                    };
+                    if let Some(expected) = expr_node.expected_type() {
+                        let infer_ctx = InferTypeContext {};
+                        let inferred = expr_node.infer_type(infer_ctx).normalize();
+                        let fits_ctx = FitsContext {};
+                        let issues = inferred.clone().fit_issues(expected.clone(), fits_ctx);
+                        if !issues.is_empty() {
+                            report_error(BagelError {
+                                src: self.slice().clone(),
+                                severity: RuleSeverity::Error,
+                                details: BagelErrorDetails::MiscError {
+                                    message: format!(
+                                        "Type '{}' is not assignable to type '{}'",
+                                        expected, inferred
+                                    ),
+                                },
+                            });
+                        }
+                    }
                 }
 
                 Any::TypeExpression(type_expression) => {
-                    use crate::ast::grammar::TypeExpression::*;
+                    use TypeExpression::*;
                     match type_expression {
                         UnknownTypeExpression(_)
                         | NilTypeExpression(_)

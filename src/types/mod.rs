@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
-use crate::ast::grammar::{self, Any, BinaryOperator, Expression, LocalIdentifier, UnaryOperator};
+use crate::ast::container::AST;
+use crate::ast::grammar::{self, Any, BinaryOperator, Expression, FunctionBody, LocalIdentifier, UnaryOperator};
 use crate::ast::slice::Slice;
 
 use self::infer::InferTypeContext;
@@ -202,6 +203,61 @@ impl Type {
             },
             Type::String { value: Some(_) } => Type::String { value: None },
             other => other,
+        }
+    }
+}
+
+impl AST<Expression> {
+    /// Given an expression at some specific point in the AST tree, look
+    /// upwards to try and find what type it "should" have based on its context,
+    /// if any.
+    ///
+    /// Examples:
+    /// - The value of a const declaration, if the const has an annotated type,
+    ///   is expected to be that annotated type
+    /// - The value of an argument to a function invocation is expected to be
+    ///   the type of that function's Nth parameter
+    ///
+    /// This will be used for things like inferring the parameter types of a
+    /// function that doesn't have them annotated, but is passed into a context
+    /// where they're known (lambdas)
+    pub fn expected_type(&self) -> Option<Type> {
+        let parent = self.parent()?;
+
+        match parent.details()? {
+            Any::Declaration(grammar::Declaration::ConstDeclaration(const_decl)) => {
+                const_decl
+                    .type_annotation
+                    .as_ref()
+                    .map(|(_colon, type_expr)| Type::from(type_expr.unpack()))
+            }
+            Any::Expression(Expression::Invocation(inv)) => {
+                let arg_index = inv
+                    .arguments
+                    .iter()
+                    .position(|arg| arg.ptr_eq(self))?;
+
+                let ctx = InferTypeContext {};
+                let func_type = inv.function.infer_type(ctx).normalize();
+
+                match func_type {
+                    Type::FuncType { args, .. } => args.into_iter().nth(arg_index),
+                    _ => None,
+                }
+            }
+            Any::FunctionBody(FunctionBody::Expression(_)) => {
+                let func_body_node = parent;
+                let func_node = func_body_node.parent()?;
+
+                match func_node.details()? {
+                    Any::Expression(Expression::FunctionExpression(func)) => func
+                        .return_type
+                        .as_ref()
+                        .map(|(_colon, type_expr)| Type::from(type_expr.unpack())),
+                    _ => None,
+                }
+            }
+            _ => None,
         }
     }
 }
