@@ -173,6 +173,8 @@ impl AST<Expression> {
                         alternate: Arc::new(alternate_type),
                     }
                 }
+
+                ParenthesizedExpression(paren) => paren.expression.infer_type(ctx),
             },
         }
     }

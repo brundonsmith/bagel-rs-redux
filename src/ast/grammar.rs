@@ -203,6 +203,13 @@ pub struct ObjectLiteral {
     pub close_brace: Option<Slice>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ParenthesizedExpression {
+    pub open_paren: Slice,
+    pub expression: AST<Expression>,
+    pub close_paren: Slice,
+}
+
 // Type expression nodes
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnknownTypeExpression;
@@ -268,6 +275,13 @@ pub struct UnionTypeExpression {
     pub pipes: Vec<Slice>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ParenthesizedTypeExpression {
+    pub open_paren: Slice,
+    pub expression: AST<TypeExpression>,
+    pub close_paren: Slice,
+}
+
 /// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstDeclaration {
@@ -307,6 +321,7 @@ type_hierarchy! {
             ArrayLiteral,
             ObjectLiteral,
             IfElseExpression,
+            ParenthesizedExpression,
         },
         TypeExpression {
             UnknownTypeExpression,
@@ -320,6 +335,7 @@ type_hierarchy! {
             FunctionTypeExpression,
             RangeTypeExpression,
             UnionTypeExpression,
+            ParenthesizedTypeExpression,
         },
         Statement {
             Invocation,

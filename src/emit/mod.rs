@@ -180,6 +180,12 @@ where
                             write!(f, " }}")
                         }
 
+                        Expression::ParenthesizedExpression(paren) => {
+                            write!(f, "(")?;
+                            paren.expression.emit(ctx, f)?;
+                            write!(f, ")")
+                        }
+
                         Expression::IfElseExpression(if_else) => {
                             write!(f, "if ")?;
                             if_else.condition.emit(ctx, f)?;
@@ -283,6 +289,12 @@ where
                             variant.emit(ctx, f)?;
                         }
                         Ok(())
+                    }
+
+                    TypeExpression::ParenthesizedTypeExpression(paren) => {
+                        write!(f, "(")?;
+                        paren.expression.emit(ctx, f)?;
+                        write!(f, ")")
                     }
                 },
 

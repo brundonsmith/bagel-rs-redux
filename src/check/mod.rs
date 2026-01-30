@@ -477,6 +477,9 @@ where
                                 });
                             }
                         }
+                        ParenthesizedExpression(paren) => {
+                            paren.expression.check(ctx, report_error);
+                        }
                     }
 
                     // Generalized expected-type check: if this expression
@@ -539,6 +542,9 @@ where
                         UnionTypeExpression(union) => {
                             // Recurse to variants
                             union.variants.check(ctx, report_error);
+                        }
+                        ParenthesizedTypeExpression(paren) => {
+                            paren.expression.check(ctx, report_error);
                         }
                     }
                 }

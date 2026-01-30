@@ -178,6 +178,12 @@ where
                             compile_if_else_ternary(if_else, ctx, f)?;
                             write!(f, ")")
                         }
+
+                        Expression::ParenthesizedExpression(paren) => {
+                            write!(f, "(")?;
+                            paren.expression.compile(ctx, f)?;
+                            write!(f, ")")
+                        }
                     }
                 }
 

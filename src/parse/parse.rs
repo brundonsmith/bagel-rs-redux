@@ -703,6 +703,24 @@ fn function_body(i: Slice) -> ParseResult<AST<FunctionBody>> {
     ))(i)
 }
 
+fn parenthesized_expression(i: Slice) -> ParseResult<AST<ParenthesizedExpression>> {
+    let (remaining, (open_paren, mut inner, close_paren)) =
+        seq!(tag("("), expression, expect_tag(")"))(i)?;
+
+    let span = open_paren.spanning(&close_paren);
+    let node = make_ast(
+        span,
+        ParenthesizedExpression {
+            open_paren,
+            expression: inner.clone(),
+            close_paren,
+        },
+    );
+    inner.set_parent(&node);
+
+    Ok((remaining, node))
+}
+
 fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
     alt((
         map(nil_literal, |n| n.upcast()),
@@ -713,6 +731,7 @@ fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
         map(object_literal, |n| n.upcast()),
         map(if_else_expression, |n| n.upcast()),
         map(function_expression, |n| n.upcast()),
+        map(parenthesized_expression, |n| n.upcast()),
         map(local_identifier, |n| n.upcast()),
     ))(i)
 }
@@ -900,6 +919,24 @@ fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>
     Ok((remaining, node))
 }
 
+fn parenthesized_type_expression(i: Slice) -> ParseResult<AST<ParenthesizedTypeExpression>> {
+    let (remaining, (open_paren, mut inner, close_paren)) =
+        seq!(tag("("), type_expression, expect_tag(")"))(i)?;
+
+    let span = open_paren.spanning(&close_paren);
+    let node = make_ast(
+        span,
+        ParenthesizedTypeExpression {
+            open_paren,
+            expression: inner.clone(),
+            close_paren,
+        },
+    );
+    inner.set_parent(&node);
+
+    Ok((remaining, node))
+}
+
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(unknown_type_expression, |n| n.upcast()),
@@ -909,6 +946,7 @@ fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
         map(number_type_expression, |n| n.upcast()),
         map(string_type_expression, |n| n.upcast()),
         map(function_type_expression, |n| n.upcast()),
+        map(parenthesized_type_expression, |n| n.upcast()),
     ))(i)
 }
 

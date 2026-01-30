@@ -749,6 +749,7 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
                     .collect();
                 Type::Union { variants }
             }
+            ParenthesizedTypeExpression(paren) => Type::from(paren.expression.unpack()),
         }
     }
 }
