@@ -6,12 +6,12 @@ expression: output
 () => {
     print(12)
 } -> () => never
-(a: number, b: string) =>
+(a: number, b: string): boolean =>
     if a > 5 {
         a
     } else {
         a + b
-    } -> (arg0: number, arg1: string) => number | string
+    } -> (arg0: number, arg1: string) => boolean
 1 -> 1
 2 -> 2
 42 -> 42

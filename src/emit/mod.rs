@@ -141,6 +141,11 @@ where
                                 write!(f, ")")?;
                             }
 
+                            if let Some((_colon, ret_type)) = &func.return_type {
+                                write!(f, ": ")?;
+                                ret_type.emit(ctx, f)?;
+                            }
+
                             write!(f, " => ")?;
                             func.body.emit(ctx, f)
                         }

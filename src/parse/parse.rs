@@ -317,8 +317,9 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
             }
         }
 
-        // Parse closing paren with backtracking, then arrow and body
+        // Parse closing paren with backtracking, optional return type, then arrow and body
         let (current, close_paren) = w(backtrack(tag(")"), ")", "("))(current)?;
+        let (current, return_type) = parse_optional_type_annotation(current)?;
         let (remaining, (arrow, mut body)) = seq!(expect_tag("=>"), function_body)(current)?;
 
         let consumed_len = start.len() - remaining.len();
@@ -330,6 +331,7 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
             commas,
             trailing_comma,
             close_paren,
+            return_type: return_type.clone(),
             arrow,
             body: body.clone(),
         };
@@ -340,6 +342,9 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
             if let Some((_colon, mut type_expr)) = type_ann {
                 type_expr.set_parent(&node);
             }
+        }
+        if let Some((_colon, mut ret_type)) = return_type {
+            ret_type.set_parent(&node);
         }
         body.set_parent(&node);
 
@@ -359,6 +364,7 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
         commas: vec![],
         trailing_comma: None,
         close_paren: None,
+        return_type: None,
         arrow,
         body: body.clone(),
     };

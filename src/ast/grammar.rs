@@ -133,7 +133,7 @@ pub struct Invocation {
     pub close_paren: Option<Slice>,
 }
 
-/// FunctionExpression node: (?:"(" Param (?:"," Param)* ","? ")") or PlainIdentifier "=>" Expression
+/// FunctionExpression node: (?:"(" Param (?:"," Param)* ","? ")") (":" TypeExpression)? or PlainIdentifier "=>" FunctionBody
 /// where Param = PlainIdentifier (":" TypeExpression)?
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionExpression {
@@ -142,6 +142,7 @@ pub struct FunctionExpression {
     pub commas: Vec<Slice>,
     pub trailing_comma: Option<Slice>,
     pub close_paren: Option<Slice>,
+    pub return_type: Option<(Slice, AST<TypeExpression>)>,
     pub arrow: Slice,
     pub body: AST<FunctionBody>,
 }

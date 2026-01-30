@@ -2,8 +2,8 @@ use std::fmt::Write;
 use std::path::Path;
 
 use crate::{
-    ast::{container::AST, grammar::Any, slice::Slice},
     ast::grammar::{BinaryOperator, Declaration, FunctionBody, Statement},
+    ast::{container::AST, grammar::Any, slice::Slice},
     config::{Config, RuleSeverity},
     types::{fits::FitsContext, infer::InferTypeContext, Type},
 };
@@ -271,7 +271,7 @@ where
                             }
                         }
                     }
-                }
+                },
 
                 Any::Expression(expression) => {
                     use crate::ast::grammar::Expression::*;
@@ -296,32 +296,87 @@ where
 
                             let (allowed, op_str) = match bin_op.operator.unpack() {
                                 BinaryOperator::Add => (
-                                    Some(Type::Union { variants: vec![Type::Number { min_value: None, max_value: None }, Type::String { value: None }] }),
+                                    Some(Type::Union {
+                                        variants: vec![
+                                            Type::Number {
+                                                min_value: None,
+                                                max_value: None,
+                                            },
+                                            Type::String { value: None },
+                                        ],
+                                    }),
                                     "+",
                                 ),
-                                BinaryOperator::Subtract => (Some(Type::Number { min_value: None, max_value: None }), "-"),
-                                BinaryOperator::Multiply => (Some(Type::Number { min_value: None, max_value: None }), "*"),
-                                BinaryOperator::Divide => (Some(Type::Number { min_value: None, max_value: None }), "/"),
+                                BinaryOperator::Subtract => (
+                                    Some(Type::Number {
+                                        min_value: None,
+                                        max_value: None,
+                                    }),
+                                    "-",
+                                ),
+                                BinaryOperator::Multiply => (
+                                    Some(Type::Number {
+                                        min_value: None,
+                                        max_value: None,
+                                    }),
+                                    "*",
+                                ),
+                                BinaryOperator::Divide => (
+                                    Some(Type::Number {
+                                        min_value: None,
+                                        max_value: None,
+                                    }),
+                                    "/",
+                                ),
                                 BinaryOperator::And => (
-                                    Some(Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] }),
+                                    Some(Type::Union {
+                                        variants: vec![Type::Boolean { value: None }, Type::Nil],
+                                    }),
                                     "&&",
                                 ),
                                 BinaryOperator::Or => (
-                                    Some(Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] }),
+                                    Some(Type::Union {
+                                        variants: vec![Type::Boolean { value: None }, Type::Nil],
+                                    }),
                                     "||",
                                 ),
                                 BinaryOperator::Equal => (None, "=="),
                                 BinaryOperator::NotEqual => (None, "!="),
-                                BinaryOperator::LessThan => (Some(Type::Number { min_value: None, max_value: None }), "<"),
-                                BinaryOperator::LessThanOrEqual => (Some(Type::Number { min_value: None, max_value: None }), "<="),
-                                BinaryOperator::GreaterThan => (Some(Type::Number { min_value: None, max_value: None }), ">"),
-                                BinaryOperator::GreaterThanOrEqual => (Some(Type::Number { min_value: None, max_value: None }), ">="),
+                                BinaryOperator::LessThan => (
+                                    Some(Type::Number {
+                                        min_value: None,
+                                        max_value: None,
+                                    }),
+                                    "<",
+                                ),
+                                BinaryOperator::LessThanOrEqual => (
+                                    Some(Type::Number {
+                                        min_value: None,
+                                        max_value: None,
+                                    }),
+                                    "<=",
+                                ),
+                                BinaryOperator::GreaterThan => (
+                                    Some(Type::Number {
+                                        min_value: None,
+                                        max_value: None,
+                                    }),
+                                    ">",
+                                ),
+                                BinaryOperator::GreaterThanOrEqual => (
+                                    Some(Type::Number {
+                                        min_value: None,
+                                        max_value: None,
+                                    }),
+                                    ">=",
+                                ),
                                 BinaryOperator::NullishCoalescing => (None, "??"),
                             };
 
                             if let Some(allowed) = allowed {
                                 let fits_ctx = FitsContext {};
-                                let left_issues = left_type.clone().fit_issues(allowed.clone(), fits_ctx);
+                                let left_issues =
+                                    left_type.clone().fit_issues(allowed.clone(), fits_ctx);
                                 let fits_ctx = FitsContext {};
                                 let right_issues = right_type.clone().fit_issues(allowed, fits_ctx);
                                 if !left_issues.is_empty() {
@@ -362,7 +417,9 @@ where
                             match unary_op.operator.unpack() {
                                 crate::ast::grammar::UnaryOperator::Not => {
                                     // ! only allows booleans or nil
-                                    let allowed = Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] };
+                                    let allowed = Type::Union {
+                                        variants: vec![Type::Boolean { value: None }, Type::Nil],
+                                    };
                                     let fits_ctx = FitsContext {};
                                     let issues = operand_type.clone().fit_issues(allowed, fits_ctx);
                                     if !issues.is_empty() {
@@ -388,7 +445,35 @@ where
                         FunctionExpression(func) => {
                             // Recurse to children
                             func.parameters.check(ctx, report_error);
+                            func.return_type.check(ctx, report_error);
                             func.body.check(ctx, report_error);
+
+                            if let Some((_, return_type)) = func.return_type.clone() {
+                                let infer_ctx = InferTypeContext {};
+                                let return_type: Type = return_type.unpack().into();
+                                let body_type = match func.body.unpack() {
+                                    FunctionBody::Expression(ast) => {
+                                        ast.infer_type(infer_ctx).normalize()
+                                    }
+                                    FunctionBody::Block(ast) => Type::Never,
+                                };
+
+                                let fits_ctx = FitsContext {};
+                                let issues =
+                                    body_type.clone().fit_issues(return_type.clone(), fits_ctx);
+                                if !issues.is_empty() {
+                                    report_error(BagelError {
+                                        src: func.body.slice().clone(),
+                                        severity: RuleSeverity::Error,
+                                        details: BagelErrorDetails::MiscError {
+                                            message: format!(
+                                                "Expected return type '{}', but found '{}'",
+                                                return_type, body_type
+                                            ),
+                                        },
+                                    });
+                                }
+                            }
                         }
                         ArrayLiteral(arr) => {
                             // Recurse to elements
@@ -404,10 +489,16 @@ where
                             if_else.consequent.check(ctx, report_error);
 
                             match &if_else.else_clause {
-                                Some(crate::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
+                                Some(crate::ast::grammar::ElseClause::ElseBlock {
+                                    expression,
+                                    ..
+                                }) => {
                                     expression.check(ctx, report_error);
                                 }
-                                Some(crate::ast::grammar::ElseClause::ElseIf { if_else: nested, .. }) => {
+                                Some(crate::ast::grammar::ElseClause::ElseIf {
+                                    if_else: nested,
+                                    ..
+                                }) => {
                                     nested.check(ctx, report_error);
                                 }
                                 None => {}
@@ -416,7 +507,9 @@ where
                             // Type-check: condition must be boolean or nil
                             let infer_ctx = InferTypeContext {};
                             let cond_type = if_else.condition.infer_type(infer_ctx).normalize();
-                            let allowed = Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] };
+                            let allowed = Type::Union {
+                                variants: vec![Type::Boolean { value: None }, Type::Nil],
+                            };
                             let fits_ctx = FitsContext {};
                             let issues = cond_type.clone().fit_issues(allowed, fits_ctx);
                             if !issues.is_empty() {
@@ -485,7 +578,7 @@ where
                 Any::FunctionBody(body) => match body {
                     FunctionBody::Expression(expr) => expr.check(ctx, report_error),
                     FunctionBody::Block(block) => block.check(ctx, report_error),
-                }
+                },
 
                 Any::Statement(statement) => match statement {
                     Statement::Invocation(inv) => {
@@ -497,7 +590,7 @@ where
                         // For now, nothing to recurse into since blocks aren't parsed yet
                         let _ = block;
                     }
-                }
+                },
             },
         }
     }

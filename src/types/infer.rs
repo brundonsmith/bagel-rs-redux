@@ -91,9 +91,12 @@ impl AST<Expression> {
                                 .unwrap_or(Type::Unknown)
                         })
                         .collect();
-                    let returns = Arc::new(match func.body.unpack() {
-                        FunctionBody::Expression(expr) => expr.infer_type(ctx),
-                        FunctionBody::Block(_) => Type::Never,
+                    let returns = Arc::new(match &func.return_type {
+                        Some((_colon, ret_type)) => Type::from(ret_type.unpack()),
+                        None => match func.body.unpack() {
+                            FunctionBody::Expression(expr) => expr.infer_type(ctx),
+                            FunctionBody::Block(_) => Type::Never,
+                        },
                     });
 
                     Type::FuncType {

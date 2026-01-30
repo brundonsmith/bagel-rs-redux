@@ -3,7 +3,7 @@ const y = true
 const z = false
 const c: boolean = a == b || y != z
 const foo = [1, 2, {stuff: 'other'}]
-const func = (a: number, b: string) =>
+const func = (a: number, b: string): boolean =>
     if a > 5 {
         a
     } else {
