@@ -67,6 +67,10 @@ pub struct Rules {
     /// an export that isn't used in the current project isn't used at all
     /// (use "module" for libraries).
     no_unnecessary_mutable_variables: RuleSeverityOrOff,
+
+    /// Require that the nil coalescing operator's left operand be
+    /// possibly-nil (otherwise the operator does nothing).
+    no_unnecessary_nil_coalescing: RuleSeverityOrOff,
 }
 
 impl Default for Rules {
@@ -96,6 +100,7 @@ impl Default for Rules {
                 locality: Locality::Project,
             },
             no_unnecessary_mutable_variables: Autofix,
+            no_unnecessary_nil_coalescing: Autofix,
         }
     }
 }
