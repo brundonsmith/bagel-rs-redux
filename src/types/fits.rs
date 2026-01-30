@@ -56,14 +56,36 @@ impl Type {
         }
 
         match (&value, &destination) {
-            // Exact boolean literals fit into boolean type
-            (Type::ExactBoolean { .. }, Type::Boolean) => vec![],
+            // Exact boolean fits into general boolean
+            (Type::Boolean { value: Some(_) }, Type::Boolean { value: None }) => vec![],
 
-            // Exact number literals fit into number type
-            (Type::ExactNumber { .. }, Type::Number) => vec![],
+            // Exact/bounded number fits into general number or a wider range
+            (
+                Type::Number { min_value: val_min, max_value: val_max },
+                Type::Number { min_value: dest_min, max_value: dest_max },
+            ) => {
+                let min_ok = match (val_min, dest_min) {
+                    (_, None) => true, // destination has no lower bound
+                    (Some(v), Some(d)) => v >= d,
+                    (None, Some(_)) => false, // value unbounded but dest has bound
+                };
+                let max_ok = match (val_max, dest_max) {
+                    (_, None) => true, // destination has no upper bound
+                    (Some(v), Some(d)) => v <= d,
+                    (None, Some(_)) => false,
+                };
+                if min_ok && max_ok {
+                    vec![]
+                } else {
+                    vec![format!(
+                        "Type '{}' is not assignable to type '{}'.",
+                        value, destination
+                    )]
+                }
+            }
 
-            // Exact string literals fit into string type
-            (Type::ExactString { .. }, Type::String) => vec![],
+            // Exact string fits into general string
+            (Type::String { value: Some(_) }, Type::String { value: None }) => vec![],
 
             // Array type compatibility: element types must be compatible
             (Type::Array { element: val_elem }, Type::Array { element: dest_elem }) => {

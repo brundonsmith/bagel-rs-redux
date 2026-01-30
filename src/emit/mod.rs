@@ -253,6 +253,17 @@ where
                         func.return_type.emit(ctx, f)
                     }
 
+                    TypeExpression::RangeTypeExpression(range) => {
+                        if let Some(start) = &range.start {
+                            write!(f, "{}", start.as_str())?;
+                        }
+                        write!(f, "..")?;
+                        if let Some(end) = &range.end {
+                            write!(f, "{}", end.as_str())?;
+                        }
+                        Ok(())
+                    }
+
                     TypeExpression::UnionTypeExpression(union) => {
                         for (i, variant) in union.variants.iter().enumerate() {
                             if i > 0 {

@@ -27,25 +27,30 @@ impl AST<Expression> {
             Some(_) => match self.unpack() {
                 NilLiteral(_) => Type::Nil,
 
-                BooleanLiteral(lit) => Type::ExactBoolean { value: lit.value },
+                BooleanLiteral(lit) => Type::Boolean {
+                    value: Some(lit.value),
+                },
 
                 NumberLiteral(_) => {
                     // Parse the number from the slice to determine if it's an exact type
                     let text = self.slice().as_str();
 
                     if let Ok(value) = text.parse::<i64>() {
-                        Type::ExactNumber { value }
+                        Type::Number {
+                            min_value: Some(value),
+                            max_value: Some(value),
+                        }
                     } else {
-                        Type::Number
+                        Type::Number {
+                            min_value: None,
+                            max_value: None,
+                        }
                     }
                 }
 
-                StringLiteral(str_lit) => {
-                    // Infer exact string type from contents
-                    Type::ExactString {
-                        value: str_lit.contents.clone(),
-                    }
-                }
+                StringLiteral(str_lit) => Type::String {
+                    value: Some(str_lit.contents.clone()),
+                },
 
                 LocalIdentifier(local_id) => Type::LocalIdentifier {
                     identifier: local_id,

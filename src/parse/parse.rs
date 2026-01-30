@@ -724,11 +724,58 @@ fn array_type_expression(i: Slice) -> ParseResult<AST<ArrayTypeExpression>> {
     Ok((remaining, node))
 }
 
+// Parser for RangeTypeExpression: integer? ".." integer?  (at least one integer required)
+// where integer = "-"? [0-9]+
+fn range_type_expression(i: Slice) -> ParseResult<AST<RangeTypeExpression>> {
+    let start_pos = i.clone();
+
+    // Try to parse optional start integer
+    let (remaining, start) = opt(recognize(tuple((
+        opt(char('-')),
+        take_while1(|c: char| c.is_ascii_digit()),
+    ))))(i)?;
+
+    // Parse ".."
+    let (remaining, dots) = tag("..")(remaining)?;
+
+    // Try to parse optional end integer
+    let (remaining, end) = opt(recognize(tuple((
+        opt(char('-')),
+        take_while1(|c: char| c.is_ascii_digit()),
+    ))))(remaining)?;
+
+    // At least one side must be present
+    if start.is_none() && end.is_none() {
+        return Err(nom::Err::Error(crate::check::BagelError {
+            src: start_pos,
+            severity: crate::config::RuleSeverity::Error,
+            details: crate::check::BagelErrorDetails::ParseError {
+                message: "Range type requires at least one bound".to_string(),
+            },
+        }));
+    }
+
+    let consumed_len = start_pos.len() - remaining.len();
+    let span = start_pos.slice_range(0, Some(consumed_len));
+
+    let node = make_ast(
+        span,
+        RangeTypeExpression {
+            start,
+            dots,
+            end,
+        },
+    );
+
+    Ok((remaining, node))
+}
+
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(unknown_type_expression, |n| n.upcast()),
         map(nil_type_expression, |n| n.upcast()),
         map(boolean_type_expression, |n| n.upcast()),
+        map(range_type_expression, |n| n.upcast()),
         map(number_type_expression, |n| n.upcast()),
         map(string_type_expression, |n| n.upcast()),
     ))(i)

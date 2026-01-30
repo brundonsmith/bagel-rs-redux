@@ -294,26 +294,26 @@ where
 
                             let (allowed, op_str) = match bin_op.operator.unpack() {
                                 BinaryOperator::Add => (
-                                    Some(Type::Union { variants: vec![Type::Number, Type::String] }),
+                                    Some(Type::Union { variants: vec![Type::Number { min_value: None, max_value: None }, Type::String { value: None }] }),
                                     "+",
                                 ),
-                                BinaryOperator::Subtract => (Some(Type::Number), "-"),
-                                BinaryOperator::Multiply => (Some(Type::Number), "*"),
-                                BinaryOperator::Divide => (Some(Type::Number), "/"),
+                                BinaryOperator::Subtract => (Some(Type::Number { min_value: None, max_value: None }), "-"),
+                                BinaryOperator::Multiply => (Some(Type::Number { min_value: None, max_value: None }), "*"),
+                                BinaryOperator::Divide => (Some(Type::Number { min_value: None, max_value: None }), "/"),
                                 BinaryOperator::And => (
-                                    Some(Type::Union { variants: vec![Type::Boolean, Type::Nil] }),
+                                    Some(Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] }),
                                     "&&",
                                 ),
                                 BinaryOperator::Or => (
-                                    Some(Type::Union { variants: vec![Type::Boolean, Type::Nil] }),
+                                    Some(Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] }),
                                     "||",
                                 ),
                                 BinaryOperator::Equal => (None, "=="),
                                 BinaryOperator::NotEqual => (None, "!="),
-                                BinaryOperator::LessThan => (Some(Type::Number), "<"),
-                                BinaryOperator::LessThanOrEqual => (Some(Type::Number), "<="),
-                                BinaryOperator::GreaterThan => (Some(Type::Number), ">"),
-                                BinaryOperator::GreaterThanOrEqual => (Some(Type::Number), ">="),
+                                BinaryOperator::LessThan => (Some(Type::Number { min_value: None, max_value: None }), "<"),
+                                BinaryOperator::LessThanOrEqual => (Some(Type::Number { min_value: None, max_value: None }), "<="),
+                                BinaryOperator::GreaterThan => (Some(Type::Number { min_value: None, max_value: None }), ">"),
+                                BinaryOperator::GreaterThanOrEqual => (Some(Type::Number { min_value: None, max_value: None }), ">="),
                                 BinaryOperator::NullishCoalescing => (None, "??"),
                             };
 
@@ -360,7 +360,7 @@ where
                             match unary_op.operator.unpack() {
                                 crate::ast::grammar::UnaryOperator::Not => {
                                     // ! only allows booleans or nil
-                                    let allowed = Type::Union { variants: vec![Type::Boolean, Type::Nil] };
+                                    let allowed = Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] };
                                     let fits_ctx = FitsContext {};
                                     let issues = operand_type.clone().fit_issues(allowed, fits_ctx);
                                     if !issues.is_empty() {
@@ -414,7 +414,7 @@ where
                             // Type-check: condition must be boolean or nil
                             let infer_ctx = InferTypeContext {};
                             let cond_type = if_else.condition.infer_type(infer_ctx).normalize();
-                            let allowed = Type::Union { variants: vec![Type::Boolean, Type::Nil] };
+                            let allowed = Type::Union { variants: vec![Type::Boolean { value: None }, Type::Nil] };
                             let fits_ctx = FitsContext {};
                             let issues = cond_type.clone().fit_issues(allowed, fits_ctx);
                             if !issues.is_empty() {
@@ -440,7 +440,8 @@ where
                         | NilTypeExpression(_)
                         | BooleanTypeExpression(_)
                         | NumberTypeExpression(_)
-                        | StringTypeExpression(_) => {
+                        | StringTypeExpression(_)
+                        | RangeTypeExpression(_) => {
                             // Leaf nodes, nothing to check
                         }
                         TupleTypeExpression(tuple) => {

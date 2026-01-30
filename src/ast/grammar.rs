@@ -244,6 +244,13 @@ pub struct FunctionTypeExpression {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RangeTypeExpression {
+    pub start: Option<Slice>,
+    pub dots: Slice,
+    pub end: Option<Slice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnionTypeExpression {
     pub variants: Vec<AST<TypeExpression>>,
     pub pipes: Vec<Slice>,
@@ -297,6 +304,7 @@ type_hierarchy! {
             ArrayTypeExpression,
             ObjectTypeExpression,
             FunctionTypeExpression,
+            RangeTypeExpression,
             UnionTypeExpression,
         },
         PlainIdentifier,
