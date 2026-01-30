@@ -4,6 +4,7 @@ expression: output
 ---
 2 -> 2
 42 -> 42
+[1, 2, {stuff: 'other'}] -> [1, 2, {stuff: "other"}]
 false -> false
 nil -> nil
 true -> true

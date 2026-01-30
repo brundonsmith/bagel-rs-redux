@@ -52,6 +52,15 @@
           "include": "#number-literal"
         },
         {
+          "include": "#string-literal"
+        },
+        {
+          "include": "#array-literal"
+        },
+        {
+          "include": "#object-literal"
+        },
+        {
           "include": "#function-expression"
         },
         {
@@ -145,6 +154,87 @@
     "number-literal": {
       "name": "constant.numeric.bagel",
       "match": "\\b[0-9]+(?:\\.[0-9]+)?\\b"
+    },
+    "string-literal": {
+      "name": "string.quoted.single.bagel",
+      "begin": "'",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.bagel"
+        }
+      },
+      "end": "'|$",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.bagel"
+        }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.bagel",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "array-literal": {
+      "name": "meta.array.literal.bagel",
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.array.begin.bagel"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.array.end.bagel"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        },
+        {
+          "name": "punctuation.separator.comma.bagel",
+          "match": ","
+        }
+      ]
+    },
+    "object-literal": {
+      "name": "meta.object.literal.bagel",
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.object.begin.bagel"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.object.end.bagel"
+        }
+      },
+      "patterns": [
+        {
+          "name": "meta.object.member.bagel",
+          "match": "([a-z]+)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "variable.object.property.bagel"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.bagel"
+            }
+          }
+        },
+        {
+          "include": "#expression"
+        },
+        {
+          "name": "punctuation.separator.comma.bagel",
+          "match": ","
+        }
+      ]
     },
     "binary-operator": {
       "name": "keyword.operator.arithmetic.bagel",

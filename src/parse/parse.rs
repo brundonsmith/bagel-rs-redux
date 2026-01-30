@@ -123,6 +123,56 @@ pub fn number_literal(i: Slice) -> ParseResult<AST<NumberLiteral>> {
     )(i)
 }
 
+// Parser for StringLiteral: single-quoted string with escape sequences
+pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
+    let (remaining, open_quote) = tag("'")(i)?;
+
+    // Parse string contents until we hit a closing quote or end of input
+    let mut chars = remaining.as_str().chars();
+    let mut len = 0;
+    let mut escaped = false;
+
+    for ch in chars {
+        if escaped {
+            // Any character after backslash is consumed
+            escaped = false;
+            len += ch.len_utf8();
+        } else if ch == '\\' {
+            // Start escape sequence
+            escaped = true;
+            len += 1;
+        } else if ch == '\'' {
+            // Found closing quote
+            break;
+        } else {
+            len += ch.len_utf8();
+        }
+    }
+
+    let contents = remaining.clone().slice_range(0, Some(len));
+    let after_contents = remaining.slice_range(len, None);
+
+    // Try to parse closing quote with backtracking
+    let (remaining, close_quote_opt) = backtrack(tag("'"), "'", "'")(after_contents)?;
+
+    let close_quote = close_quote_opt.unwrap_or_else(|| {
+        // If no closing quote, use zero-width slice at end
+        remaining.clone().slice_range(0, Some(0))
+    });
+
+    let span = open_quote.spanning(&close_quote);
+    let node = make_ast(
+        span,
+        StringLiteral {
+            open_quote,
+            contents,
+            close_quote,
+        },
+    );
+
+    Ok((remaining, node))
+}
+
 // Parser for LocalIdentifier: PlainIdentifier (used as an expression)
 pub fn local_identifier(i: Slice) -> ParseResult<AST<LocalIdentifier>> {
     map(plain_identifier, |identifier: AST<PlainIdentifier>| {
@@ -328,11 +378,141 @@ fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
 }
 
 // Atom expressions: literals, identifiers, function expressions, and parenthesized expressions
+// Parser for ArrayLiteral: "[" Expression (?:"," Expression)* ","? "]"
+fn array_literal(i: Slice) -> ParseResult<AST<ArrayLiteral>> {
+    let (remaining, open_bracket) = tag("[")(i)?;
+
+    let mut elements = Vec::new();
+    let mut commas = Vec::new();
+    let mut current = remaining;
+    let mut trailing_comma = None;
+
+    // Parse first element if present
+    if let Ok((after_elem, elem)) = w(expression)(current.clone()) {
+        elements.push(elem);
+        current = after_elem;
+
+        // Parse subsequent ", elem" pairs
+        loop {
+            if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
+                // Check if there's another element or if this is a trailing comma
+                if let Ok((after_elem, elem)) = w(expression)(after_comma.clone()) {
+                    commas.push(comma);
+                    elements.push(elem);
+                    current = after_elem;
+                } else {
+                    // Trailing comma
+                    trailing_comma = Some(comma);
+                    current = after_comma;
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    // Try to parse closing bracket with backtracking
+    let (remaining, close_bracket) = w(backtrack(tag("]"), "]", "["))(current)?;
+
+    let span = open_bracket.spanning(
+        close_bracket
+            .as_ref()
+            .unwrap_or(&open_bracket)
+    );
+
+    let array_lit = ArrayLiteral {
+        open_bracket,
+        elements: elements.clone(),
+        commas,
+        trailing_comma,
+        close_bracket,
+    };
+
+    let node = make_ast(span, array_lit);
+    for elem in &mut elements {
+        elem.set_parent(&node);
+    }
+
+    Ok((remaining, node))
+}
+
+// Parser for ObjectLiteral: "{" (PlainIdentifier ":" Expression (?:"," PlainIdentifier ":" Expression)*)? ","? "}"
+fn object_literal(i: Slice) -> ParseResult<AST<ObjectLiteral>> {
+    let (remaining, open_brace) = tag("{")(i)?;
+
+    let mut fields = Vec::new();
+    let mut commas = Vec::new();
+    let mut current = remaining;
+    let mut trailing_comma = None;
+
+    // Parse first field if present
+    if let Ok((after_key, key)) = w(plain_identifier)(current.clone()) {
+        if let Ok((after_colon, colon)) = w(tag(":"))(after_key.clone()) {
+            if let Ok((after_value, value)) = w(expression)(after_colon.clone()) {
+                fields.push((key, colon, value));
+                current = after_value;
+
+                // Parse subsequent ", key: value" triples
+                loop {
+                    if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
+                        // Check if there's another field or if this is a trailing comma
+                        if let Ok((after_key, key)) = w(plain_identifier)(after_comma.clone()) {
+                            if let Ok((after_colon, colon)) = w(tag(":"))(after_key) {
+                                if let Ok((after_value, value)) = w(expression)(after_colon) {
+                                    commas.push(comma);
+                                    fields.push((key, colon, value));
+                                    current = after_value;
+                                    continue;
+                                }
+                            }
+                        }
+                        // Trailing comma
+                        trailing_comma = Some(comma);
+                        current = after_comma;
+                        break;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Try to parse closing brace with backtracking
+    let (remaining, close_brace) = w(backtrack(tag("}"), "}", "{"))(current)?;
+
+    let span = open_brace.spanning(
+        close_brace
+            .as_ref()
+            .unwrap_or(&open_brace)
+    );
+
+    let obj_lit = ObjectLiteral {
+        open_brace,
+        fields: fields.clone(),
+        commas,
+        trailing_comma,
+        close_brace,
+    };
+
+    let node = make_ast(span, obj_lit);
+    for (key, _, value) in &mut fields {
+        key.set_parent(&node);
+        value.set_parent(&node);
+    }
+
+    Ok((remaining, node))
+}
+
 fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
     alt((
         map(nil_literal, |n| n.upcast()),
         map(boolean_literal, |n| n.upcast()),
         map(number_literal, |n| n.upcast()),
+        map(string_literal, |n| n.upcast()),
+        map(array_literal, |n| n.upcast()),
+        map(object_literal, |n| n.upcast()),
         map(function_expression, |n| n.upcast()),
         map(local_identifier, |n| n.upcast()),
     ))(i)

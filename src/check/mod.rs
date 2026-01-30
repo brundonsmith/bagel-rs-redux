@@ -104,7 +104,7 @@ where
             Any::Expression(expression) => {
                 use crate::ast::grammar::Expression::*;
                 match expression {
-                    NilLiteral(_) | BooleanLiteral(_) | NumberLiteral(_) => {
+                    NilLiteral(_) | BooleanLiteral(_) | NumberLiteral(_) | StringLiteral(_) => {
                         // Leaf nodes, nothing to check
                     }
                     LocalIdentifier(local_id) => {
@@ -126,6 +126,14 @@ where
                         // Recurse to children
                         func.parameters.check(ctx, report_error);
                         func.body.check(ctx, report_error);
+                    }
+                    ArrayLiteral(arr) => {
+                        // Recurse to elements
+                        arr.elements.check(ctx, report_error);
+                    }
+                    ObjectLiteral(obj) => {
+                        // Recurse to fields
+                        obj.fields.check(ctx, report_error);
                     }
                 }
             }

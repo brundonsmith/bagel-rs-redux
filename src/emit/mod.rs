@@ -74,6 +74,12 @@ where
                         write!(f, "{}", self.slice().as_str())
                     }
 
+                    Expression::StringLiteral(str_lit) => {
+                        write!(f, "'")?;
+                        write!(f, "{}", str_lit.contents.as_str())?;
+                        write!(f, "'")
+                    }
+
                     Expression::LocalIdentifier(local_id) => local_id.identifier.emit(ctx, f),
 
                     Expression::BinaryOperation(bin_op) => {
@@ -124,6 +130,36 @@ where
 
                         write!(f, " => ")?;
                         func.body.emit(ctx, f)
+                    }
+
+                    Expression::ArrayLiteral(arr) => {
+                        write!(f, "[")?;
+                        for (i, elem) in arr.elements.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            elem.emit(ctx, f)?;
+                        }
+                        if arr.trailing_comma.is_some() {
+                            write!(f, ",")?;
+                        }
+                        write!(f, "]")
+                    }
+
+                    Expression::ObjectLiteral(obj) => {
+                        write!(f, "{{ ")?;
+                        for (i, (key, _, value)) in obj.fields.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            key.emit(ctx, f)?;
+                            write!(f, ": ")?;
+                            value.emit(ctx, f)?;
+                        }
+                        if obj.trailing_comma.is_some() {
+                            write!(f, ",")?;
+                        }
+                        write!(f, " }}")
                     }
                 }
             }

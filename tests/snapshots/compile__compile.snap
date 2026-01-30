@@ -5,5 +5,6 @@ expression: compiled
 const x = 42;
 const y = true;
 const z = false;
+const foo = [1, 2, {stuff: 'other'}];
 const a = null;
 const b = y * 2 + x;

@@ -23,6 +23,13 @@ pub struct BooleanLiteral {
 pub struct NumberLiteral;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StringLiteral {
+    pub open_quote: Slice,
+    pub contents: Slice,
+    pub close_quote: Slice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PlainIdentifier;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -90,6 +97,26 @@ pub struct FunctionExpression {
     pub close_paren: Option<Slice>,
     pub arrow: Slice,
     pub body: AST<Expression>,
+}
+
+/// ArrayLiteral node: "[" Expression (?:"," Expression)* ","? "]"
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ArrayLiteral {
+    pub open_bracket: Slice,
+    pub elements: Vec<AST<Expression>>,
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_bracket: Option<Slice>,
+}
+
+/// ObjectLiteral node: "{" (PlainIdentifier ":" Expression (?:"," PlainIdentifier ":" Expression)*)? ","? "}"
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ObjectLiteral {
+    pub open_brace: Slice,
+    pub fields: Vec<(AST<PlainIdentifier>, Slice, AST<Expression>)>, // (key, colon, value)
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_brace: Option<Slice>,
 }
 
 // Type expression nodes
@@ -178,10 +205,13 @@ type_hierarchy! {
             NilLiteral,
             BooleanLiteral,
             NumberLiteral,
+            StringLiteral,
             BinaryOperation,
             LocalIdentifier,
             Invocation,
             FunctionExpression,
+            ArrayLiteral,
+            ObjectLiteral,
         },
         TypeExpression {
             UnknownTypeExpression,
