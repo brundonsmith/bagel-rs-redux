@@ -209,6 +209,12 @@ where
                             write!(f, ")")
                         }
 
+                        Expression::PropertyAccessExpression(prop_access) => {
+                            prop_access.subject.emit(ctx, f)?;
+                            write!(f, ".")?;
+                            prop_access.property.emit(ctx, f)
+                        }
+
                         Expression::IfElseExpression(if_else) => {
                             write!(f, "if ")?;
                             if_else.condition.emit(ctx, f)?;

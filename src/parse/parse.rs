@@ -435,44 +435,82 @@ fn parse_invocation_args(
     ))
 }
 
-// Parser for Invocation: atom_expression followed by one or more "(args)" suffixes
-fn invocation(i: Slice) -> ParseResult<AST<Invocation>> {
-    map(
-        tuple((atom_expression, many1(w(parse_invocation_args)))),
-        move |(first, invocations)| {
-            let mut current_expr = first;
-            let mut last_invocation: Option<AST<Invocation>> = None;
-
-            for (open_paren, mut arguments, commas, trailing_comma, close_paren) in invocations {
-                let span = current_expr
-                    .slice()
-                    .spanning(close_paren.as_ref().unwrap_or(&open_paren));
-
-                let inv = Invocation {
-                    function: current_expr.clone(),
-                    open_paren,
-                    arguments: arguments.clone(),
-                    commas,
-                    trailing_comma,
-                    close_paren,
-                };
-
-                let node = make_ast(span, inv);
-                current_expr.set_parent(&node);
-                arguments.set_parent(&node);
-
-                current_expr = node.clone().upcast();
-                last_invocation = Some(node);
-            }
-
-            last_invocation.unwrap()
-        },
-    )(i)
+/// Postfix suffix: either an invocation `(args)` or a property access `.property`
+enum PostfixSuffix {
+    Invocation(
+        Slice,
+        Vec<AST<Expression>>,
+        Vec<Slice>,
+        Option<Slice>,
+        Option<Slice>,
+    ),
+    PropertyAccess(Slice, AST<PlainIdentifier>),
 }
 
-// Primary expressions: invocations or atoms
+// Primary expressions: atom followed by zero or more postfix suffixes (.property or (args))
 fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
-    alt((map(invocation, |n| n.upcast()), atom_expression))(i)
+    let postfix_suffix = alt((
+        map(
+            w(parse_invocation_args),
+            |(open_paren, args, commas, trailing_comma, close_paren)| {
+                PostfixSuffix::Invocation(open_paren, args, commas, trailing_comma, close_paren)
+            },
+        ),
+        map(seq!(tag("."), plain_identifier), |(dot, prop)| {
+            PostfixSuffix::PropertyAccess(dot, prop)
+        }),
+    ));
+
+    map(
+        tuple((atom_expression, many0(postfix_suffix))),
+        |(first, suffixes)| {
+            suffixes
+                .into_iter()
+                .fold(first, |mut current_expr, suffix| match suffix {
+                    PostfixSuffix::Invocation(
+                        open_paren,
+                        mut arguments,
+                        commas,
+                        trailing_comma,
+                        close_paren,
+                    ) => {
+                        let span = current_expr
+                            .slice()
+                            .spanning(close_paren.as_ref().unwrap_or(&open_paren));
+
+                        let inv = Invocation {
+                            function: current_expr.clone(),
+                            open_paren,
+                            arguments: arguments.clone(),
+                            commas,
+                            trailing_comma,
+                            close_paren,
+                        };
+
+                        let node = make_ast(span, inv);
+                        current_expr.set_parent(&node);
+                        arguments.set_parent(&node);
+
+                        node.upcast()
+                    }
+                    PostfixSuffix::PropertyAccess(dot, mut prop) => {
+                        let span = current_expr.slice().spanning(prop.slice());
+
+                        let prop_access = PropertyAccessExpression {
+                            subject: current_expr.clone(),
+                            dot,
+                            property: prop.clone(),
+                        };
+
+                        let node = make_ast(span, prop_access);
+                        current_expr.set_parent(&node);
+                        prop.set_parent(&node);
+
+                        node.upcast()
+                    }
+                })
+        },
+    )(i)
 }
 
 // Atom expressions: literals, identifiers, function expressions, and parenthesized expressions
@@ -668,9 +706,12 @@ fn if_else_expression(i: Slice) -> ParseResult<AST<IfElseExpression>> {
     Ok((remaining, node))
 }
 
-// Parser for a statement: currently only invocations
+// Parser for a statement: currently only invocations (possibly via property access chains)
 fn statement(i: Slice) -> ParseResult<AST<Statement>> {
-    map(invocation, |inv| inv.upcast())(i)
+    map(
+        nom::combinator::map_opt(postfix_expression, |expr| expr.try_downcast::<Invocation>()),
+        |inv| inv.upcast(),
+    )(i)
 }
 
 // Parser for a block: "{" statement* "}"

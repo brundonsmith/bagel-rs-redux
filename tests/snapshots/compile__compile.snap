@@ -11,5 +11,5 @@ const foo = [1, 2, {stuff: 'other'}];
 const func = (a, b) => (a > 5 ? a : a + b);
 const bar = (a, b) => a + b;
 const a = null;
-const main = () => { print(12); };
+const main = () => { console.log(x); };
 const b = y * 2 + x;

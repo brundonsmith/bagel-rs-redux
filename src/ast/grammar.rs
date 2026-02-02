@@ -210,6 +210,14 @@ pub struct ParenthesizedExpression {
     pub close_paren: Slice,
 }
 
+/// PropertyAccessExpression node: Expression "." PlainIdentifier
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PropertyAccessExpression {
+    pub subject: AST<Expression>,
+    pub dot: Slice,
+    pub property: AST<PlainIdentifier>,
+}
+
 // Type expression nodes
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnknownTypeExpression;
@@ -352,6 +360,7 @@ type_hierarchy! {
             ObjectLiteral,
             IfElseExpression,
             ParenthesizedExpression,
+            PropertyAccessExpression,
         },
         TypeExpression {
             UnknownTypeExpression,

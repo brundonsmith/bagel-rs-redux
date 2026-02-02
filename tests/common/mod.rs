@@ -16,7 +16,7 @@ const bar: (number, number) => number = (a, b) => a + b
 const a: string = nil
 
 const main = () => {
-    print(12)
+    js.console.log(x)
 }
 
 const b: number = y * 2 + x

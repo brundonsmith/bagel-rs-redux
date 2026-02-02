@@ -4,7 +4,7 @@ expression: output
 ---
 'other' -> 'other'
 () => {
-    print(12)
+    js.console.log(x)
 } -> () => never
 (a, b) => a + b -> (arg0: number, arg1: number) => number
 (a: number, b: string): boolean =>

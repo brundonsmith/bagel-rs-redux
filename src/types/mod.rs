@@ -60,9 +60,18 @@ pub enum Type {
     },
     Object {
         fields: BTreeMap<String, Type>,
+    },
 
-        /// If true, object may have additional fields (row polymorphic)
-        is_open: bool,
+    /// An opaque, special type. Mostly used to represent JS built-ins,
+    /// classes, etc. An interface is similar to an Object type, but
+    /// 1. An Object type can be assigned to a compatible Interface type, but
+    ///    the reverse is *not* true
+    /// 2. While Object always represents an actual plain JS object/record,
+    ///    Interface can be backed by anything with the specified
+    ///    properties/methods; it makes no guarantees about cloneability, etc
+    Interface {
+        name: String,
+        fields: BTreeMap<String, Type>,
     },
     FuncType {
         args: Vec<Type>,
@@ -85,6 +94,10 @@ pub enum Type {
         condition: Arc<Type>,
         consequent: Arc<Type>,
         alternate: Arc<Type>,
+    },
+    PropertyAccess {
+        subject: Arc<Type>,
+        property: String,
     },
     LocalIdentifier {
         identifier: LocalIdentifier,
@@ -164,6 +177,18 @@ impl Type {
                 }
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
+            PropertyAccess { subject, property } => {
+                let subject_normalized = subject.as_ref().clone().normalize(ctx);
+                match &subject_normalized {
+                    Object { fields } | Interface { fields, .. } => {
+                        fields.get(&property).cloned().unwrap_or(Never)
+                    }
+                    _ => PropertyAccess {
+                        subject: Arc::new(subject_normalized),
+                        property,
+                    },
+                }
+            }
             BinaryOperation {
                 operator,
                 left,
@@ -193,12 +218,18 @@ impl Type {
             Array { element } => Array {
                 element: Arc::new(element.as_ref().clone().normalize(ctx)),
             },
-            Object { fields, is_open } => Object {
+            Object { fields } => Object {
                 fields: fields
                     .into_iter()
                     .map(|(k, v)| (k, v.normalize(ctx)))
                     .collect(),
-                is_open,
+            },
+            Interface { name, fields } => Interface {
+                name,
+                fields: fields
+                    .into_iter()
+                    .map(|(k, v)| (k, v.normalize(ctx)))
+                    .collect(),
             },
             FuncType {
                 args,
@@ -401,12 +432,39 @@ pub fn resolve_identifier<'a>(
     None
 }
 
+/// The built-in `js` global object type. This is an Interface that exposes
+/// JavaScript built-ins to Bagel code.
+pub fn js_global_type() -> Type {
+    Type::Interface {
+        name: "js".to_string(),
+        fields: BTreeMap::from([(
+            String::from("console"),
+            Type::Interface {
+                name: "Console".to_string(),
+                fields: BTreeMap::from([(
+                    String::from("log"),
+                    Type::FuncType {
+                        args: vec![],
+                        args_spread: Some(Arc::new(Type::Unknown)),
+                        returns: Arc::new(Type::Never),
+                    },
+                )]),
+            },
+        )]),
+    }
+}
+
 /// Thin wrapper around `resolve_identifier` that extracts the type from the
 /// resolution result. Called by `normalize()` for `Type::LocalIdentifier`.
 fn resolve_local_identifier(
     identifier: &grammar::LocalIdentifier,
     ctx: NormalizeContext<'_>,
 ) -> Type {
+    // Special built-in: the `js` global
+    if identifier.identifier.slice().as_str() == "js" {
+        return js_global_type();
+    }
+
     match resolve_identifier(identifier, ctx) {
         Some(ResolvedIdentifier::ConstDeclaration { decl, module }) => {
             let decl_ctx = match module {
@@ -778,10 +836,7 @@ impl fmt::Display for Type {
                 write!(f, "]")
             }
             Type::Array { element } => write!(f, "{}[]", element),
-            Type::Object {
-                fields,
-                is_open: jopen,
-            } => {
+            Type::Object { fields } => {
                 write!(f, "{{")?;
                 for (i, (key, value)) in fields.iter().enumerate() {
                     if i > 0 {
@@ -789,12 +844,21 @@ impl fmt::Display for Type {
                     }
                     write!(f, "{}: {}", key, value)?;
                 }
-                if *jopen && !fields.is_empty() {
-                    write!(f, ", ...")?;
-                } else if *jopen {
-                    write!(f, "...")?;
-                }
                 write!(f, "}}")
+            }
+            Type::Interface { name, fields } => {
+                write!(f, "{}", name)?;
+                if !fields.is_empty() {
+                    write!(f, "{{")?;
+                    for (i, (key, value)) in fields.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}: {}", key, value)?;
+                    }
+                    write!(f, "}}")?;
+                }
+                Ok(())
             }
             Type::FuncType {
                 args,
@@ -842,6 +906,9 @@ impl fmt::Display for Type {
                 "(if {} {{ {} }} else {{ {} }})",
                 condition, consequent, alternate
             ),
+            Type::PropertyAccess { subject, property } => {
+                write!(f, "{}.{}", subject, property)
+            }
             Type::LocalIdentifier { identifier } => {
                 write!(f, "{}", identifier.identifier.slice().as_str())
             }
@@ -884,10 +951,7 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
                         (field_name, field_type)
                     })
                     .collect();
-                Type::Object {
-                    fields,
-                    is_open: false,
-                }
+                Type::Object { fields }
             }
             FunctionTypeExpression(func) => {
                 let args = func

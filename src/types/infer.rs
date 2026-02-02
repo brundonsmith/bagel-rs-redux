@@ -150,10 +150,7 @@ impl AST<Expression> {
                         fields.insert(field_name, field_type);
                     }
 
-                    Type::Object {
-                        fields,
-                        is_open: false,
-                    }
+                    Type::Object { fields }
                 }
 
                 IfElseExpression(if_else) => {
@@ -179,6 +176,11 @@ impl AST<Expression> {
                         alternate: Arc::new(alternate_type),
                     }
                 }
+
+                PropertyAccessExpression(prop_access) => Type::PropertyAccess {
+                    subject: Arc::new(prop_access.subject.infer_type(ctx)),
+                    property: prop_access.property.slice().as_str().to_string(),
+                },
 
                 ParenthesizedExpression(paren) => paren.expression.infer_type(ctx),
             },

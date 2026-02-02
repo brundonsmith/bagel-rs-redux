@@ -149,16 +149,11 @@ impl Type {
                 vec![]
             }
 
-            // Object type compatibility: value must have at least all fields of destination
-            // Destination fields must be compatible with value fields
+            // Object type compatibility: value must have exactly the same fields
             (
-                Type::Object {
-                    fields: val_fields,
-                    is_open: val_open,
-                },
+                Type::Object { fields: val_fields },
                 Type::Object {
                     fields: dest_fields,
-                    is_open: dest_open,
                 },
             ) => {
                 // Check that all required destination fields exist in value and are compatible
@@ -179,18 +174,79 @@ impl Type {
                     }
                 }
 
-                // If destination is closed (not jopen), value cannot have extra fields
-                if !dest_open {
-                    for key in val_fields.keys() {
-                        if !dest_fields.contains_key(key) {
-                            return vec![format!(
-                                "Object literal may only specify known properties, and '{}' does not exist in type '{}'.",
-                                key, destination
-                            )];
-                        }
+                // Value cannot have extra fields
+                for key in val_fields.keys() {
+                    if !dest_fields.contains_key(key) {
+                        return vec![format!(
+                            "Object literal may only specify known properties, and '{}' does not exist in type '{}'.",
+                            key, destination
+                        )];
                     }
                 }
 
+                vec![]
+            }
+
+            // Object fits into Interface if all interface fields are present and compatible
+            (
+                Type::Object { fields: val_fields },
+                Type::Interface {
+                    fields: dest_fields,
+                    ..
+                },
+            ) => {
+                for (key, dest_type) in dest_fields {
+                    if let Some(val_type) = val_fields.get(key) {
+                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), _ctx);
+                        if !field_issues.is_empty() {
+                            return vec![format!(
+                                "Property '{}' is not compatible: {}",
+                                key, field_issues[0]
+                            )];
+                        }
+                    } else {
+                        return vec![format!(
+                            "Property '{}' is missing in type '{}'.",
+                            key, value
+                        )];
+                    }
+                }
+                vec![]
+            }
+
+            // Interface fits into same-named Interface if fields are compatible
+            (
+                Type::Interface {
+                    name: val_name,
+                    fields: val_fields,
+                },
+                Type::Interface {
+                    name: dest_name,
+                    fields: dest_fields,
+                },
+            ) => {
+                if val_name != dest_name {
+                    return vec![format!(
+                        "Type '{}' is not assignable to type '{}'.",
+                        value, destination
+                    )];
+                }
+                for (key, dest_type) in dest_fields {
+                    if let Some(val_type) = val_fields.get(key) {
+                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), _ctx);
+                        if !field_issues.is_empty() {
+                            return vec![format!(
+                                "Property '{}' is not compatible: {}",
+                                key, field_issues[0]
+                            )];
+                        }
+                    } else {
+                        return vec![format!(
+                            "Property '{}' is missing in type '{}'.",
+                            key, value
+                        )];
+                    }
+                }
                 vec![]
             }
 

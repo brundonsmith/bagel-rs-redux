@@ -516,6 +516,56 @@ where
                                 });
                             }
                         }
+                        PropertyAccessExpression(prop_access) => {
+                            // Recurse to subject
+                            prop_access.subject.check(ctx, report_error);
+
+                            // Check that the property exists on the subject type
+                            let norm_ctx = NormalizeContext {
+                                modules: Some(ctx.modules),
+                                current_module: ctx.current_module,
+                            };
+                            let infer_ctx = InferTypeContext {
+                                modules: Some(ctx.modules),
+                                current_module: ctx.current_module,
+                            };
+                            let subject_type = prop_access
+                                .subject
+                                .infer_type(infer_ctx)
+                                .normalize(norm_ctx);
+                            let property_name = prop_access.property.slice().as_str().to_string();
+
+                            match &subject_type {
+                                Type::Object { fields } | Type::Interface { fields, .. }
+                                    if !fields.contains_key(&property_name) =>
+                                {
+                                    report_error(BagelError {
+                                        src: prop_access.property.slice().clone(),
+                                        severity: RuleSeverity::Error,
+                                        details: BagelErrorDetails::MiscError {
+                                            message: format!(
+                                                "Property '{}' does not exist on type '{}'",
+                                                property_name, subject_type
+                                            ),
+                                        },
+                                    });
+                                }
+                                Type::Unknown | Type::Any => {}
+                                Type::Object { .. } | Type::Interface { .. } => {}
+                                _ => {
+                                    report_error(BagelError {
+                                        src: prop_access.property.slice().clone(),
+                                        severity: RuleSeverity::Error,
+                                        details: BagelErrorDetails::MiscError {
+                                            message: format!(
+                                                "Property '{}' does not exist on type '{}'",
+                                                property_name, subject_type
+                                            ),
+                                        },
+                                    });
+                                }
+                            }
+                        }
                         ParenthesizedExpression(paren) => {
                             paren.expression.check(ctx, report_error);
                         }

@@ -90,6 +90,9 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                             None => {}
                         }
                     }
+                    PropertyAccessExpression(prop_access) => {
+                        collect_expression_types(&prop_access.subject.clone().upcast(), results);
+                    }
                     _ => {
                         // Leaf expressions (literals) have no children
                     }

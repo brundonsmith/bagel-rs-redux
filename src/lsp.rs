@@ -207,7 +207,6 @@ impl LanguageServer for BagelLanguageServer {
         let uri = params.text_document.uri.to_string();
         eprintln!("[DEBUG] did_save() called - uri: {}", uri);
 
-        // Get the current document text
         let documents = self.documents.read().await;
         let text = match documents.get(&uri) {
             Some(text) => text.clone(),
@@ -218,20 +217,27 @@ impl LanguageServer for BagelLanguageServer {
         };
         drop(documents);
 
-        // Parse the document
+        // Re-publish diagnostics on save
+        self.publish_diagnostics(&uri, &text).await;
+    }
+
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
+        let uri = params.text_document.uri.to_string();
+        eprintln!("[DEBUG] formatting() called - uri: {}", uri);
+
+        let documents = self.documents.read().await;
+        let text = match documents.get(&uri) {
+            Some(text) => text.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
         let slice = Slice::new(Arc::new(text.clone()));
         let ast = match crate::parse::parse::module(slice) {
-            Ok((_, ast)) => {
-                eprintln!("[DEBUG] did_save() - parse successful");
-                ast
-            }
-            Err(e) => {
-                eprintln!("[DEBUG] did_save() - parse failed: {:?}", e);
-                return;
-            }
+            Ok((_, ast)) => ast,
+            Err(_) => return Ok(None),
         };
 
-        // Re-emit the AST to format it
         let config = Config::default();
         let mut formatted = String::new();
         {
@@ -240,58 +246,31 @@ impl LanguageServer for BagelLanguageServer {
                 config: &config,
                 modules: &*store,
             };
-            if let Err(e) = ast.emit(ctx, &mut formatted) {
-                eprintln!("[DEBUG] did_save() - emit failed: {:?}", e);
-                return;
+            if ast.emit(ctx, &mut formatted).is_err() {
+                return Ok(None);
             }
         }
 
-        eprintln!("[DEBUG] did_save() - emitted {} bytes", formatted.len());
+        if formatted == text {
+            return Ok(None);
+        }
 
-        // Only apply if the formatted version is different
-        if formatted != text {
-            eprintln!("[DEBUG] did_save() - content changed, applying edits");
+        let line_count = text.lines().count() as u32;
+        let last_line_length = text.lines().last().map(|l| l.len()).unwrap_or(0) as u32;
 
-            // Calculate the range of the entire document
-            let line_count = text.lines().count() as u32;
-            let last_line_length = text.lines().last().map(|l| l.len()).unwrap_or(0) as u32;
-
-            let edit = TextEdit {
-                range: Range {
-                    start: Position {
-                        line: 0,
-                        character: 0,
-                    },
-                    end: Position {
-                        line: line_count.saturating_sub(1),
-                        character: last_line_length,
-                    },
+        Ok(Some(vec![TextEdit {
+            range: Range {
+                start: Position {
+                    line: 0,
+                    character: 0,
                 },
-                new_text: formatted.clone(),
-            };
-
-            // Apply the edit
-            self.client
-                .apply_edit(WorkspaceEdit {
-                    changes: Some([(uri.parse().unwrap(), vec![edit])].into_iter().collect()),
-                    document_changes: None,
-                    change_annotations: None,
-                })
-                .await
-                .ok();
-
-            // Update the stored document and modules store
-            self.documents
-                .write()
-                .await
-                .insert(uri.clone(), formatted.clone());
-            if let Some(path) = uri_to_path(&uri) {
-                let _ = self.modules.write().await.reload_file(&path, formatted);
-            }
-            eprintln!("[DEBUG] did_save() - completed with formatting");
-        } else {
-            eprintln!("[DEBUG] did_save() - no formatting changes needed");
-        }
+                end: Position {
+                    line: line_count.saturating_sub(1),
+                    character: last_line_length,
+                },
+            },
+            new_text: formatted,
+        }]))
     }
 
     async fn did_create_files(&self, params: CreateFilesParams) {
@@ -931,6 +910,9 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
         Expression::ParenthesizedExpression(paren) => {
             collect_parameter_hints(&paren.expression, text, hints);
         }
+        Expression::PropertyAccessExpression(prop_access) => {
+            collect_parameter_hints(&prop_access.subject, text, hints);
+        }
         _ => {
             // Leaf expressions (literals, identifiers) have no children
         }
@@ -1081,6 +1063,9 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
                             obj.fields.iter().find_map(|(_, _, value)| {
                                 find_node_at_offset(&value.clone().upcast(), offset)
                             })
+                        }
+                        Expression::PropertyAccessExpression(prop_access) => {
+                            find_node_at_offset(&prop_access.subject.clone().upcast(), offset)
                         }
                         _ => None,
                     }

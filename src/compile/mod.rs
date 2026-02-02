@@ -201,6 +201,23 @@ where
                             paren.expression.compile(ctx, f)?;
                             write!(f, ")")
                         }
+
+                        Expression::PropertyAccessExpression(prop_access) => {
+                            // Strip `js.` — its members are JS globals
+                            let is_js_global = matches!(
+                                prop_access.subject.details(),
+                                Some(Any::Expression(Expression::LocalIdentifier(id)))
+                                    if id.identifier.slice().as_str() == "js"
+                            );
+
+                            if is_js_global {
+                                prop_access.property.compile(ctx, f)
+                            } else {
+                                prop_access.subject.compile(ctx, f)?;
+                                write!(f, ".")?;
+                                prop_access.property.compile(ctx, f)
+                            }
+                        }
                     }
                 }
 

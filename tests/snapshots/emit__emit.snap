@@ -12,6 +12,6 @@ const func = (a: number, b: string): boolean => if a > 5 { a } else { a + b }
 const bar: (number, number) => number = (a, b) => a + b
 const a: string = nil
 const main = () => {
-print(12)
+js.console.log(x)
 }
 const b: number = y * 2 + x
