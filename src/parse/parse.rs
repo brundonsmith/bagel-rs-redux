@@ -837,59 +837,54 @@ fn range_type_expression(i: Slice) -> ParseResult<AST<RangeTypeExpression>> {
     Ok((remaining, node))
 }
 
+/// Parse a single function type parameter: either "name: Type" or just "Type"
+fn function_type_param(
+    i: Slice,
+) -> ParseResult<(Option<(AST<PlainIdentifier>, Slice)>, AST<TypeExpression>)> {
+    // Try "name: Type" first
+    if let Ok((after_name, name)) = w(plain_identifier)(i.clone()) {
+        if let Ok((after_colon, colon)) = w(tag(":"))(after_name) {
+            if let Ok((after_type, type_expr)) = w(type_expression)(after_colon) {
+                return Ok((after_type, (Some((name, colon)), type_expr)));
+            }
+        }
+    }
+    // Fall back to just "Type"
+    map(w(type_expression), |type_expr| (None, type_expr))(i)
+}
+
 fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>> {
     let start = i.clone();
 
     let (remaining, open_paren) = tag("(")(i)?;
 
-    let mut parameters: Vec<(AST<PlainIdentifier>, Slice, AST<TypeExpression>)> = Vec::new();
+    let mut parameters: Vec<(Option<(AST<PlainIdentifier>, Slice)>, AST<TypeExpression>)> =
+        Vec::new();
     let mut commas = Vec::new();
     let mut current = remaining;
     let mut trailing_comma = None;
 
     // Parse first parameter if present
-    if let Ok((after_name, name)) = w(plain_identifier)(current.clone()) {
-        if let Ok((after_colon, colon)) = w(tag(":"))(after_name) {
-            if let Ok((after_type, type_expr)) = w(type_expression)(after_colon) {
-                parameters.push((name, colon, type_expr));
-                current = after_type;
+    if let Ok((after_param, param)) = function_type_param(current.clone()) {
+        parameters.push(param);
+        current = after_param;
 
-                // Parse subsequent ", name: Type" triples
-                loop {
-                    match w(tag(","))(current.clone()) {
-                        Ok((after_comma, comma)) => {
-                            match w(plain_identifier)(after_comma.clone()) {
-                                Ok((after_name, name)) => match w(tag(":"))(after_name) {
-                                    Ok((after_colon, colon)) => {
-                                        match w(type_expression)(after_colon) {
-                                            Ok((after_type, type_expr)) => {
-                                                commas.push(comma);
-                                                parameters.push((name, colon, type_expr));
-                                                current = after_type;
-                                            }
-                                            Err(_) => {
-                                                trailing_comma = Some(comma);
-                                                current = after_comma;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    Err(_) => {
-                                        trailing_comma = Some(comma);
-                                        current = after_comma;
-                                        break;
-                                    }
-                                },
-                                Err(_) => {
-                                    trailing_comma = Some(comma);
-                                    current = after_comma;
-                                    break;
-                                }
-                            }
-                        }
-                        Err(_) => break,
+        // Parse subsequent ", param" pairs
+        loop {
+            match w(tag(","))(current.clone()) {
+                Ok((after_comma, comma)) => match function_type_param(after_comma.clone()) {
+                    Ok((after_param, param)) => {
+                        commas.push(comma);
+                        parameters.push(param);
+                        current = after_param;
                     }
-                }
+                    Err(_) => {
+                        trailing_comma = Some(comma);
+                        current = after_comma;
+                        break;
+                    }
+                },
+                Err(_) => break,
             }
         }
     }
@@ -912,8 +907,10 @@ fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>
     };
 
     let node = make_ast(span, func_type);
-    for (mut name, _, mut type_expr) in parameters {
-        name.set_parent(&node);
+    for (name_colon, mut type_expr) in parameters {
+        if let Some((mut name, _)) = name_colon {
+            name.set_parent(&node);
+        }
         type_expr.set_parent(&node);
     }
     return_type.set_parent(&node);

@@ -7,14 +7,14 @@ expression: errors
         src: Slice("if a > 5 {\n        a\n    } else {\n        a + b\n    }"),
         severity: Error,
         details: MiscError {
-            message: "Type 'boolean' is not assignable to type 'number | string'",
+            message: "Type 'number | string' is not assignable to type 'boolean'",
         },
     },
     BagelError {
         src: Slice("nil"),
         severity: Error,
         details: MiscError {
-            message: "Type 'string' is not assignable to type 'nil'",
+            message: "Type 'nil' is not assignable to type 'string'",
         },
     },
     BagelError {

@@ -1,2 +1,2 @@
 
-const thing: number = 'thing'
+export const thing: number = 'thing'

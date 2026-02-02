@@ -4,19 +4,19 @@ use crate::{
     ast::{
         container::AST,
         grammar::{Expression, FunctionBody},
+        modules::{Module, ModulesStore},
     },
-    types::Type,
+    types::{NormalizeContext, Type},
 };
 
 #[derive(Clone, Copy, Debug)]
-pub struct InferTypeContext {
-    // pub modules: &'a ModulesStore,
-    // pub current_module: &'a ParsedModule,
-    // pub expressions_encountered: &'a Vec<AST<Expression>>,
+pub struct InferTypeContext<'a> {
+    pub modules: Option<&'a ModulesStore>,
+    pub current_module: Option<&'a Module>,
 }
 
 impl AST<Expression> {
-    pub fn infer_type(&self, ctx: InferTypeContext) -> Type {
+    pub fn infer_type(&self, ctx: InferTypeContext<'_>) -> Type {
         use crate::ast::grammar::Expression::*;
 
         eprintln!("[DEBUG] infer_type({:?})", self);
@@ -82,10 +82,16 @@ impl AST<Expression> {
                 }
 
                 FunctionExpression(func) => {
-                    let expected_args = self.expected_type().and_then(|t| match t.normalize() {
-                        Type::FuncType { args, .. } => Some(args),
-                        _ => None,
-                    });
+                    let norm_ctx = NormalizeContext {
+                        modules: ctx.modules,
+                        current_module: ctx.current_module,
+                    };
+                    let expected_args =
+                        self.expected_type()
+                            .and_then(|t| match t.normalize(norm_ctx) {
+                                Type::FuncType { args, .. } => Some(args),
+                                _ => None,
+                            });
 
                     let args = func
                         .parameters

@@ -1,8 +1,10 @@
+use bagel::ast::modules::ModulesStore;
 use bagel::ast::slice::Slice;
 use bagel::config::Config;
 use bagel::emit::{EmitContext, Emittable};
 use bagel::parse::parse;
 use insta::assert_snapshot;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 mod common;
@@ -13,8 +15,17 @@ fn test_emit(code: &str) {
     let slice = Slice::new(Arc::new(code.to_string()));
     let (_, parsed) = parse::module(slice).unwrap();
     let config = Config::default();
+    let modules = ModulesStore {
+        modules: HashMap::new(),
+    };
     let mut emitted = String::new();
-    let success = parsed.emit(EmitContext { config: &config }, &mut emitted);
+    let success = parsed.emit(
+        EmitContext {
+            config: &config,
+            modules: &modules,
+        },
+        &mut emitted,
+    );
     println!("{}", emitted);
 
     assert!(success.is_ok());

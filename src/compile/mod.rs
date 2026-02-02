@@ -2,18 +2,14 @@ use std::fmt::Write;
 
 use crate::{
     ast::grammar::{ElseClause, IfElseExpression},
-    ast::{container::AST, grammar::Any},
+    ast::{container::AST, grammar::Any, modules::ModulesStore},
     config::Config,
 };
 
 #[derive(Debug, Clone, Copy)]
 pub struct CompileContext<'a> {
     pub config: &'a Config,
-    // pub modules: &'a ModulesStore,
-    // pub current_module: &'a ParsedModule,
-    // pub include_types: bool,
-    // pub qualify_identifiers_with: Option<&'a HashMap<ModuleID, usize>>,
-    // pub qualify_all_identifiers: bool,
+    pub modules: &'a ModulesStore,
 }
 
 pub trait Compilable {

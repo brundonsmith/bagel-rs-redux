@@ -1,11 +1,16 @@
-use crate::types::Type;
+use crate::{
+    ast::modules::ModulesStore,
+    types::{NormalizeContext, Type},
+};
 
 #[derive(Debug, Clone, Copy)]
-pub struct FitsContext {}
+pub struct FitsContext<'a> {
+    pub modules: Option<&'a ModulesStore>,
+}
 
 impl Type {
     /// Convenience wrapper for seeing if a type fit is allowed
-    pub fn fits(self, destination: Type, ctx: FitsContext) -> bool {
+    pub fn fits(self, destination: Type, ctx: FitsContext<'_>) -> bool {
         self.fit_issues(destination, ctx).is_empty()
     }
 
@@ -20,9 +25,13 @@ impl Type {
     /// and the value type fits into the destination if the destination's set
     /// of values includes *at least* all the ones in the value's set of
     /// values.
-    pub fn fit_issues(self, destination: Type, _ctx: FitsContext) -> Vec<String> {
-        let value = self.normalize();
-        let destination = destination.normalize();
+    pub fn fit_issues(self, destination: Type, _ctx: FitsContext<'_>) -> Vec<String> {
+        let norm_ctx = NormalizeContext {
+            modules: _ctx.modules,
+            current_module: None,
+        };
+        let value = self.normalize(norm_ctx);
+        let destination = destination.normalize(norm_ctx);
 
         // Base case; types are identical
         if value == destination {

@@ -1,13 +1,14 @@
 use std::fmt::Write;
 
 use crate::{
-    ast::{container::AST, grammar::Any},
+    ast::{container::AST, grammar::Any, modules::ModulesStore},
     config::Config,
 };
 
 #[derive(Debug, Clone, Copy)]
 pub struct EmitContext<'a> {
     pub config: &'a Config,
+    pub modules: &'a ModulesStore,
 }
 
 pub trait Emittable {
@@ -277,12 +278,14 @@ where
 
                     TypeExpression::FunctionTypeExpression(func) => {
                         write!(f, "(")?;
-                        for (i, (name, _, type_expr)) in func.parameters.iter().enumerate() {
+                        for (i, (name_colon, type_expr)) in func.parameters.iter().enumerate() {
                             if i > 0 {
                                 write!(f, ", ")?;
                             }
-                            name.emit(ctx, f)?;
-                            write!(f, ": ")?;
+                            if let Some((name, _)) = name_colon {
+                                name.emit(ctx, f)?;
+                                write!(f, ": ")?;
+                            }
                             type_expr.emit(ctx, f)?;
                         }
                         if func.trailing_comma.is_some() {

@@ -12,7 +12,7 @@ const func = (a: number, b: string): boolean =>
     } else {
         a + b
     }
-const bar: (a: number, b: number) => number = (a, b) => a + b
+const bar: (number, number) => number = (a, b) => a + b
 const a: string = nil
 
 const main = () => {

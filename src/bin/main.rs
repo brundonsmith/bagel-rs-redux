@@ -69,11 +69,16 @@ async fn main() {
                 };
 
                 let mut errors = Vec::new();
-                module
-                    .ast
-                    .check(&CheckContext { config: &config }, &mut |e| {
+                module.ast.check(
+                    &CheckContext {
+                        config: &config,
+                        modules: &store,
+                        current_module: Some(module),
+                    },
+                    &mut |e| {
                         errors.push(e);
-                    });
+                    },
+                );
 
                 error_count += errors.len();
                 for error in &errors {

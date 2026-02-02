@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
@@ -6,23 +7,62 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::ast::container::AST;
-use crate::ast::grammar::{Any, Declaration, Expression};
+use crate::ast::grammar::{Any, Declaration, Expression, FunctionBody};
+use crate::ast::modules::{ModulePath, ModulesStore};
 use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
 use crate::config::Config;
 use crate::emit::{EmitContext, Emittable};
 use crate::types::infer::InferTypeContext;
+use crate::types::{resolve_identifier, NormalizeContext, Type};
 
 #[derive(Debug)]
 struct BagelLanguageServer {
     client: Client,
     documents: Arc<RwLock<HashMap<String, String>>>,
+    modules: Arc<RwLock<ModulesStore>>,
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for BagelLanguageServer {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         eprintln!("[DEBUG] initialize() called");
+
+        // Discover workspace root and load all .bgl files
+        let workspace_root = params
+            .workspace_folders
+            .as_ref()
+            .and_then(|folders| folders.first())
+            .and_then(|folder| uri_to_path(folder.uri.as_str()))
+            .or_else(|| {
+                params
+                    .root_uri
+                    .as_ref()
+                    .and_then(|u| uri_to_path(u.as_str()))
+            });
+
+        if let Some(root) = workspace_root {
+            eprintln!("[DEBUG] initialize() - workspace root: {:?}", root);
+            let pattern = root.join("**/*.bgl").to_string_lossy().to_string();
+            let files: Vec<PathBuf> = glob::glob(&pattern)
+                .into_iter()
+                .flatten()
+                .filter_map(|entry| entry.ok())
+                .collect();
+            eprintln!(
+                "[DEBUG] initialize() - found {} .bgl files in workspace",
+                files.len()
+            );
+            let mut store = self.modules.write().await;
+            for file in files {
+                eprintln!("[DEBUG] initialize() - loading {:?}", file);
+                let _ = store.add_file(file);
+            }
+            eprintln!(
+                "[DEBUG] initialize() - loaded {} modules",
+                store.modules.len()
+            );
+        }
         let result = InitializeResult {
             server_info: Some(ServerInfo {
                 name: "Bagel Language Server".to_string(),
@@ -41,8 +81,35 @@ impl LanguageServer for BagelLanguageServer {
                     },
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
+                definition_provider: Some(OneOf::Left(true)),
                 inlay_hint_provider: Some(OneOf::Left(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
+                workspace: Some(WorkspaceServerCapabilities {
+                    file_operations: Some(WorkspaceFileOperationsServerCapabilities {
+                        did_create: Some(FileOperationRegistrationOptions {
+                            filters: vec![FileOperationFilter {
+                                scheme: Some("file".to_string()),
+                                pattern: FileOperationPattern {
+                                    glob: "**/*.bgl".to_string(),
+                                    matches: None,
+                                    options: None,
+                                },
+                            }],
+                        }),
+                        did_delete: Some(FileOperationRegistrationOptions {
+                            filters: vec![FileOperationFilter {
+                                scheme: Some("file".to_string()),
+                                pattern: FileOperationPattern {
+                                    glob: "**/*.bgl".to_string(),
+                                    matches: None,
+                                    options: None,
+                                },
+                            }],
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
         };
@@ -76,6 +143,12 @@ impl LanguageServer for BagelLanguageServer {
             .write()
             .await
             .insert(uri.clone(), text.clone());
+
+        // Update the shared modules store
+        if let Some(path) = uri_to_path(&uri) {
+            let _ = self.modules.write().await.reload_file(&path, text.clone());
+        }
+
         eprintln!("[DEBUG] did_open() completed - stored document for {}", uri);
 
         // Publish diagnostics
@@ -98,6 +171,12 @@ impl LanguageServer for BagelLanguageServer {
                 .write()
                 .await
                 .insert(uri.clone(), text.clone());
+
+            // Update the shared modules store
+            if let Some(path) = uri_to_path(&uri) {
+                let _ = self.modules.write().await.reload_file(&path, text.clone());
+            }
+
             eprintln!(
                 "[DEBUG] did_change() completed - updated document for {}",
                 uri
@@ -154,11 +233,17 @@ impl LanguageServer for BagelLanguageServer {
 
         // Re-emit the AST to format it
         let config = Config::default();
-        let ctx = EmitContext { config: &config };
         let mut formatted = String::new();
-        if let Err(e) = ast.emit(ctx, &mut formatted) {
-            eprintln!("[DEBUG] did_save() - emit failed: {:?}", e);
-            return;
+        {
+            let store = self.modules.read().await;
+            let ctx = EmitContext {
+                config: &config,
+                modules: &*store,
+            };
+            if let Err(e) = ast.emit(ctx, &mut formatted) {
+                eprintln!("[DEBUG] did_save() - emit failed: {:?}", e);
+                return;
+            }
         }
 
         eprintln!("[DEBUG] did_save() - emitted {} bytes", formatted.len());
@@ -195,11 +280,39 @@ impl LanguageServer for BagelLanguageServer {
                 .await
                 .ok();
 
-            // Update the stored document
-            self.documents.write().await.insert(uri.clone(), formatted);
+            // Update the stored document and modules store
+            self.documents
+                .write()
+                .await
+                .insert(uri.clone(), formatted.clone());
+            if let Some(path) = uri_to_path(&uri) {
+                let _ = self.modules.write().await.reload_file(&path, formatted);
+            }
             eprintln!("[DEBUG] did_save() - completed with formatting");
         } else {
             eprintln!("[DEBUG] did_save() - no formatting changes needed");
+        }
+    }
+
+    async fn did_create_files(&self, params: CreateFilesParams) {
+        eprintln!("[DEBUG] did_create_files() called");
+        let mut store = self.modules.write().await;
+        for file in &params.files {
+            if let Some(path) = uri_to_path(&file.uri) {
+                eprintln!("[DEBUG] did_create_files() - adding {:?}", path);
+                let _ = store.add_file(path);
+            }
+        }
+    }
+
+    async fn did_delete_files(&self, params: DeleteFilesParams) {
+        eprintln!("[DEBUG] did_delete_files() called");
+        let mut store = self.modules.write().await;
+        for file in &params.files {
+            if let Some(path) = uri_to_path(&file.uri) {
+                eprintln!("[DEBUG] did_delete_files() - removing {:?}", path);
+                store.remove_file(&path);
+            }
         }
     }
 
@@ -265,8 +378,18 @@ impl LanguageServer for BagelLanguageServer {
             // Try to get the type if it's an expression
             let type_info = if let Some(expr) = node.clone().try_downcast::<Expression>() {
                 eprintln!("[DEBUG] hover() - node is an Expression, inferring type");
-                let ctx = InferTypeContext {};
-                let inferred_type = expr.infer_type(ctx).normalize();
+                let store = self.modules.read().await;
+                let current_module =
+                    uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+                let ctx = InferTypeContext {
+                    modules: Some(&*store),
+                    current_module,
+                };
+                let norm_ctx = NormalizeContext {
+                    modules: Some(&*store),
+                    current_module,
+                };
+                let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
                 eprintln!("[DEBUG] hover() - inferred type: {}", inferred_type);
                 format!("**Type:** `{}`\n\n", inferred_type)
             } else {
@@ -288,6 +411,183 @@ impl LanguageServer for BagelLanguageServer {
 
         eprintln!("[DEBUG] hover() - no node found at offset, returning None");
         Ok(None)
+    }
+
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
+        let position = params.text_document_position_params.position;
+        eprintln!(
+            "[DEBUG] goto_definition() called - uri: {}, position: line={} char={}",
+            uri, position.line, position.character
+        );
+
+        let documents = self.documents.read().await;
+        let text = match documents.get(&uri) {
+            Some(text) => text.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        // Parse and find the node at the cursor
+        let slice = Slice::new(Arc::new(text.clone()));
+        let ast = match crate::parse::parse::any(slice) {
+            Ok((_, ast)) => ast,
+            Err(_) => return Ok(None),
+        };
+
+        let offset = position_to_offset(&text, position);
+        let node = match find_node_at_offset(&ast, offset) {
+            Some(node) => node,
+            None => return Ok(None),
+        };
+
+        let store = self.modules.read().await;
+        let current_module =
+            uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+
+        // Check if the node is within an import declaration
+        if let Some(decl) = node.clone().try_downcast::<Declaration>() {
+            if let Declaration::ImportDeclaration(import_decl) = decl.unpack() {
+                let import_path = import_decl.path.unpack().contents.as_str().to_string();
+
+                // Check if the cursor is on the path string
+                let path_slice = import_decl.path.slice();
+                if offset >= path_slice.start && offset <= path_slice.end {
+                    let link = current_module
+                        .and_then(|m| store.find_imported(m, &import_path))
+                        .map(|target_module| {
+                            let target_uri = path_to_uri(&target_module.path);
+                            let zero_pos = Position {
+                                line: 0,
+                                character: 0,
+                            };
+                            let zero_range = Range {
+                                start: zero_pos,
+                                end: zero_pos,
+                            };
+                            LocationLink {
+                                origin_selection_range: Some(slice_to_lsp_range(
+                                    &path_slice,
+                                    &text,
+                                )),
+                                target_uri: target_uri.parse().unwrap(),
+                                target_range: zero_range,
+                                target_selection_range: zero_range,
+                            }
+                        });
+
+                    eprintln!(
+                        "[DEBUG] goto_definition() - import path resolved to {:?}",
+                        link
+                    );
+                    return Ok(link.map(|l| GotoDefinitionResponse::Link(vec![l])));
+                }
+
+                // Check if the cursor is on an import specifier name
+                let specifier_match = import_decl.imports.iter().find(|spec| {
+                    let name_slice = spec.name.slice();
+                    offset >= name_slice.start && offset <= name_slice.end
+                });
+                if let Some(spec) = specifier_match {
+                    let original_name = spec.name.slice().as_str().to_string();
+                    let link = current_module
+                        .and_then(|m| store.find_imported(m, &import_path))
+                        .and_then(|target_module| {
+                            let target_text = target_module.source.as_str();
+                            let target_uri = path_to_uri(&target_module.path);
+                            let module_data = target_module.ast.unpack();
+                            module_data
+                                .declarations
+                                .iter()
+                                .filter(|d| d.details().is_some())
+                                .filter_map(|d| match d.unpack() {
+                                    Declaration::ConstDeclaration(c) => Some(c),
+                                    Declaration::ImportDeclaration(_) => None,
+                                })
+                                .find(|c| c.identifier.slice().as_str() == original_name)
+                                .map(|c| {
+                                    let target_range =
+                                        slice_to_lsp_range(&c.identifier.slice(), target_text);
+                                    LocationLink {
+                                        origin_selection_range: Some(slice_to_lsp_range(
+                                            &spec.name.slice(),
+                                            &text,
+                                        )),
+                                        target_uri: target_uri.parse().unwrap(),
+                                        target_range,
+                                        target_selection_range: target_range,
+                                    }
+                                })
+                        });
+
+                    eprintln!(
+                        "[DEBUG] goto_definition() - import specifier resolved to {:?}",
+                        link
+                    );
+                    return Ok(link.map(|l| GotoDefinitionResponse::Link(vec![l])));
+                }
+            }
+        }
+
+        // Handle LocalIdentifier expressions
+        let expr = match node.clone().try_downcast::<Expression>() {
+            Some(expr) => expr,
+            None => return Ok(None),
+        };
+        let local_id = match expr.unpack() {
+            Expression::LocalIdentifier(id) => id,
+            _ => return Ok(None),
+        };
+
+        // Resolve the identifier using the shared resolution logic
+        let ctx = NormalizeContext {
+            modules: Some(&*store),
+            current_module,
+        };
+
+        let resolved = match resolve_identifier(&local_id, ctx) {
+            Some(r) => r,
+            None => return Ok(None),
+        };
+
+        // Convert the resolved identifier to an LSP Location
+        let location = match resolved {
+            crate::types::ResolvedIdentifier::ConstDeclaration { decl, module } => {
+                let target_slice = decl.identifier.slice();
+                match module {
+                    Some(target_module) => {
+                        let target_text = target_module.source.as_str();
+                        let target_uri = path_to_uri(&target_module.path);
+                        Location {
+                            uri: target_uri.parse().unwrap(),
+                            range: slice_to_lsp_range(&target_slice, target_text),
+                        }
+                    }
+                    None => Location {
+                        uri: uri.parse().unwrap(),
+                        range: slice_to_lsp_range(&target_slice, &text),
+                    },
+                }
+            }
+            crate::types::ResolvedIdentifier::FunctionParam { name, .. } => {
+                let target_slice = name.slice();
+                Location {
+                    uri: uri.parse().unwrap(),
+                    range: slice_to_lsp_range(&target_slice, &text),
+                }
+            }
+        };
+
+        eprintln!("[DEBUG] goto_definition() - resolved to {:?}", location);
+
+        Ok(Some(GotoDefinitionResponse::Scalar(location)))
     }
 
     async fn inlay_hint(&self, params: InlayHintParams) -> Result<Option<Vec<InlayHint>>> {
@@ -330,6 +630,13 @@ impl LanguageServer for BagelLanguageServer {
         };
 
         let mut hints = Vec::new();
+        let store = self.modules.read().await;
+        let current_module =
+            uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+        let norm_ctx = NormalizeContext {
+            modules: Some(&*store),
+            current_module,
+        };
 
         // Traverse the AST to find declarations
         eprintln!("[DEBUG] inlay_hint() - attempting to downcast to Module");
@@ -356,38 +663,45 @@ impl LanguageServer for BagelLanguageServer {
 
                         match decl.unpack() {
                             Declaration::ConstDeclaration(decl_data) => {
-                                if decl_data.type_annotation.is_some() {
-                                    eprintln!("[DEBUG] inlay_hint() - skipping declaration {} (has explicit type annotation)", idx);
-                                    continue;
+                                if decl_data.type_annotation.is_none() {
+                                    eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
+                                        idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
+
+                                    // Infer the type of the value
+                                    let ctx = InferTypeContext {
+                                        modules: Some(&*store),
+                                        current_module,
+                                    };
+                                    let inferred_type =
+                                        decl_data.value.infer_type(ctx).normalize(norm_ctx);
+                                    eprintln!(
+                                        "[DEBUG] inlay_hint() - inferred type for decl {}: {}",
+                                        idx, inferred_type
+                                    );
+
+                                    // Get the position after the identifier
+                                    let identifier_slice = decl_data.identifier.slice();
+                                    let position = offset_to_position(&text, identifier_slice.end);
+                                    eprintln!("[DEBUG] inlay_hint() - hint position for decl {}: line={} char={}",
+                                        idx, position.line, position.character);
+
+                                    hints.push(InlayHint {
+                                        position,
+                                        label: InlayHintLabel::String(format!(
+                                            ": {}",
+                                            inferred_type
+                                        )),
+                                        kind: Some(InlayHintKind::TYPE),
+                                        text_edits: None,
+                                        tooltip: None,
+                                        padding_left: None,
+                                        padding_right: None,
+                                        data: None,
+                                    });
                                 }
 
-                                eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
-                                    idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
-
-                                // Infer the type of the value
-                                let ctx = InferTypeContext {};
-                                let inferred_type = decl_data.value.infer_type(ctx).normalize();
-                                eprintln!(
-                                    "[DEBUG] inlay_hint() - inferred type for decl {}: {}",
-                                    idx, inferred_type
-                                );
-
-                                // Get the position after the identifier
-                                let identifier_slice = decl_data.identifier.slice();
-                                let position = offset_to_position(&text, identifier_slice.end);
-                                eprintln!("[DEBUG] inlay_hint() - hint position for decl {}: line={} char={}",
-                                    idx, position.line, position.character);
-
-                                hints.push(InlayHint {
-                                    position,
-                                    label: InlayHintLabel::String(format!(": {}", inferred_type)),
-                                    kind: Some(InlayHintKind::TYPE),
-                                    text_edits: None,
-                                    tooltip: None,
-                                    padding_left: None,
-                                    padding_right: None,
-                                    data: None,
-                                });
+                                // Collect parameter hints from function expressions in the value
+                                collect_parameter_hints(&decl_data.value, &text, &mut hints);
                             }
                             Declaration::ImportDeclaration(_) => {
                                 // No inlay hints for imports
@@ -428,7 +742,13 @@ impl BagelLanguageServer {
 
         // Run check to collect errors
         let config = Config::default();
-        let ctx = CheckContext { config: &config };
+        let store = self.modules.read().await;
+        let current_module = uri_to_path(uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+        let ctx = CheckContext {
+            config: &config,
+            modules: &*store,
+            current_module,
+        };
         let mut errors = Vec::new();
         ast.check(&ctx, &mut |error| {
             errors.push(error);
@@ -507,6 +827,114 @@ fn position_to_offset(text: &str, position: Position) -> usize {
     }
 
     offset
+}
+
+/// Recursively walks an expression tree and collects inlay hints for function
+/// parameters whose types can be inferred from context.
+fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<InlayHint>) {
+    if expr.details().is_none() {
+        return;
+    }
+
+    match expr.unpack() {
+        Expression::FunctionExpression(func) => {
+            // Early exit if all parameters already have type annotations
+            if func
+                .parameters
+                .iter()
+                .all(|(_, type_ann)| type_ann.is_some())
+            {
+                // Still recurse into body for nested functions
+            } else {
+                // Get the contextual expected type for this function expression
+                let norm_ctx = NormalizeContext {
+                    modules: None,
+                    current_module: None,
+                };
+                let expected_args =
+                    expr.expected_type()
+                        .and_then(|t| match t.normalize(norm_ctx) {
+                            Type::FuncType { args, .. } => Some(args),
+                            _ => None,
+                        });
+
+                if let Some(expected_args) = expected_args {
+                    for (i, (param_name, type_ann)) in func.parameters.iter().enumerate() {
+                        if type_ann.is_some() {
+                            continue;
+                        }
+                        if let Some(arg_type) = expected_args.get(i) {
+                            if *arg_type != Type::Unknown {
+                                let position = offset_to_position(text, param_name.slice().end);
+                                hints.push(InlayHint {
+                                    position,
+                                    label: InlayHintLabel::String(format!(": {}", arg_type)),
+                                    kind: Some(InlayHintKind::TYPE),
+                                    text_edits: None,
+                                    tooltip: None,
+                                    padding_left: None,
+                                    padding_right: None,
+                                    data: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Recurse into body for nested functions
+            match func.body.unpack() {
+                FunctionBody::Expression(body_expr) => {
+                    collect_parameter_hints(&body_expr, text, hints);
+                }
+                FunctionBody::Block(_) => {}
+            }
+        }
+        Expression::BinaryOperation(bin_op) => {
+            collect_parameter_hints(&bin_op.left, text, hints);
+            collect_parameter_hints(&bin_op.right, text, hints);
+        }
+        Expression::UnaryOperation(unary_op) => {
+            collect_parameter_hints(&unary_op.operand, text, hints);
+        }
+        Expression::Invocation(inv) => {
+            collect_parameter_hints(&inv.function, text, hints);
+            for arg in &inv.arguments {
+                collect_parameter_hints(arg, text, hints);
+            }
+        }
+        Expression::ArrayLiteral(arr) => {
+            for elem in &arr.elements {
+                collect_parameter_hints(elem, text, hints);
+            }
+        }
+        Expression::ObjectLiteral(obj) => {
+            for (_, _, value) in &obj.fields {
+                collect_parameter_hints(value, text, hints);
+            }
+        }
+        Expression::IfElseExpression(if_else) => {
+            collect_parameter_hints(&if_else.condition, text, hints);
+            collect_parameter_hints(&if_else.consequent, text, hints);
+            match &if_else.else_clause {
+                Some(crate::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
+                    collect_parameter_hints(expression, text, hints);
+                }
+                Some(crate::ast::grammar::ElseClause::ElseIf {
+                    if_else: nested, ..
+                }) => {
+                    collect_parameter_hints(&nested.clone().upcast(), text, hints);
+                }
+                None => {}
+            }
+        }
+        Expression::ParenthesizedExpression(paren) => {
+            collect_parameter_hints(&paren.expression, text, hints);
+        }
+        _ => {
+            // Leaf expressions (literals, identifiers) have no children
+        }
+    }
 }
 
 fn offset_to_position(text: &str, offset: usize) -> Position {
@@ -602,24 +1030,67 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
                         std::mem::discriminant(expr)
                     );
                     match expr {
-                        crate::ast::grammar::Expression::BinaryOperation(bin_op) => {
-                            eprintln!(
-                                "[DEBUG] find_node_at_offset() - Expression is BinaryOperation"
-                            );
-                            // Check left operand, then right operand
-                            find_node_at_offset(&bin_op.left.clone().upcast(), offset)
-                                .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in left operand"))
+                        Expression::BinaryOperation(bin_op) => {
+                            find_node_at_offset(&bin_op.left.clone().upcast(), offset).or_else(
+                                || find_node_at_offset(&bin_op.right.clone().upcast(), offset),
+                            )
+                        }
+                        Expression::UnaryOperation(unary_op) => {
+                            find_node_at_offset(&unary_op.operand.clone().upcast(), offset)
+                        }
+                        Expression::Invocation(inv) => {
+                            find_node_at_offset(&inv.function.clone().upcast(), offset).or_else(
+                                || {
+                                    inv.arguments.iter().find_map(|arg| {
+                                        find_node_at_offset(&arg.clone().upcast(), offset)
+                                    })
+                                },
+                            )
+                        }
+                        Expression::FunctionExpression(func) => {
+                            find_node_at_offset(&func.body.clone().upcast(), offset)
+                        }
+                        Expression::ParenthesizedExpression(paren) => {
+                            find_node_at_offset(&paren.expression.clone().upcast(), offset)
+                        }
+                        Expression::IfElseExpression(if_else) => {
+                            find_node_at_offset(&if_else.condition.clone().upcast(), offset)
                                 .or_else(|| {
-                                    find_node_at_offset(&bin_op.right.clone().upcast(), offset)
-                                        .inspect(|_| eprintln!("[DEBUG] find_node_at_offset() - found in right operand"))
+                                    find_node_at_offset(
+                                        &if_else.consequent.clone().upcast(),
+                                        offset,
+                                    )
+                                })
+                                .or_else(|| match &if_else.else_clause {
+                                    Some(crate::ast::grammar::ElseClause::ElseBlock {
+                                        expression,
+                                        ..
+                                    }) => find_node_at_offset(&expression.clone().upcast(), offset),
+                                    Some(crate::ast::grammar::ElseClause::ElseIf {
+                                        if_else: nested,
+                                        ..
+                                    }) => find_node_at_offset(&nested.clone().upcast(), offset),
+                                    None => None,
                                 })
                         }
-                        _ => {
-                            eprintln!("[DEBUG] find_node_at_offset() - Expression is a leaf type");
-                            None
+                        Expression::ArrayLiteral(arr) => arr
+                            .elements
+                            .iter()
+                            .find_map(|elem| find_node_at_offset(&elem.clone().upcast(), offset)),
+                        Expression::ObjectLiteral(obj) => {
+                            obj.fields.iter().find_map(|(_, _, value)| {
+                                find_node_at_offset(&value.clone().upcast(), offset)
+                            })
                         }
+                        _ => None,
                     }
                 }
+                Any::FunctionBody(body) => match body {
+                    FunctionBody::Expression(expr) => {
+                        find_node_at_offset(&expr.clone().upcast(), offset)
+                    }
+                    FunctionBody::Block(_) => None,
+                },
                 _ => {
                     eprintln!("[DEBUG] find_node_at_offset() - node is other type");
                     None
@@ -635,6 +1106,27 @@ fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
     }
 }
 
+/// Convert an LSP document URI (e.g. "file:///path/to/foo.bgl") to a PathBuf.
+fn uri_to_path(uri: &str) -> Option<PathBuf> {
+    uri.strip_prefix("file://").map(|p| PathBuf::from(p))
+}
+
+/// Convert a ModulePath to an LSP document URI.
+fn path_to_uri(path: &ModulePath) -> String {
+    match path {
+        ModulePath::File(p) => format!("file://{}", p.display()),
+        ModulePath::Url(u) => u.clone(),
+    }
+}
+
+/// Convert a Slice's byte range to an LSP Range using the source text.
+fn slice_to_lsp_range(slice: &Slice, source_text: &str) -> Range {
+    Range {
+        start: offset_to_position(source_text, slice.start),
+        end: offset_to_position(source_text, slice.end),
+    }
+}
+
 pub async fn run_lsp() {
     eprintln!("[DEBUG] Bagel Language Server starting");
     let stdin = tokio::io::stdin();
@@ -643,6 +1135,7 @@ pub async fn run_lsp() {
     let (service, socket) = LspService::new(|client| BagelLanguageServer {
         client,
         documents: Arc::new(RwLock::new(HashMap::new())),
+        modules: Arc::new(RwLock::new(ModulesStore::new())),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

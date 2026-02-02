@@ -9,9 +9,32 @@ use crate::ast::container::AST;
 use crate::ast::grammar::{
     self, Any, BinaryOperator, Expression, FunctionBody, LocalIdentifier, UnaryOperator,
 };
+use crate::ast::modules::{Module, ModulesStore};
 use crate::ast::slice::Slice;
 
 use self::infer::InferTypeContext;
+
+#[derive(Debug, Clone, Copy)]
+pub struct NormalizeContext<'a> {
+    pub modules: Option<&'a ModulesStore>,
+    pub current_module: Option<&'a Module>,
+}
+
+/// The result of resolving a local identifier to its declaration site.
+#[derive(Debug, Clone)]
+pub enum ResolvedIdentifier<'a> {
+    /// A const declaration, possibly in a different module
+    ConstDeclaration {
+        decl: grammar::ConstDeclaration,
+        module: Option<&'a Module>,
+    },
+    /// A function parameter in the current module
+    FunctionParam {
+        name: AST<grammar::PlainIdentifier>,
+        param_index: usize,
+        func_node: AST<Any>,
+    },
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
@@ -91,7 +114,7 @@ impl Type {
     /// resolved, to try and figure out their "real" type. Local identifiers
     /// are a major instance- this function determines what "real" type a given
     /// variable turns out to have.
-    pub fn normalize(self) -> Self {
+    pub fn normalize(self, ctx: NormalizeContext<'_>) -> Self {
         use Type::*;
 
         match self {
@@ -99,7 +122,7 @@ impl Type {
                 let flattened_and_unique = variants
                     .into_iter()
                     .flat_map(|v| {
-                        let v = v.normalize(); // recurse
+                        let v = v.normalize(ctx); // recurse
 
                         // flatten any inner unions
                         match v {
@@ -117,15 +140,17 @@ impl Type {
                 // Remove variants that are subsumed by other variants.
                 // E.g. `true | boolean` collapses to `boolean` because
                 // `true` fits into `boolean`.
-                let ctx = crate::types::fits::FitsContext {};
+                let fits_ctx = crate::types::fits::FitsContext {
+                    modules: ctx.modules,
+                };
                 let keep: Vec<bool> = v
                     .iter()
                     .enumerate()
                     .map(|(i, candidate)| {
                         !v.iter().enumerate().any(|(j, other)| {
                             i != j
-                                && candidate.clone().fits(other.clone(), ctx)
-                                && !other.clone().fits(candidate.clone(), ctx)
+                                && candidate.clone().fits(other.clone(), fits_ctx)
+                                && !other.clone().fits(candidate.clone(), fits_ctx)
                         })
                     })
                     .collect();
@@ -138,38 +163,40 @@ impl Type {
                     Union { variants: v }
                 }
             }
-            LocalIdentifier { identifier } => resolve_local_identifier(&identifier),
+            LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
             BinaryOperation {
                 operator,
                 left,
                 right,
             } => normalize_binary_operation(
                 operator,
-                left.as_ref().clone().normalize(),
-                right.as_ref().clone().normalize(),
+                left.as_ref().clone().normalize(ctx),
+                right.as_ref().clone().normalize(ctx),
+                ctx,
             ),
             UnaryOperation { operator, operand } => {
-                normalize_unary_operation(operator, operand.as_ref().clone().normalize())
+                normalize_unary_operation(operator, operand.as_ref().clone().normalize(ctx))
             }
             IfElse {
                 condition,
                 consequent,
                 alternate,
             } => normalize_if_else(
-                condition.as_ref().clone().normalize(),
-                consequent.as_ref().clone().normalize(),
-                alternate.as_ref().clone().normalize(),
+                condition.as_ref().clone().normalize(ctx),
+                consequent.as_ref().clone().normalize(ctx),
+                alternate.as_ref().clone().normalize(ctx),
+                ctx,
             ),
             Tuple { elements } => Tuple {
-                elements: elements.into_iter().map(|e| e.normalize()).collect(),
+                elements: elements.into_iter().map(|e| e.normalize(ctx)).collect(),
             },
             Array { element } => Array {
-                element: Arc::new(element.as_ref().clone().normalize()),
+                element: Arc::new(element.as_ref().clone().normalize(ctx)),
             },
             Object { fields, is_open } => Object {
                 fields: fields
                     .into_iter()
-                    .map(|(k, v)| (k, v.normalize()))
+                    .map(|(k, v)| (k, v.normalize(ctx)))
                     .collect(),
                 is_open,
             },
@@ -178,9 +205,9 @@ impl Type {
                 args_spread,
                 returns,
             } => FuncType {
-                args: args.into_iter().map(|a| a.normalize()).collect(),
-                args_spread: args_spread.map(|s| Arc::new(s.as_ref().clone().normalize())),
-                returns: Arc::new(returns.as_ref().clone().normalize()),
+                args: args.into_iter().map(|a| a.normalize(ctx)).collect(),
+                args_spread: args_spread.map(|s| Arc::new(s.as_ref().clone().normalize(ctx))),
+                returns: Arc::new(returns.as_ref().clone().normalize(ctx)),
             },
             _ => self,
         }
@@ -225,6 +252,10 @@ impl AST<Expression> {
     /// where they're known (lambdas)
     pub fn expected_type(&self) -> Option<Type> {
         let parent = self.parent()?;
+        let norm_ctx = NormalizeContext {
+            modules: None,
+            current_module: None,
+        };
 
         match parent.details()? {
             Any::Declaration(grammar::Declaration::ConstDeclaration(const_decl)) => const_decl
@@ -234,8 +265,11 @@ impl AST<Expression> {
             Any::Expression(Expression::Invocation(inv)) => {
                 let arg_index = inv.arguments.iter().position(|arg| arg.ptr_eq(self))?;
 
-                let ctx = InferTypeContext {};
-                let func_type = inv.function.infer_type(ctx).normalize();
+                let ctx = InferTypeContext {
+                    modules: None,
+                    current_module: None,
+                };
+                let func_type = inv.function.infer_type(ctx).normalize(norm_ctx);
 
                 match func_type {
                     Type::FuncType { args, .. } => args.into_iter().nth(arg_index),
@@ -259,10 +293,17 @@ impl AST<Expression> {
     }
 }
 
-/// Given a `LocalIdentifier` from a type, walk up the AST to find where the
-/// identifier is declared, then resolve its type from the declaration's value
-/// expression or type annotation.
-fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
+/// The shared core of identifier resolution. Walks up the AST scope chain to
+/// find where an identifier is declared — as a const declaration (possibly in
+/// an imported module) or as a function parameter.
+///
+/// This is the single source of truth for "what does this name refer to?".
+/// Both type inference (`resolve_local_identifier`) and go-to-definition in
+/// the LSP consume this result.
+pub fn resolve_identifier<'a>(
+    identifier: &grammar::LocalIdentifier,
+    ctx: NormalizeContext<'a>,
+) -> Option<ResolvedIdentifier<'a>> {
     let name = identifier.identifier.slice().as_str();
 
     // Walk up the AST from the identifier's AST node to find a containing scope
@@ -271,8 +312,8 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
     while let Some(node) = current {
         match node.details() {
             Some(Any::Module(module)) => {
-                // Search module-level declarations for one matching our name
-                return module
+                // First, search module-level const declarations for one matching our name
+                let const_match = module
                     .declarations
                     .iter()
                     .filter(|decl| decl.details().is_some())
@@ -280,9 +321,58 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
                         grammar::Declaration::ConstDeclaration(const_decl) => Some(const_decl),
                         grammar::Declaration::ImportDeclaration(_) => None,
                     })
-                    .find(|const_decl| const_decl.identifier.slice().as_str() == name)
-                    .map(|const_decl| resolve_declaration_type(&const_decl))
-                    .unwrap_or(Type::Unknown);
+                    .find(|const_decl| const_decl.identifier.slice().as_str() == name);
+
+                if let Some(const_decl) = const_match {
+                    return Some(ResolvedIdentifier::ConstDeclaration {
+                        decl: const_decl,
+                        module: None,
+                    });
+                }
+
+                // Next, check import declarations for a matching imported name
+                if let (Some(store), Some(current_module)) = (ctx.modules, ctx.current_module) {
+                    let import_match = module
+                        .declarations
+                        .iter()
+                        .filter(|decl| decl.details().is_some())
+                        .filter_map(|decl| match decl.unpack() {
+                            grammar::Declaration::ImportDeclaration(import_decl) => {
+                                Some(import_decl)
+                            }
+                            grammar::Declaration::ConstDeclaration(_) => None,
+                        })
+                        .find_map(|import_decl| {
+                            import_decl
+                                .imports
+                                .iter()
+                                .find(|spec| {
+                                    let local_name = spec
+                                        .alias
+                                        .as_ref()
+                                        .map(|(_, alias)| alias.slice().as_str())
+                                        .unwrap_or_else(|| spec.name.slice().as_str());
+                                    local_name == name
+                                })
+                                .map(|spec| {
+                                    let original_name = spec.name.slice().as_str().to_string();
+                                    let import_path =
+                                        import_decl.path.unpack().contents.as_str().to_string();
+                                    (original_name, import_path)
+                                })
+                        });
+
+                    if let Some((original_name, import_path)) = import_match {
+                        return resolve_imported_identifier(
+                            &original_name,
+                            &import_path,
+                            store,
+                            current_module,
+                        );
+                    }
+                }
+
+                return None;
             }
             Some(Any::Expression(Expression::FunctionExpression(func))) => {
                 // Check if one of the function's parameters matches our name
@@ -292,29 +382,12 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
                     .enumerate()
                     .find(|(_, (param_name, _type_ann))| param_name.slice().as_str() == name);
 
-                if let Some((param_index, (_param_name, type_ann))) = param_match {
-                    return match type_ann {
-                        Some((_colon, type_expr)) => Type::from(type_expr.unpack()),
-                        None => {
-                            // Try contextual typing: get expected type for the
-                            // function expression and extract the parameter type
-                            let func_expr_node: AST<Expression> = match &node {
-                                AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
-                                AST::Malformed { inner, message } => {
-                                    AST::<Expression>::new_malformed(inner.clone(), message.clone())
-                                }
-                            };
-                            func_expr_node
-                                .expected_type()
-                                .and_then(|t| match t.normalize() {
-                                    Type::FuncType { args, .. } => {
-                                        args.into_iter().nth(param_index)
-                                    }
-                                    _ => None,
-                                })
-                                .unwrap_or(Type::Unknown)
-                        }
-                    };
+                if let Some((param_index, (param_name, _type_ann))) = param_match {
+                    return Some(ResolvedIdentifier::FunctionParam {
+                        name: param_name.clone(),
+                        param_index,
+                        func_node: node.clone(),
+                    });
                 }
 
                 // Not a parameter of this function — keep walking up
@@ -325,15 +398,102 @@ fn resolve_local_identifier(identifier: &grammar::LocalIdentifier) -> Type {
         current = node.parent();
     }
 
-    // Identifier not found in any scope
-    Type::Unknown
+    None
+}
+
+/// Thin wrapper around `resolve_identifier` that extracts the type from the
+/// resolution result. Called by `normalize()` for `Type::LocalIdentifier`.
+fn resolve_local_identifier(
+    identifier: &grammar::LocalIdentifier,
+    ctx: NormalizeContext<'_>,
+) -> Type {
+    match resolve_identifier(identifier, ctx) {
+        Some(ResolvedIdentifier::ConstDeclaration { decl, module }) => {
+            let decl_ctx = match module {
+                Some(m) => NormalizeContext {
+                    modules: ctx.modules,
+                    current_module: Some(m),
+                },
+                None => ctx,
+            };
+            resolve_declaration_type(&decl, decl_ctx)
+        }
+        Some(ResolvedIdentifier::FunctionParam {
+            name: _,
+            param_index,
+            func_node,
+        }) => {
+            // Check if the parameter has a type annotation
+            match func_node.details() {
+                Some(Any::Expression(Expression::FunctionExpression(func))) => {
+                    match &func.parameters[param_index].1 {
+                        Some((_colon, type_expr)) => Type::from(type_expr.unpack()),
+                        None => {
+                            // Try contextual typing: get expected type for the
+                            // function expression and extract the parameter type
+                            let func_expr_node: AST<Expression> = match &func_node {
+                                AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
+                                AST::Malformed { inner, message } => {
+                                    AST::<Expression>::new_malformed(inner.clone(), message.clone())
+                                }
+                            };
+                            func_expr_node
+                                .expected_type()
+                                .and_then(|t| match t.normalize(ctx) {
+                                    Type::FuncType { args, .. } => {
+                                        args.into_iter().nth(param_index)
+                                    }
+                                    _ => None,
+                                })
+                                .unwrap_or(Type::Unknown)
+                        }
+                    }
+                }
+                _ => Type::Unknown,
+            }
+        }
+        None => Type::Unknown,
+    }
+}
+
+/// Resolve an identifier imported from another module, returning the
+/// declaration site in the imported module.
+fn resolve_imported_identifier<'a>(
+    name: &str,
+    import_path: &str,
+    store: &'a ModulesStore,
+    current_module: &Module,
+) -> Option<ResolvedIdentifier<'a>> {
+    let imported_module = store.find_imported(current_module, import_path)?;
+
+    // Find the exported const declaration with the matching name in the imported module
+    let imported_module_data = imported_module.ast.unpack();
+    imported_module_data
+        .declarations
+        .iter()
+        .filter(|decl| decl.details().is_some())
+        .filter_map(|decl| match decl.unpack() {
+            grammar::Declaration::ConstDeclaration(const_decl) => Some(const_decl),
+            grammar::Declaration::ImportDeclaration(_) => None,
+        })
+        .find(|const_decl| const_decl.identifier.slice().as_str() == name)
+        .map(|const_decl| ResolvedIdentifier::ConstDeclaration {
+            decl: const_decl,
+            module: Some(imported_module),
+        })
 }
 
 /// Resolve the type of a declaration from its type annotation (if present)
 /// or by inferring from its value expression.
-fn resolve_declaration_type(decl: &grammar::ConstDeclaration) -> Type {
-    let ctx = InferTypeContext {};
-    decl.value.infer_type(ctx).normalize()
+fn resolve_declaration_type(
+    decl: &grammar::ConstDeclaration,
+    norm_ctx: NormalizeContext<'_>,
+) -> Type {
+    let ctx = InferTypeContext {
+        modules: norm_ctx.modules,
+        current_module: norm_ctx.current_module,
+    };
+    decl.value.infer_type(ctx).normalize(norm_ctx)
 }
 
 /// Helper to create an exact String type from a computed string value.
@@ -398,7 +558,12 @@ fn as_exact_bool(t: &Type) -> Option<bool> {
 }
 
 /// Normalize a binary operation type by computing exact results where possible.
-fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type) -> Type {
+fn normalize_binary_operation(
+    operator: BinaryOperator,
+    left: Type,
+    right: Type,
+    ctx: NormalizeContext<'_>,
+) -> Type {
     use BinaryOperator::*;
 
     let any_number = Type::Number {
@@ -507,7 +672,7 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
                 Type::Union {
                     variants: vec![left, right],
                 }
-                .normalize()
+                .normalize(ctx)
             }
         }
         Or => {
@@ -519,7 +684,7 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
                 Type::Union {
                     variants: vec![left, right],
                 }
-                .normalize()
+                .normalize(ctx)
             }
         }
         NullishCoalescing => {
@@ -531,7 +696,7 @@ fn normalize_binary_operation(operator: BinaryOperator, left: Type, right: Type)
                 Type::Union {
                     variants: vec![left, right],
                 }
-                .normalize()
+                .normalize(ctx)
             }
         }
     }
@@ -556,7 +721,12 @@ fn normalize_unary_operation(operator: UnaryOperator, operand: Type) -> Type {
 /// If the condition is known to be truthy, return the consequent type.
 /// If the condition is known to be falsy, return the alternate type.
 /// Otherwise, return a union of both branches.
-fn normalize_if_else(condition: Type, consequent: Type, alternate: Type) -> Type {
+fn normalize_if_else(
+    condition: Type,
+    consequent: Type,
+    alternate: Type,
+    ctx: NormalizeContext<'_>,
+) -> Type {
     if is_exact_truthy(&condition) {
         consequent
     } else if is_exact_falsy(&condition) {
@@ -565,7 +735,7 @@ fn normalize_if_else(condition: Type, consequent: Type, alternate: Type) -> Type
         Type::Union {
             variants: vec![consequent, alternate],
         }
-        .normalize()
+        .normalize(ctx)
     }
 }
 
@@ -723,7 +893,7 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
                 let args = func
                     .parameters
                     .into_iter()
-                    .map(|(_name, _colon, type_expr)| Type::from(type_expr.unpack()))
+                    .map(|(_name_colon, type_expr)| Type::from(type_expr.unpack()))
                     .collect();
                 let returns = Arc::new(Type::from(func.return_type.unpack()));
                 Type::FuncType {
@@ -752,7 +922,10 @@ impl From<crate::ast::grammar::TypeExpression> for Type {
             }
             ParenthesizedTypeExpression(paren) => Type::from(paren.expression.unpack()),
             TypeOfTypeExpression(type_of) => {
-                let ctx = InferTypeContext {};
+                let ctx = InferTypeContext {
+                    modules: None,
+                    current_module: None,
+                };
                 type_of.expression.infer_type(ctx)
             }
         }

@@ -254,7 +254,7 @@ pub struct ObjectTypeExpression {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionTypeExpression {
     pub open_paren: Slice,
-    pub parameters: Vec<(AST<PlainIdentifier>, Slice, AST<TypeExpression>)>, // (name, colon, type)
+    pub parameters: Vec<(Option<(AST<PlainIdentifier>, Slice)>, AST<TypeExpression>)>, // (optional (name, colon), type)
     pub commas: Vec<Slice>,
     pub trailing_comma: Option<Slice>,
     pub close_paren: Slice,

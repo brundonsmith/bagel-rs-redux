@@ -3,6 +3,7 @@ use bagel::ast::grammar::{Any, Declaration, Expression};
 use bagel::ast::slice::Slice;
 use bagel::parse::parse;
 use bagel::types::infer::InferTypeContext;
+use bagel::types::NormalizeContext;
 use insta::assert_snapshot;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -13,8 +14,15 @@ mod common;
 fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, String>) {
     // Try to downcast to Expression
     if let Some(expr) = ast.clone().try_downcast::<Expression>() {
-        let ctx = InferTypeContext {};
-        let inferred_type = expr.infer_type(ctx).normalize();
+        let ctx = InferTypeContext {
+            modules: None,
+            current_module: None,
+        };
+        let norm_ctx = NormalizeContext {
+            modules: None,
+            current_module: None,
+        };
+        let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
         let code = expr.slice().as_str().to_string();
         let type_str = format!("{}", inferred_type);
         results.insert(code, type_str);
