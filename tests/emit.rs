@@ -39,5 +39,5 @@ fn test_emit(code: &str) {
 
 #[test]
 fn emit_test_1() {
-    test_emit(common::SAMPLE_1);
+    test_emit(common::samples::SAMPLE_1);
 }

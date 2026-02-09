@@ -34,5 +34,5 @@ fn test_compile(code: &str) {
 
 #[test]
 fn compile_test_1() {
-    test_compile(common::SAMPLE_1);
+    test_compile(common::samples::SAMPLE_1);
 }

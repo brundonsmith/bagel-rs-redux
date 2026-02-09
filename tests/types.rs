@@ -55,5 +55,5 @@ fn test_infer(code: &str) {
 
 #[test]
 fn parser_test_1() {
-    test_infer(common::SAMPLE_1);
+    test_infer(common::samples::SAMPLE_1);
 }

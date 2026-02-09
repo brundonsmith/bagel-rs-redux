@@ -15,5 +15,5 @@ fn test_parse(code: &str) {
 
 #[test]
 fn parser_test_1() {
-    test_parse(common::SAMPLE_1);
+    test_parse(common::samples::SAMPLE_1);
 }

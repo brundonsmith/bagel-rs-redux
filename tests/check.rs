@@ -35,5 +35,5 @@ fn test_check(code: &str) {
 
 #[test]
 fn parser_test_1() {
-    test_check(common::SAMPLE_1);
+    test_check(common::samples::SAMPLE_1);
 }
