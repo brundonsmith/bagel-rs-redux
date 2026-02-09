@@ -1,0 +1,117 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: BAD_SYNTAX)"
+---
+const arr: number[] = [1,,.,3]
+const foo = () => {
+    (
+}
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst arr: number[] = [1,,.,3]\nconst foo = () => {\n    (\n}"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const arr: number[] = [1,,.,3]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("arr"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("number[]"),
+                                        details: ArrayTypeExpression {
+                                            element: ASTInner {
+                                                slice: Slice("number"),
+                                                details: NumberTypeExpression,
+                                            },
+                                            open_bracket: Slice("["),
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[1,,.,3]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        Malformed {
+                                            inner: ASTInner {
+                                                slice: Slice("1,,.,3"),
+                                                details: NilLiteral,
+                                            },
+                                            message: "Expected expression",
+                                        },
+                                    ],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const foo = () => {\n    (\n}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("foo"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("() => {\n    (\n}"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: None,
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("{\n    (\n}"),
+                                        details: Block(
+                                            ASTInner {
+                                                slice: Slice("{\n    (\n}"),
+                                                details: Block {
+                                                    statements: [
+                                                        Malformed {
+                                                            inner: ASTInner {
+                                                                slice: Slice("\n    (\n"),
+                                                                details: NilLiteral,
+                                                            },
+                                                            message: "Expected statement",
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

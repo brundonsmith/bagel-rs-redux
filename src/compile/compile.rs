@@ -30,7 +30,7 @@ where
 
         match self.details() {
             // Malformed nodes - emit original text as best effort
-            None => write!(f, "{}", self.slice().as_str()),
+            None => Ok(()),
 
             // Process valid nodes
             Some(details) => match details {

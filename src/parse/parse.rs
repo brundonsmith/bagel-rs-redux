@@ -91,6 +91,66 @@ where
     }))
 }
 
+/// Consumes characters from `input` up to (but not including) the first
+/// occurrence of any of `stop_chars` at nesting depth 0. `open_chars` and
+/// `close_chars` define bracket pairs that affect nesting depth. Returns
+/// `None` if no content was consumed (the stop char is immediately next).
+fn consume_malformed_until(
+    input: &Slice,
+    stop_chars: &[&str],
+    open_chars: &[&str],
+    close_chars: &[&str],
+) -> Option<(Slice, Slice)> {
+    let text = input.as_str();
+    let trimmed_start = text.len() - text.trim_start().len();
+    let mut depth = 0i32;
+    let mut end_pos = None;
+
+    for (idx, _) in text.trim_start().char_indices() {
+        let abs_idx = trimmed_start + idx;
+        let remaining = &text[abs_idx..];
+
+        if depth == 0 && stop_chars.iter().any(|s| remaining.starts_with(s)) {
+            end_pos = Some(abs_idx);
+            break;
+        }
+
+        if open_chars.iter().any(|s| remaining.starts_with(s)) {
+            depth += 1;
+        } else if close_chars.iter().any(|s| remaining.starts_with(s)) {
+            depth -= 1;
+        }
+    }
+
+    let end = end_pos?;
+    if end == 0 {
+        return None;
+    }
+
+    let malformed_slice = input.clone().slice_range(0, Some(end));
+    let rest = input.clone().slice_range(end, None);
+    Some((malformed_slice, rest))
+}
+
+/// Helper to create a Malformed AST node covering a slice of unparseable source.
+fn make_malformed<TKind>(slice: Slice, message: &str) -> AST<TKind>
+where
+    TKind: Clone + TryFrom<Any>,
+    Any: From<TKind>,
+{
+    use std::sync::RwLock;
+    // The details value is irrelevant for Malformed nodes (details() returns None)
+    let dummy_details: Any = Any::Expression(Expression::NilLiteral(NilLiteral));
+    AST::new_malformed(
+        Arc::new(ASTInner {
+            parent: Arc::new(RwLock::new(None)),
+            slice,
+            details: dummy_details,
+        }),
+        message.to_string(),
+    )
+}
+
 // Parser for PlainIdentifier: [a-z]+ (but not a keyword)
 pub fn plain_identifier(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
     map(
@@ -558,7 +618,7 @@ fn array_literal(i: Slice) -> ParseResult<AST<ArrayLiteral>> {
 
     let mut elements = Vec::new();
     let mut commas = Vec::new();
-    let mut current = remaining;
+    let mut current = remaining.clone();
     let mut trailing_comma = None;
 
     // Parse first element if present
@@ -583,6 +643,24 @@ fn array_literal(i: Slice) -> ParseResult<AST<ArrayLiteral>> {
             } else {
                 break;
             }
+        }
+    }
+
+    // Check if there's unparseable content before ]
+    // If so, replace all parsed elements with a single Malformed node
+    // covering everything from after [ to before ]
+    let has_junk = !current.as_str().trim_start().starts_with(']')
+        && !current.as_str().trim_start().is_empty();
+
+    if has_junk {
+        // Find the ] using consume_malformed_until on the ORIGINAL remaining (after [)
+        if let Some((malformed_slice, rest)) =
+            consume_malformed_until(&remaining, &["]"], &["["], &["]"])
+        {
+            elements = vec![make_malformed(malformed_slice, "Expected expression")];
+            commas = vec![];
+            trailing_comma = None;
+            current = rest;
         }
     }
 
@@ -755,8 +833,30 @@ fn statement(i: Slice) -> ParseResult<AST<Statement>> {
 // Parser for a block: "{" statement* "}"
 fn block(i: Slice) -> ParseResult<AST<Block>> {
     let (remaining, open_brace) = tag("{")(i)?;
-    let (remaining, statements) = many0(w(statement))(remaining)?;
-    let (remaining, close_brace) = w(expect_tag("}"))(remaining)?;
+
+    // Custom loop instead of many0 to catch both Errors and Failures
+    let mut statements = Vec::new();
+    let mut current = remaining;
+    loop {
+        match w(statement)(current.clone()) {
+            Ok((rest, stmt)) => {
+                statements.push(stmt);
+                current = rest;
+            }
+            Err(_) => break,
+        }
+    }
+
+    // If there's unparseable content before }, consume it as a malformed statement
+    let current = match consume_malformed_until(&current, &["}"], &["{"], &["}"]) {
+        Some((malformed_slice, rest)) if !malformed_slice.as_str().trim().is_empty() => {
+            statements.push(make_malformed(malformed_slice, "Expected statement"));
+            rest
+        }
+        _ => current,
+    };
+
+    let (remaining, close_brace) = w(expect_tag("}"))(current)?;
 
     let span = open_brace.spanning(&close_brace);
     let node = make_ast(span, Block { statements });

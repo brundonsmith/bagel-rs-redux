@@ -56,3 +56,4 @@ check_test!(property_access, PROPERTY_ACCESS);
 check_test!(invocations, INVOCATIONS);
 check_test!(type_annotations, TYPE_ANNOTATIONS);
 check_test!(type_errors, TYPE_ERRORS);
+check_test!(bad_syntax, BAD_SYNTAX);

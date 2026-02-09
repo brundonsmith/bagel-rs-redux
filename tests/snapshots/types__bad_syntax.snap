@@ -1,0 +1,13 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: BAD_SYNTAX)"
+---
+const arr: number[] = [1,,.,3]
+const foo = () => {
+    (
+}
+---
+() => {
+    (
+} -> () => never
+[1,,.,3] -> [unknown]

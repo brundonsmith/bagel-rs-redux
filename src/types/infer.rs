@@ -24,7 +24,7 @@ impl AST<Expression> {
 
         match self.details() {
             // Malformed expressions have unknown type
-            None => Type::Unknown,
+            None => Type::Poisoned,
 
             // Infer type from valid expressions
             Some(_) => match self.unpack() {

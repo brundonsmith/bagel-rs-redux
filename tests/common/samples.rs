@@ -144,3 +144,10 @@ const n = {name: 'alice'}.age
 const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
 ";
+
+pub const BAD_SYNTAX: &str = "
+const arr: number[] = [1,,.,3]
+const foo = () => {
+    (
+}
+";

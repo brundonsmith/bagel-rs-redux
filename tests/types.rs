@@ -14,18 +14,20 @@ mod common;
 fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, String>) {
     walk_ast(ast, &mut |node| {
         if let Some(expr) = node.clone().try_downcast::<Expression>() {
-            let ctx = InferTypeContext {
-                modules: None,
-                current_module: None,
-            };
-            let norm_ctx = NormalizeContext {
-                modules: None,
-                current_module: None,
-            };
-            let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
-            let code = expr.slice().as_str().to_string();
-            let type_str = format!("{}", inferred_type);
-            results.insert(code, type_str);
+            if expr.is_valid() {
+                let ctx = InferTypeContext {
+                    modules: None,
+                    current_module: None,
+                };
+                let norm_ctx = NormalizeContext {
+                    modules: None,
+                    current_module: None,
+                };
+                let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
+                let code = expr.slice().as_str().to_string();
+                let type_str = format!("{}", inferred_type);
+                results.insert(code, type_str);
+            }
         }
         WalkAction::Continue
     });
@@ -76,3 +78,4 @@ infer_test!(property_access, PROPERTY_ACCESS);
 infer_test!(invocations, INVOCATIONS);
 infer_test!(type_annotations, TYPE_ANNOTATIONS);
 infer_test!(type_errors, TYPE_ERRORS);
+infer_test!(bad_syntax, BAD_SYNTAX);

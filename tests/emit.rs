@@ -67,3 +67,4 @@ emit_test!(property_access, PROPERTY_ACCESS);
 emit_test!(invocations, INVOCATIONS);
 emit_test!(type_annotations, TYPE_ANNOTATIONS);
 emit_test!(type_errors, TYPE_ERRORS);
+emit_test!(bad_syntax, BAD_SYNTAX);
