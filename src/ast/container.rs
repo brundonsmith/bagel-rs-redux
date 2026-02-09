@@ -95,9 +95,9 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AST::Valid(inner, _) => f.debug_tuple("AST").field(inner).finish(),
+            AST::Valid(inner, _) => Debug::fmt(inner, f),
             AST::Malformed { inner, message } => f
-                .debug_struct("AST::Malformed")
+                .debug_struct("Malformed")
                 .field("inner", inner)
                 .field("message", message)
                 .finish(),
@@ -366,7 +366,10 @@ impl Display for ASTInner {
 
 impl Debug for ASTInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{:?}, {:?}", self.slice, self.details))
+        f.debug_struct("ASTInner")
+            .field("slice", &self.slice)
+            .field("details", &self.details)
+            .finish()
     }
 }
 

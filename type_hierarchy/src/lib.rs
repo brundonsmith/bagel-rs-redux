@@ -59,9 +59,17 @@ impl HierarchyNode {
 
         // Generate enum
         let enum_def = quote! {
-            #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+            #[derive(Clone, PartialEq, Eq, Hash)]
             pub enum #name {
                 #(#variant_names(#variant_names)),*
+            }
+
+            impl std::fmt::Debug for #name {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        #(#name::#variant_names(inner) => std::fmt::Debug::fmt(inner, f)),*
+                    }
+                }
             }
         };
 
