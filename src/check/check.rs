@@ -269,7 +269,11 @@ where
                                             details: BagelErrorDetails::MiscError {
                                                 message: format!(
                                                     "Operator '{}' cannot be applied to type '{}'",
-                                                    op_str, left_type
+                                                    op_str,
+                                                    left_type.normalize(NormalizeContext {
+                                                        modules: Some(ctx.modules),
+                                                        current_module: ctx.current_module
+                                                    })
                                                 ),
                                             },
                                         });
@@ -281,7 +285,11 @@ where
                                             details: BagelErrorDetails::MiscError {
                                                 message: format!(
                                                     "Operator '{}' cannot be applied to type '{}'",
-                                                    op_str, right_type
+                                                    op_str,
+                                                    right_type.normalize(NormalizeContext {
+                                                        modules: Some(ctx.modules),
+                                                        current_module: ctx.current_module
+                                                    })
                                                 ),
                                             },
                                         });
@@ -307,7 +315,10 @@ where
                                             message: format!(
                                                 "Operator '{}' cannot be applied to type '{}'",
                                                 operator.as_str(),
-                                                operand_type
+                                                operand_type.normalize(NormalizeContext {
+                                                    modules: Some(ctx.modules),
+                                                    current_module: ctx.current_module
+                                                })
                                             ),
                                         },
                                     });

@@ -123,6 +123,7 @@ const h: ..100 = 50
 const i: number[] = [1, 2, 3]
 const j: typeof a = 2
 const k: (number) = 3
+const l: number = b * 3
 ";
 
 /// Type checking errors: mismatched types, wrong operator operands, and subtler cases

@@ -13,12 +13,13 @@ const h: ..100 = 50
 const i: number[] = [1, 2, 3]
 const j: typeof a = 2
 const k: (number) = 3
+const l: number = b * 3
 ---
 Ok(
     (
         Slice("\n"),
         ASTInner {
-            slice: Slice("\nconst a: number = 1\nconst b: string = 'hi'\nconst c: boolean = true\nconst d: nil = nil\nconst e: unknown = 42\nconst f: 0..10 = 5\nconst g: 0.. = 100\nconst h: ..100 = 50\nconst i: number[] = [1, 2, 3]\nconst j: typeof a = 2\nconst k: (number) = 3"),
+            slice: Slice("\nconst a: number = 1\nconst b: string = 'hi'\nconst c: boolean = true\nconst d: nil = nil\nconst e: unknown = 42\nconst f: 0..10 = 5\nconst g: 0.. = 100\nconst h: ..100 = 50\nconst i: number[] = [1, 2, 3]\nconst j: typeof a = 2\nconst k: (number) = 3\nconst l: number = b * 3"),
             details: Module {
                 declarations: [
                     ASTInner {
@@ -368,6 +369,49 @@ Ok(
                             value: ASTInner {
                                 slice: Slice("3"),
                                 details: NumberLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const l: number = b * 3"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("l"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("number"),
+                                        details: NumberTypeExpression,
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("b * 3"),
+                                details: BinaryOperation {
+                                    left: ASTInner {
+                                        slice: Slice("b"),
+                                        details: LocalIdentifier {
+                                            identifier: ASTInner {
+                                                slice: Slice("b"),
+                                                details: PlainIdentifier,
+                                            },
+                                        },
+                                    },
+                                    operator: ASTInner {
+                                        slice: Slice("*"),
+                                        details: Multiply,
+                                    },
+                                    right: ASTInner {
+                                        slice: Slice("3"),
+                                        details: NumberLiteral,
+                                    },
+                                },
                             },
                         },
                     },

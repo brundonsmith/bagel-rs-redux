@@ -13,6 +13,7 @@ const h: ..100 = 50
 const i: number[] = [1, 2, 3]
 const j: typeof a = 2
 const k: (number) = 3
+const l: number = b * 3
 ---
 const a = 1;
 const b = 'hi';
@@ -25,3 +26,4 @@ const h = 50;
 const i = [1, 2, 3];
 const j = 2;
 const k = 3;
+const l = b * 3;

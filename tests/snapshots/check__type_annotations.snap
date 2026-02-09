@@ -13,6 +13,7 @@ const h: ..100 = 50
 const i: number[] = [1, 2, 3]
 const j: typeof a = 2
 const k: (number) = 3
+const l: number = b * 3
 ---
 [
     BagelError {
@@ -20,6 +21,13 @@ const k: (number) = 3
         severity: Error,
         details: MiscError {
             message: "Type '2' is not assignable to type '1'",
+        },
+    },
+    BagelError {
+        src: Slice("b"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '*' cannot be applied to type ''hi''",
         },
     },
 ]
