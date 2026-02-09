@@ -45,8 +45,10 @@ impl Type {
             return vec![];
         }
 
-        // Any accepts everything
-        if matches!(value, Type::Any) || matches!(destination, Type::Any) {
+        // Any and Poisoned accept everything
+        if matches!(value, Type::Any | Type::Poisoned)
+            || matches!(destination, Type::Any | Type::Poisoned)
+        {
             return vec![];
         }
 
@@ -101,11 +103,11 @@ impl Type {
 
             // Array type compatibility: element types must be compatible
             (Type::Array { element: val_elem }, Type::Array { element: dest_elem }) => {
-                let elem_issues = val_elem
+                if val_elem
                     .as_ref()
                     .clone()
-                    .fit_issues(dest_elem.as_ref().clone(), _ctx);
-                if elem_issues.is_empty() {
+                    .fits(dest_elem.as_ref().clone(), _ctx)
+                {
                     vec![]
                 } else {
                     vec![format!(
@@ -329,9 +331,8 @@ impl Type {
                 },
             ) => {
                 for variant in dest_variants {
-                    let issues = value.clone().fit_issues(variant.clone(), _ctx);
-                    if issues.is_empty() {
-                        return vec![]; // Fits into at least one variant
+                    if value.clone().fits(variant.clone(), _ctx) {
+                        return vec![];
                     }
                 }
                 vec![not_assignable_message()]
@@ -345,8 +346,7 @@ impl Type {
                 _,
             ) => {
                 for variant in val_variants {
-                    let issues = variant.clone().fit_issues(destination.clone(), _ctx);
-                    if !issues.is_empty() {
+                    if !variant.clone().fits(destination.clone(), _ctx) {
                         return vec![not_assignable_message()];
                     }
                 }

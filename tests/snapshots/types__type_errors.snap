@@ -19,18 +19,18 @@ const n = {name: 'alice'}.age
 const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
 ---
-!42 -> boolean
+!42 -> unknown
 'alice' -> 'alice'
 'hello' -> 'hello'
-'hello' - 1 -> number
+'hello' - 1 -> unknown
 'no' -> 'no'
 'yes' -> 'yes'
 () => 42 -> () => 42
 (x: number) => x -> (arg0: number) => number
 1 -> 1
-1 && 2 -> 1 | 2
-1 + true -> number
-1 < true -> boolean
+1 && 2 -> unknown
+1 + true -> unknown
+1 < true -> unknown
 15 -> 15
 2 -> 2
 42 -> 42
@@ -43,5 +43,5 @@ true -> true
 x -> number
 {name: 'alice', age: 42} -> { age: 42, name: 'alice' }
 {name: 'alice'} -> { name: 'alice' }
-{name: 'alice'}.age -> never
+{name: 'alice'}.age -> unknown
 {x: 1} -> { x: 1 }

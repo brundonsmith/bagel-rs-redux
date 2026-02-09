@@ -39,6 +39,7 @@ pub enum ResolvedIdentifier<'a> {
 pub enum Type {
     Any,
     Unknown,
+    Poisoned,
     Never,
     Nil,
     Boolean {
@@ -108,6 +109,15 @@ pub enum Type {
 }
 
 impl Type {
+    pub const ANY_NUMBER: Type = Type::Number {
+        min_value: None,
+        max_value: None,
+    };
+    pub const ANY_STRING: Type = Type::String { value: None };
+    pub const ANY_BOOLEAN: Type = Type::Boolean { value: None };
+    pub const TRUE: Type = Type::Boolean { value: Some(true) };
+    pub const FALSE: Type = Type::Boolean { value: Some(false) };
+
     /// Some types can be exactly equivalent in the set of values they describe,
     /// but structurally represented differently. For example, a union that
     /// contains one or more other unions doesn't change its meaning if those
@@ -191,7 +201,7 @@ impl Type {
                 let subject_normalized = subject.as_ref().clone().normalize(ctx);
                 match &subject_normalized {
                     Object { fields } | Interface { fields, .. } => {
-                        fields.get(&property).cloned().unwrap_or(Never)
+                        fields.get(&property).cloned().unwrap_or(Poisoned)
                     }
                     _ => PropertyAccess {
                         subject: Arc::new(subject_normalized),
@@ -216,12 +226,18 @@ impl Type {
                 condition,
                 consequent,
                 alternate,
-            } => normalize_if_else(
-                condition.as_ref().clone().normalize(ctx),
-                consequent.as_ref().clone().normalize(ctx),
-                alternate.as_ref().clone().normalize(ctx),
-                ctx,
-            ),
+            } => {
+                if condition.as_ref() == &Type::TRUE {
+                    consequent.as_ref().clone().normalize(ctx)
+                } else if condition.as_ref() == &Type::FALSE {
+                    alternate.as_ref().clone().normalize(ctx)
+                } else {
+                    Type::Union {
+                        variants: vec![consequent.as_ref().clone(), alternate.as_ref().clone()],
+                    }
+                    .normalize(ctx)
+                }
+            }
             Tuple { elements } => Tuple {
                 elements: elements.into_iter().map(|e| e.normalize(ctx)).collect(),
             },
@@ -261,17 +277,14 @@ impl Type {
     /// an explicit type annotation.
     pub fn widen(self) -> Self {
         match self {
-            Type::Boolean { value: Some(_) } => Type::Boolean { value: None },
+            Type::Boolean { value: Some(_) } => Type::ANY_BOOLEAN,
             Type::Number {
                 min_value: Some(_), ..
             }
             | Type::Number {
                 max_value: Some(_), ..
-            } => Type::Number {
-                min_value: None,
-                max_value: None,
-            },
-            Type::String { value: Some(_) } => Type::String { value: None },
+            } => Type::ANY_NUMBER,
+            Type::String { value: Some(_) } => Type::ANY_STRING,
             other => other,
         }
     }
@@ -331,6 +344,12 @@ impl AST<Expression> {
             }
             _ => None,
         }
+    }
+}
+
+impl From<bool> for Type {
+    fn from(value: bool) -> Self {
+        Self::Boolean { value: Some(value) }
     }
 }
 
@@ -520,7 +539,7 @@ fn resolve_local_identifier(
                 _ => Type::Unknown,
             }
         }
-        None => Type::Unknown,
+        None => Type::Poisoned,
     }
 }
 
@@ -571,17 +590,6 @@ fn exact_string(s: std::string::String) -> Type {
     }
 }
 
-/// Returns true if a type is "falsy" at the type level (exactly false or nil).
-fn is_exact_falsy(t: &Type) -> bool {
-    matches!(t, Type::Boolean { value: Some(false) } | Type::Nil)
-}
-
-/// Returns true if a type is "truthy" at the type level (an exact non-false,
-/// non-nil value).
-fn is_exact_truthy(t: &Type) -> bool {
-    matches!(t, Type::Boolean { value: Some(true) })
-}
-
 /// Helper: construct an exact number type (min == max == value).
 fn exact_number(value: i64) -> Type {
     Type::Number {
@@ -626,131 +634,161 @@ fn normalize_binary_operation(
 ) -> Type {
     use BinaryOperator::*;
 
-    let any_number = Type::Number {
-        min_value: None,
-        max_value: None,
+    let fits_ctx = FitsContext {
+        modules: ctx.modules,
     };
-    let any_string = Type::String { value: None };
+
+    if left == Type::Poisoned || right == Type::Poisoned {
+        return Type::Poisoned;
+    }
+
+    // Check operand compatibility; return Poisoned if either operand doesn't fit
+    if let Some(allowed) = operator.allowed_operand_type() {
+        if !left.clone().fits(allowed.clone(), fits_ctx) || !right.clone().fits(allowed, fits_ctx) {
+            return Type::Poisoned;
+        }
+    }
 
     match operator {
-        Add => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => l.checked_add(r).map(exact_number).unwrap_or(any_number),
-            _ => match (as_exact_string(&left), as_exact_string(&right)) {
-                (Some(l), Some(r)) => exact_string(format!("{}{}", l.as_str(), r.as_str())),
-                _ => match (as_exact_string(&left), as_exact_number(&right)) {
-                    (Some(l), Some(r)) => exact_string(format!("{}{}", l.as_str(), r)),
-                    _ => match (as_exact_number(&left), as_exact_string(&right)) {
-                        (Some(l), Some(r)) => exact_string(format!("{}{}", l, r.as_str())),
-                        _ => match (&left, &right) {
-                            (Type::String { .. }, _) | (_, Type::String { .. }) => any_string,
-                            _ => any_number,
-                        },
-                    },
-                },
-            },
-        },
-        Subtract => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => l.checked_sub(r).map(exact_number).unwrap_or(any_number),
-            _ => any_number,
-        },
-        Multiply => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => l.checked_mul(r).map(exact_number).unwrap_or(any_number),
-            _ => any_number,
-        },
-        Divide => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) if r != 0 => {
-                l.checked_div(r).map(exact_number).unwrap_or(any_number)
+        Add => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                l.checked_add(r)
+                    .map(exact_number)
+                    .unwrap_or(Type::ANY_NUMBER)
+            } else if let (Some(l), Some(r)) = (as_exact_string(&left), as_exact_string(&right)) {
+                exact_string(format!("{}{}", l.as_str(), r.as_str()))
+            } else if let (Some(l), Some(r)) = (as_exact_string(&left), as_exact_number(&right)) {
+                exact_string(format!("{}{}", l.as_str(), r))
+            } else if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_string(&right)) {
+                exact_string(format!("{}{}", l, r.as_str()))
+            } else if matches!(&left, Type::String { .. }) || matches!(&right, Type::String { .. })
+            {
+                Type::ANY_STRING
+            } else {
+                Type::ANY_NUMBER
             }
-            _ => any_number,
-        },
+        }
+        Subtract => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                l.checked_sub(r)
+                    .map(exact_number)
+                    .unwrap_or(Type::ANY_NUMBER)
+            } else {
+                Type::ANY_NUMBER
+            }
+        }
+        Multiply => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                l.checked_mul(r)
+                    .map(exact_number)
+                    .unwrap_or(Type::ANY_NUMBER)
+            } else {
+                Type::ANY_NUMBER
+            }
+        }
+        Divide => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                if r != 0 {
+                    l.checked_div(r)
+                        .map(exact_number)
+                        .unwrap_or(Type::ANY_NUMBER)
+                } else {
+                    Type::ANY_NUMBER
+                }
+            } else {
+                Type::ANY_NUMBER
+            }
+        }
 
-        Equal => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean {
-                value: Some(l == r),
-            },
-            _ => match (as_exact_string(&left), as_exact_string(&right)) {
-                (Some(l), Some(r)) => Type::Boolean {
+        Equal => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                Type::Boolean {
+                    value: Some(l == r),
+                }
+            } else if let (Some(l), Some(r)) = (as_exact_string(&left), as_exact_string(&right)) {
+                Type::Boolean {
                     value: Some(l.as_str() == r.as_str()),
-                },
-                _ => match (as_exact_bool(&left), as_exact_bool(&right)) {
-                    (Some(l), Some(r)) => Type::Boolean {
-                        value: Some(l == r),
-                    },
-                    _ => match (&left, &right) {
-                        (Type::Nil, Type::Nil) => Type::Boolean { value: Some(true) },
-                        _ => Type::Boolean { value: None },
-                    },
-                },
-            },
-        },
-        NotEqual => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean {
-                value: Some(l != r),
-            },
-            _ => match (as_exact_string(&left), as_exact_string(&right)) {
-                (Some(l), Some(r)) => Type::Boolean {
+                }
+            } else if let (Some(l), Some(r)) = (as_exact_bool(&left), as_exact_bool(&right)) {
+                Type::Boolean {
+                    value: Some(l == r),
+                }
+            } else if left == Type::Nil && right == Type::Nil {
+                Type::TRUE
+            } else {
+                Type::ANY_BOOLEAN
+            }
+        }
+        NotEqual => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                Type::Boolean {
+                    value: Some(l != r),
+                }
+            } else if let (Some(l), Some(r)) = (as_exact_string(&left), as_exact_string(&right)) {
+                Type::Boolean {
                     value: Some(l.as_str() != r.as_str()),
-                },
-                _ => match (as_exact_bool(&left), as_exact_bool(&right)) {
-                    (Some(l), Some(r)) => Type::Boolean {
-                        value: Some(l != r),
-                    },
-                    _ => match (&left, &right) {
-                        (Type::Nil, Type::Nil) => Type::Boolean { value: Some(false) },
-                        _ => Type::Boolean { value: None },
-                    },
-                },
-            },
-        },
-        LessThan => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean { value: Some(l < r) },
-            _ => Type::Boolean { value: None },
-        },
-        LessThanOrEqual => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean {
-                value: Some(l <= r),
-            },
-            _ => Type::Boolean { value: None },
-        },
-        GreaterThan => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean { value: Some(l > r) },
-            _ => Type::Boolean { value: None },
-        },
-        GreaterThanOrEqual => match (as_exact_number(&left), as_exact_number(&right)) {
-            (Some(l), Some(r)) => Type::Boolean {
-                value: Some(l >= r),
-            },
-            _ => Type::Boolean { value: None },
-        },
+                }
+            } else if let (Some(l), Some(r)) = (as_exact_bool(&left), as_exact_bool(&right)) {
+                Type::Boolean {
+                    value: Some(l != r),
+                }
+            } else if left == Type::Nil && right == Type::Nil {
+                Type::FALSE
+            } else {
+                Type::ANY_BOOLEAN
+            }
+        }
+        LessThan => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                Type::Boolean { value: Some(l < r) }
+            } else {
+                Type::ANY_BOOLEAN
+            }
+        }
+        LessThanOrEqual => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                Type::Boolean {
+                    value: Some(l <= r),
+                }
+            } else {
+                Type::ANY_BOOLEAN
+            }
+        }
+        GreaterThan => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                Type::Boolean { value: Some(l > r) }
+            } else {
+                Type::ANY_BOOLEAN
+            }
+        }
+        GreaterThanOrEqual => {
+            if let (Some(l), Some(r)) = (as_exact_number(&left), as_exact_number(&right)) {
+                Type::Boolean {
+                    value: Some(l >= r),
+                }
+            } else {
+                Type::ANY_BOOLEAN
+            }
+        }
 
         And => {
-            if is_exact_falsy(&left) {
-                left
-            } else if is_exact_truthy(&left) {
-                right
+            if let (Some(left), Some(right)) = (as_exact_bool(&left), as_exact_bool(&right)) {
+                (left && right).into()
             } else {
-                Type::Union {
-                    variants: vec![left, right],
-                }
-                .normalize(ctx)
+                Type::ANY_BOOLEAN
             }
         }
         Or => {
-            if is_exact_truthy(&left) {
-                left
-            } else if is_exact_falsy(&left) {
-                right
+            if let (Some(left), Some(right)) = (as_exact_bool(&left), as_exact_bool(&right)) {
+                (left || right).into()
             } else {
-                Type::Union {
-                    variants: vec![left, right],
-                }
-                .normalize(ctx)
+                Type::ANY_BOOLEAN
             }
         }
         NullishCoalescing => {
-            if matches!(left, Type::Nil) {
+            if left == Type::Nil {
                 right
-            } else if is_exact_truthy(&left) {
+            } else if !Type::Nil.fits(left.clone(), fits_ctx) {
                 left
             } else {
                 Type::Union {
@@ -764,38 +802,57 @@ fn normalize_binary_operation(
 
 /// Normalize a unary operation type by computing exact results where possible.
 fn normalize_unary_operation(operator: UnaryOperator, operand: Type) -> Type {
+    let fits_ctx = FitsContext { modules: None };
+    let allowed = operator.allowed_operand_type();
+
+    if !operand.clone().fits(allowed, fits_ctx) {
+        return Type::Poisoned;
+    }
+
     match operator {
         UnaryOperator::Not => match as_exact_bool(&operand) {
-            Some(value) => Type::Boolean {
-                value: Some(!value),
-            },
+            Some(value) => (!value).into(),
             None => match operand {
-                Type::Nil => Type::Boolean { value: Some(true) },
-                _ => Type::Boolean { value: None },
+                Type::Nil => Type::TRUE,
+                _ => Type::ANY_BOOLEAN,
             },
         },
     }
 }
 
-/// Normalize an if/else expression type.
-/// If the condition is known to be truthy, return the consequent type.
-/// If the condition is known to be falsy, return the alternate type.
-/// Otherwise, return a union of both branches.
-fn normalize_if_else(
-    condition: Type,
-    consequent: Type,
-    alternate: Type,
-    ctx: NormalizeContext<'_>,
-) -> Type {
-    if is_exact_truthy(&condition) {
-        consequent
-    } else if is_exact_falsy(&condition) {
-        alternate
-    } else {
-        Type::Union {
-            variants: vec![consequent, alternate],
+impl BinaryOperator {
+    /// Returns the type that operands of this operator must fit, or `None` if
+    /// any type is allowed (e.g. `==`, `!=`, `??`).
+    pub fn allowed_operand_type(&self) -> Option<Type> {
+        match self {
+            BinaryOperator::Add => Some(Type::Union {
+                variants: vec![Type::ANY_NUMBER, Type::ANY_STRING],
+            }),
+            BinaryOperator::Subtract
+            | BinaryOperator::Multiply
+            | BinaryOperator::Divide
+            | BinaryOperator::LessThan
+            | BinaryOperator::LessThanOrEqual
+            | BinaryOperator::GreaterThan
+            | BinaryOperator::GreaterThanOrEqual => Some(Type::ANY_NUMBER),
+            BinaryOperator::And | BinaryOperator::Or => Some(Type::Union {
+                variants: vec![Type::ANY_BOOLEAN, Type::Nil],
+            }),
+            BinaryOperator::Equal
+            | BinaryOperator::NotEqual
+            | BinaryOperator::NullishCoalescing => None,
         }
-        .normalize(ctx)
+    }
+}
+
+impl UnaryOperator {
+    /// Returns the type that the operand of this operator must fit.
+    pub fn allowed_operand_type(&self) -> Type {
+        match self {
+            UnaryOperator::Not => Type::Union {
+                variants: vec![Type::ANY_BOOLEAN, Type::Nil],
+            },
+        }
     }
 }
 
@@ -804,6 +861,7 @@ impl fmt::Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Unknown => write!(f, "unknown"),
+            Type::Poisoned => write!(f, "unknown"),
             Type::Never => write!(f, "never"),
             Type::Nil => write!(f, "nil"),
             Type::Boolean { value: None } => write!(f, "boolean"),
@@ -935,12 +993,9 @@ impl From<TypeExpression> for Type {
         match type_expr {
             UnknownTypeExpression(_) => Type::Unknown,
             NilTypeExpression(_) => Type::Nil,
-            BooleanTypeExpression(_) => Type::Boolean { value: None },
-            NumberTypeExpression(_) => Type::Number {
-                min_value: None,
-                max_value: None,
-            },
-            StringTypeExpression(_) => Type::String { value: None },
+            BooleanTypeExpression(_) => Type::ANY_BOOLEAN,
+            NumberTypeExpression(_) => Type::ANY_NUMBER,
+            StringTypeExpression(_) => Type::ANY_STRING,
             TupleTypeExpression(tuple) => {
                 let elements = tuple
                     .elements

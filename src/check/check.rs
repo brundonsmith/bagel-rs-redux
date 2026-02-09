@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, BinaryOperator, Expression, UnaryOperator},
+        grammar::{Any, Expression},
         modules::{Module, ModulesStore},
         slice::Slice,
     },
@@ -249,116 +249,20 @@ where
                         match expression {
                             Expression::BinaryOperation(bin_op) => {
                                 // Type-check operands
-                                let norm_ctx = NormalizeContext {
-                                    modules: Some(ctx.modules),
-                                    current_module: ctx.current_module,
-                                };
-                                let infer_ctx = InferTypeContext {
-                                    modules: Some(ctx.modules),
-                                    current_module: ctx.current_module,
-                                };
-                                let left_type =
-                                    bin_op.left.infer_type(infer_ctx).normalize(norm_ctx);
-                                let right_type =
-                                    bin_op.right.infer_type(infer_ctx).normalize(norm_ctx);
-
-                                let (allowed, op_str) = match bin_op.operator.unpack() {
-                                    BinaryOperator::Add => (
-                                        Some(Type::Union {
-                                            variants: vec![
-                                                Type::Number {
-                                                    min_value: None,
-                                                    max_value: None,
-                                                },
-                                                Type::String { value: None },
-                                            ],
-                                        }),
-                                        "+",
-                                    ),
-                                    BinaryOperator::Subtract => (
-                                        Some(Type::Number {
-                                            min_value: None,
-                                            max_value: None,
-                                        }),
-                                        "-",
-                                    ),
-                                    BinaryOperator::Multiply => (
-                                        Some(Type::Number {
-                                            min_value: None,
-                                            max_value: None,
-                                        }),
-                                        "*",
-                                    ),
-                                    BinaryOperator::Divide => (
-                                        Some(Type::Number {
-                                            min_value: None,
-                                            max_value: None,
-                                        }),
-                                        "/",
-                                    ),
-                                    BinaryOperator::And => (
-                                        Some(Type::Union {
-                                            variants: vec![
-                                                Type::Boolean { value: None },
-                                                Type::Nil,
-                                            ],
-                                        }),
-                                        "&&",
-                                    ),
-                                    BinaryOperator::Or => (
-                                        Some(Type::Union {
-                                            variants: vec![
-                                                Type::Boolean { value: None },
-                                                Type::Nil,
-                                            ],
-                                        }),
-                                        "||",
-                                    ),
-                                    BinaryOperator::Equal => (None, "=="),
-                                    BinaryOperator::NotEqual => (None, "!="),
-                                    BinaryOperator::LessThan => (
-                                        Some(Type::Number {
-                                            min_value: None,
-                                            max_value: None,
-                                        }),
-                                        "<",
-                                    ),
-                                    BinaryOperator::LessThanOrEqual => (
-                                        Some(Type::Number {
-                                            min_value: None,
-                                            max_value: None,
-                                        }),
-                                        "<=",
-                                    ),
-                                    BinaryOperator::GreaterThan => (
-                                        Some(Type::Number {
-                                            min_value: None,
-                                            max_value: None,
-                                        }),
-                                        ">",
-                                    ),
-                                    BinaryOperator::GreaterThanOrEqual => (
-                                        Some(Type::Number {
-                                            min_value: None,
-                                            max_value: None,
-                                        }),
-                                        ">=",
-                                    ),
-                                    BinaryOperator::NullishCoalescing => (None, "??"),
-                                };
-
-                                if let Some(allowed) = allowed {
+                                let operator = bin_op.operator.unpack();
+                                if let Some(allowed) = operator.allowed_operand_type() {
+                                    let infer_ctx = InferTypeContext {
+                                        modules: Some(ctx.modules),
+                                        current_module: ctx.current_module,
+                                    };
+                                    let left_type = bin_op.left.infer_type(infer_ctx);
+                                    let right_type = bin_op.right.infer_type(infer_ctx);
                                     let fits_ctx = FitsContext {
                                         modules: Some(ctx.modules),
                                     };
-                                    let left_issues =
-                                        left_type.clone().fit_issues(allowed.clone(), fits_ctx);
-                                    let fits_ctx = FitsContext {
-                                        modules: Some(ctx.modules),
-                                    };
-                                    let right_issues =
-                                        right_type.clone().fit_issues(allowed, fits_ctx);
-                                    if !left_issues.is_empty() {
+                                    let op_str = operator.as_str();
+
+                                    if !left_type.clone().fits(allowed.clone(), fits_ctx) {
                                         report_error(BagelError {
                                             src: bin_op.left.slice().clone(),
                                             severity: RuleSeverity::Error,
@@ -370,7 +274,7 @@ where
                                             },
                                         });
                                     }
-                                    if !right_issues.is_empty() {
+                                    if !right_type.clone().fits(allowed, fits_ctx) {
                                         report_error(BagelError {
                                             src: bin_op.right.slice().clone(),
                                             severity: RuleSeverity::Error,
@@ -386,43 +290,27 @@ where
                             }
                             Expression::UnaryOperation(unary_op) => {
                                 // Type-check operand
-                                let norm_ctx = NormalizeContext {
+                                let operator = unary_op.operator.unpack();
+                                let allowed = operator.allowed_operand_type();
+                                let operand_type = unary_op.operand.infer_type(InferTypeContext {
                                     modules: Some(ctx.modules),
                                     current_module: ctx.current_module,
-                                };
-                                let infer_ctx = InferTypeContext {
+                                });
+                                let fits_ctx = FitsContext {
                                     modules: Some(ctx.modules),
-                                    current_module: ctx.current_module,
                                 };
-                                let operand_type =
-                                    unary_op.operand.infer_type(infer_ctx).normalize(norm_ctx);
-
-                                match unary_op.operator.unpack() {
-                                    UnaryOperator::Not => {
-                                        let allowed = Type::Union {
-                                            variants: vec![
-                                                Type::Boolean { value: None },
-                                                Type::Nil,
-                                            ],
-                                        };
-                                        let fits_ctx = FitsContext {
-                                            modules: Some(ctx.modules),
-                                        };
-                                        let issues =
-                                            operand_type.clone().fit_issues(allowed, fits_ctx);
-                                        if !issues.is_empty() {
-                                            report_error(BagelError {
-                                                src: unary_op.operand.slice().clone(),
-                                                severity: RuleSeverity::Error,
-                                                details: BagelErrorDetails::MiscError {
-                                                    message: format!(
-                                                    "Operator '!' cannot be applied to type '{}'",
-                                                    operand_type
-                                                ),
-                                                },
-                                            });
-                                        }
-                                    }
+                                if !operand_type.clone().fits(allowed, fits_ctx) {
+                                    report_error(BagelError {
+                                        src: unary_op.operand.slice().clone(),
+                                        severity: RuleSeverity::Error,
+                                        details: BagelErrorDetails::MiscError {
+                                            message: format!(
+                                                "Operator '{}' cannot be applied to type '{}'",
+                                                operator.as_str(),
+                                                operand_type
+                                            ),
+                                        },
+                                    });
                                 }
                             }
                             Expression::IfElseExpression(if_else) => {
@@ -438,13 +326,12 @@ where
                                 let cond_type =
                                     if_else.condition.infer_type(infer_ctx).normalize(norm_ctx);
                                 let allowed = Type::Union {
-                                    variants: vec![Type::Boolean { value: None }, Type::Nil],
+                                    variants: vec![Type::ANY_BOOLEAN, Type::Nil],
                                 };
                                 let fits_ctx = FitsContext {
                                     modules: Some(ctx.modules),
                                 };
-                                let issues = cond_type.clone().fit_issues(allowed, fits_ctx);
-                                if !issues.is_empty() {
+                                if !cond_type.clone().fits(allowed, fits_ctx) {
                                     report_error(BagelError {
                                         src: if_else.condition.slice().clone(),
                                         severity: RuleSeverity::Error,
@@ -489,7 +376,7 @@ where
                                             },
                                         });
                                     }
-                                    Type::Unknown | Type::Any => {}
+                                    Type::Unknown | Type::Any | Type::Poisoned => {}
                                     Type::Object { .. } | Type::Interface { .. } => {}
                                     _ => {
                                         report_error(BagelError {

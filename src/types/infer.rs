@@ -44,10 +44,7 @@ impl AST<Expression> {
                             max_value: Some(value),
                         }
                     } else {
-                        Type::Number {
-                            min_value: None,
-                            max_value: None,
-                        }
+                        Type::ANY_NUMBER
                     }
                 }
 
