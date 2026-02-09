@@ -8,10 +8,14 @@ use nom::{
 };
 use std::sync::Arc;
 
-use crate::ast::{
-    container::{ASTInner, Parentable, AST},
-    grammar::*,
-    slice::Slice,
+use crate::{
+    ast::{
+        container::{ASTInner, Parentable, AST},
+        grammar::*,
+        slice::Slice,
+    },
+    check::{BagelError, BagelErrorDetails},
+    config::RuleSeverity,
 };
 
 use super::utils::{backtrack, expect_tag, w, whitespace, ParseResult};
@@ -861,10 +865,10 @@ fn range_type_expression(i: Slice) -> ParseResult<AST<RangeTypeExpression>> {
 
     // At least one side must be present
     if start.is_none() && end.is_none() {
-        return Err(nom::Err::Error(crate::check::BagelError {
+        return Err(nom::Err::Error(BagelError {
             src: start_pos,
-            severity: crate::config::RuleSeverity::Error,
-            details: crate::check::BagelErrorDetails::ParseError {
+            severity: RuleSeverity::Error,
+            details: BagelErrorDetails::ParseError {
                 message: "Range type requires at least one bound".to_string(),
             },
         }));

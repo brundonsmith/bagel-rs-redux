@@ -1,5 +1,5 @@
 use bagel::ast::slice::Slice;
-use bagel::parse::parse;
+use bagel::parse;
 use insta::assert_debug_snapshot;
 use std::sync::Arc;
 

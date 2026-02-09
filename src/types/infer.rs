@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Expression, FunctionBody},
+        grammar::{ElseClause, Expression, FunctionBody},
         modules::{Module, ModulesStore},
     },
     types::{NormalizeContext, Type},
@@ -152,10 +152,10 @@ impl AST<Expression> {
                     let consequent_type = if_else.consequent.infer_type(ctx);
 
                     let alternate_type = match &if_else.else_clause {
-                        Some(crate::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
+                        Some(ElseClause::ElseBlock { expression, .. }) => {
                             expression.infer_type(ctx)
                         }
-                        Some(crate::ast::grammar::ElseClause::ElseIf {
+                        Some(ElseClause::ElseIf {
                             if_else: nested, ..
                         }) => {
                             let nested_as_expr: AST<Expression> = nested.clone().upcast();

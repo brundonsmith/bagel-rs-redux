@@ -1,8 +1,8 @@
-use bagel::ast::modules::ModulesStore;
-use bagel::ast::slice::Slice;
 use bagel::check::{CheckContext, Checkable};
 use bagel::config::Config;
-use bagel::parse::parse;
+use bagel::ast::modules::ModulesStore;
+use bagel::ast::slice::Slice;
+use bagel::parse;
 use insta::assert_debug_snapshot;
 use std::collections::HashMap;
 use std::sync::Arc;

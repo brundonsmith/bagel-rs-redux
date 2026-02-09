@@ -7,14 +7,15 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::ast::container::{find_deepest, walk_ast, WalkAction, AST};
-use crate::ast::grammar::{Any, Declaration, Expression};
+use crate::ast::grammar::{self, Any, Declaration, Expression};
 use crate::ast::modules::{ModulePath, ModulesStore};
 use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
 use crate::config::Config;
 use crate::emit::{EmitContext, Emittable};
+use crate::parse;
 use crate::types::infer::InferTypeContext;
-use crate::types::{resolve_identifier, NormalizeContext, Type};
+use crate::types::{resolve_identifier, NormalizeContext, ResolvedIdentifier, Type};
 
 #[derive(Debug)]
 struct BagelLanguageServer {
@@ -233,7 +234,7 @@ impl LanguageServer for BagelLanguageServer {
         drop(documents);
 
         let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match crate::parse::parse::module(slice) {
+        let ast = match parse::module(slice) {
             Ok((_, ast)) => ast,
             Err(_) => return Ok(None),
         };
@@ -330,7 +331,7 @@ impl LanguageServer for BagelLanguageServer {
         // Parse the document
         eprintln!("[DEBUG] hover() - parsing document");
         let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match crate::parse::parse::any(slice) {
+        let ast = match parse::any(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] hover() - parse successful");
                 ast
@@ -416,7 +417,7 @@ impl LanguageServer for BagelLanguageServer {
 
         // Parse and find the node at the cursor
         let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match crate::parse::parse::any(slice) {
+        let ast = match parse::any(slice) {
             Ok((_, ast)) => ast,
             Err(_) => return Ok(None),
         };
@@ -538,7 +539,7 @@ impl LanguageServer for BagelLanguageServer {
 
         // Convert the resolved identifier to an LSP Location
         let location = match resolved {
-            crate::types::ResolvedIdentifier::ConstDeclaration { decl, module } => {
+            ResolvedIdentifier::ConstDeclaration { decl, module } => {
                 let target_slice = decl.identifier.slice();
                 match module {
                     Some(target_module) => {
@@ -555,7 +556,7 @@ impl LanguageServer for BagelLanguageServer {
                     },
                 }
             }
-            crate::types::ResolvedIdentifier::FunctionParam { name, .. } => {
+            ResolvedIdentifier::FunctionParam { name, .. } => {
                 let target_slice = name.slice();
                 Location {
                     uri: uri.parse().unwrap(),
@@ -597,7 +598,7 @@ impl LanguageServer for BagelLanguageServer {
         // Parse the document
         eprintln!("[DEBUG] inlay_hint() - parsing document");
         let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match crate::parse::parse::any(slice) {
+        let ast = match parse::any(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] inlay_hint() - parse successful");
                 ast
@@ -619,7 +620,7 @@ impl LanguageServer for BagelLanguageServer {
 
         // Traverse the AST to find declarations
         eprintln!("[DEBUG] inlay_hint() - attempting to downcast to Module");
-        if let Some(module) = ast.try_downcast::<crate::ast::grammar::Module>() {
+        if let Some(module) = ast.try_downcast::<grammar::Module>() {
             match module.details() {
                 None => {
                     eprintln!("[DEBUG] inlay_hint() - module is malformed, skipping");
@@ -704,7 +705,7 @@ impl BagelLanguageServer {
 
         // Parse the document
         let slice = Slice::new(Arc::new(text.to_string()));
-        let ast = match crate::parse::parse::module(slice) {
+        let ast = match parse::module(slice) {
             Ok((_, ast)) => {
                 eprintln!("[DEBUG] publish_diagnostics() - parse successful");
                 ast

@@ -1,7 +1,7 @@
 use bagel::ast::container::{walk_ast, WalkAction, AST};
 use bagel::ast::grammar::{Any, Expression};
 use bagel::ast::slice::Slice;
-use bagel::parse::parse;
+use bagel::parse;
 use bagel::types::infer::InferTypeContext;
 use bagel::types::NormalizeContext;
 use insta::assert_snapshot;

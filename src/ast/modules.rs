@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::ast::{container::AST, grammar, slice::Slice};
-use crate::parse::parse::module;
+use crate::parse::module;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ModulePath {

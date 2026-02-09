@@ -2,7 +2,7 @@ use bagel::ast::modules::ModulesStore;
 use bagel::ast::slice::Slice;
 use bagel::compile::{Compilable, CompileContext};
 use bagel::config::Config;
-use bagel::parse::parse;
+use bagel::parse;
 use insta::assert_snapshot;
 use std::collections::HashMap;
 use std::sync::Arc;
