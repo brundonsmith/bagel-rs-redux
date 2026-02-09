@@ -1,0 +1,13 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: FUNCTION_TYPES)"
+---
+const a: () => number = () => 42
+const b: (number) => number = (x) => x + 1
+const c: (number, number) => number = (a, b) => a + b
+const d: (x: number, y: number) => number = (a, b) => a + b
+---
+const a: () => number = () => 42
+const b: (number) => number = (x) => x + 1
+const c: (number, number) => number = (a, b) => a + b
+const d: (x: number, y: number) => number = (a, b) => a + b

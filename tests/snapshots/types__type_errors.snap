@@ -1,0 +1,47 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: TYPE_ERRORS)"
+---
+const a: string = 42
+const b: number = true
+const c = 1 + true
+const d = 'hello' - 1
+const e = 1 && 2
+const f = 1 < true
+const g = !42
+const h: boolean = nil ?? 5
+const i: 0..10 = 15
+const j: string[] = ['hello', 42]
+const k: () => string = () => 42
+const l: (string) => number = (x: number) => x
+const m = if 1 { 'yes' } else { 'no' }
+const n = {name: 'alice'}.age
+const o: {name: string} = {name: 'alice', age: 42}
+const p: {x: number, y: number} = {x: 1}
+---
+!42 -> boolean
+'alice' -> 'alice'
+'hello' -> 'hello'
+'hello' - 1 -> number
+'no' -> 'no'
+'yes' -> 'yes'
+() => 42 -> () => 42
+(x: number) => x -> (arg0: number) => number
+1 -> 1
+1 && 2 -> 1 | 2
+1 + true -> number
+1 < true -> boolean
+15 -> 15
+2 -> 2
+42 -> 42
+5 -> 5
+['hello', 42] -> ['hello', 42]
+if 1 { 'yes' } else { 'no' } -> 'no' | 'yes'
+nil -> nil
+nil ?? 5 -> 5
+true -> true
+x -> number
+{name: 'alice', age: 42} -> { age: 42, name: 'alice' }
+{name: 'alice'} -> { name: 'alice' }
+{name: 'alice'}.age -> never
+{x: 1} -> { x: 1 }

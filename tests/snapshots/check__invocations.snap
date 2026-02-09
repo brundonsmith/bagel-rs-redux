@@ -1,0 +1,11 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: INVOCATIONS)"
+---
+const log = js.console.log
+const main = () => {
+    js.console.log('hello')
+    js.console.log(42)
+}
+---
+[]

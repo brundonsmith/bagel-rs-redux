@@ -1,0 +1,367 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: COLLECTIONS)"
+---
+const a = [1, 2, 3]
+const b = ['hello', 'world']
+const c = {name: 'alice', age: 42}
+const d = {x: 1, y: 2, z: 3}
+const e = [{name: 'bob'}, {name: 'carol'}]
+const f = {inner: {deep: true}}
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst a = [1, 2, 3]\nconst b = ['hello', 'world']\nconst c = {name: 'alice', age: 42}\nconst d = {x: 1, y: 2, z: 3}\nconst e = [{name: 'bob'}, {name: 'carol'}]\nconst f = {inner: {deep: true}}"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a = [1, 2, 3]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[1, 2, 3]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("1"),
+                                            details: NumberLiteral,
+                                        },
+                                        ASTInner {
+                                            slice: Slice("2"),
+                                            details: NumberLiteral,
+                                        },
+                                        ASTInner {
+                                            slice: Slice("3"),
+                                            details: NumberLiteral,
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b = ['hello', 'world']"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("['hello', 'world']"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("'hello'"),
+                                            details: StringLiteral {
+                                                open_quote: Slice("'"),
+                                                contents: Slice("hello"),
+                                                close_quote: Slice("'"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("'world'"),
+                                            details: StringLiteral {
+                                                open_quote: Slice("'"),
+                                                contents: Slice("world"),
+                                                close_quote: Slice("'"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c = {name: 'alice', age: 42}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("{name: 'alice', age: 42}"),
+                                details: ObjectLiteral {
+                                    open_brace: Slice("{"),
+                                    fields: [
+                                        (
+                                            ASTInner {
+                                                slice: Slice("name"),
+                                                details: PlainIdentifier,
+                                            },
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("'alice'"),
+                                                details: StringLiteral {
+                                                    open_quote: Slice("'"),
+                                                    contents: Slice("alice"),
+                                                    close_quote: Slice("'"),
+                                                },
+                                            },
+                                        ),
+                                        (
+                                            ASTInner {
+                                                slice: Slice("age"),
+                                                details: PlainIdentifier,
+                                            },
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("42"),
+                                                details: NumberLiteral,
+                                            },
+                                        ),
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_brace: Some(
+                                        Slice("}"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d = {x: 1, y: 2, z: 3}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("{x: 1, y: 2, z: 3}"),
+                                details: ObjectLiteral {
+                                    open_brace: Slice("{"),
+                                    fields: [
+                                        (
+                                            ASTInner {
+                                                slice: Slice("x"),
+                                                details: PlainIdentifier,
+                                            },
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("1"),
+                                                details: NumberLiteral,
+                                            },
+                                        ),
+                                        (
+                                            ASTInner {
+                                                slice: Slice("y"),
+                                                details: PlainIdentifier,
+                                            },
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("2"),
+                                                details: NumberLiteral,
+                                            },
+                                        ),
+                                        (
+                                            ASTInner {
+                                                slice: Slice("z"),
+                                                details: PlainIdentifier,
+                                            },
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("3"),
+                                                details: NumberLiteral,
+                                            },
+                                        ),
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_brace: Some(
+                                        Slice("}"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e = [{name: 'bob'}, {name: 'carol'}]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[{name: 'bob'}, {name: 'carol'}]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("{name: 'bob'}"),
+                                            details: ObjectLiteral {
+                                                open_brace: Slice("{"),
+                                                fields: [
+                                                    (
+                                                        ASTInner {
+                                                            slice: Slice("name"),
+                                                            details: PlainIdentifier,
+                                                        },
+                                                        Slice(":"),
+                                                        ASTInner {
+                                                            slice: Slice("'bob'"),
+                                                            details: StringLiteral {
+                                                                open_quote: Slice("'"),
+                                                                contents: Slice("bob"),
+                                                                close_quote: Slice("'"),
+                                                            },
+                                                        },
+                                                    ),
+                                                ],
+                                                commas: [],
+                                                trailing_comma: None,
+                                                close_brace: Some(
+                                                    Slice("}"),
+                                                ),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("{name: 'carol'}"),
+                                            details: ObjectLiteral {
+                                                open_brace: Slice("{"),
+                                                fields: [
+                                                    (
+                                                        ASTInner {
+                                                            slice: Slice("name"),
+                                                            details: PlainIdentifier,
+                                                        },
+                                                        Slice(":"),
+                                                        ASTInner {
+                                                            slice: Slice("'carol'"),
+                                                            details: StringLiteral {
+                                                                open_quote: Slice("'"),
+                                                                contents: Slice("carol"),
+                                                                close_quote: Slice("'"),
+                                                            },
+                                                        },
+                                                    ),
+                                                ],
+                                                commas: [],
+                                                trailing_comma: None,
+                                                close_brace: Some(
+                                                    Slice("}"),
+                                                ),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const f = {inner: {deep: true}}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("f"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("{inner: {deep: true}}"),
+                                details: ObjectLiteral {
+                                    open_brace: Slice("{"),
+                                    fields: [
+                                        (
+                                            ASTInner {
+                                                slice: Slice("inner"),
+                                                details: PlainIdentifier,
+                                            },
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("{deep: true}"),
+                                                details: ObjectLiteral {
+                                                    open_brace: Slice("{"),
+                                                    fields: [
+                                                        (
+                                                            ASTInner {
+                                                                slice: Slice("deep"),
+                                                                details: PlainIdentifier,
+                                                            },
+                                                            Slice(":"),
+                                                            ASTInner {
+                                                                slice: Slice("true"),
+                                                                details: BooleanLiteral {
+                                                                    value: true,
+                                                                },
+                                                            },
+                                                        ),
+                                                    ],
+                                                    commas: [],
+                                                    trailing_comma: None,
+                                                    close_brace: Some(
+                                                        Slice("}"),
+                                                    ),
+                                                },
+                                            },
+                                        ),
+                                    ],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_brace: Some(
+                                        Slice("}"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

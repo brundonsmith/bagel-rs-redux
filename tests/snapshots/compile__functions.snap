@@ -1,0 +1,22 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: FUNCTIONS)"
+---
+const a = () => 42
+const b = (x: number) => x + 1
+const c = (x: number, y: number): number => x + y
+const d = x => x
+const e = () => {
+    js.console.log('hello')
+}
+const f = (a: number, b: number) => {
+    js.console.log(a)
+    js.console.log(b)
+}
+---
+const a = () => 42;
+const b = (x) => x + 1;
+const c = (x, y) => x + y;
+const d = x => x;
+const e = () => { console.log('hello'); };
+const f = (a, b) => { console.log(a); console.log(b); };

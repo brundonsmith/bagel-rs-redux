@@ -1,0 +1,30 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: COLLECTIONS)"
+---
+const a = [1, 2, 3]
+const b = ['hello', 'world']
+const c = {name: 'alice', age: 42}
+const d = {x: 1, y: 2, z: 3}
+const e = [{name: 'bob'}, {name: 'carol'}]
+const f = {inner: {deep: true}}
+---
+'alice' -> 'alice'
+'bob' -> 'bob'
+'carol' -> 'carol'
+'hello' -> 'hello'
+'world' -> 'world'
+1 -> 1
+2 -> 2
+3 -> 3
+42 -> 42
+['hello', 'world'] -> ['hello', 'world']
+[1, 2, 3] -> [1, 2, 3]
+[{name: 'bob'}, {name: 'carol'}] -> [{ name: 'bob' }, { name: 'carol' }]
+true -> true
+{deep: true} -> { deep: true }
+{inner: {deep: true}} -> { inner: { deep: true } }
+{name: 'alice', age: 42} -> { age: 42, name: 'alice' }
+{name: 'bob'} -> { name: 'bob' }
+{name: 'carol'} -> { name: 'carol' }
+{x: 1, y: 2, z: 3} -> { x: 1, y: 2, z: 3 }

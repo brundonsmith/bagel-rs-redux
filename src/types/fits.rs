@@ -33,35 +33,35 @@ impl Type {
         let value = self.normalize(norm_ctx);
         let destination = destination.normalize(norm_ctx);
 
+        let not_assignable_message = || {
+            format!(
+                "Type '{}' is not assignable to type '{}'",
+                value, destination
+            )
+        };
+
         // Base case; types are identical
         if value == destination {
             return vec![];
         }
 
         // Any accepts everything
-        if matches!(destination, Type::Any) {
+        if matches!(value, Type::Any) || matches!(destination, Type::Any) {
             return vec![];
         }
 
         // Nothing fits into Never (it's the bottom type)
-        if matches!(destination, Type::Never) {
-            return vec![format!(
-                "Type '{}' is not assignable to type 'never'.",
-                value
-            )];
-        }
-
-        // Never fits into everything (it's the bottom type)
-        if matches!(value, Type::Never) {
-            return vec![];
+        if matches!(destination, Type::Never) || matches!(value, Type::Never) {
+            return vec![not_assignable_message()];
         }
 
         // Unknown only fits into Any or Unknown (already handled above)
         if matches!(value, Type::Unknown) {
-            return vec![format!(
-                "Type 'unknown' is not assignable to type '{}'.",
-                destination
-            )];
+            return vec![not_assignable_message()];
+        }
+
+        if matches!(destination, Type::Unknown) {
+            return vec![];
         }
 
         match (&value, &destination) {
@@ -92,10 +92,7 @@ impl Type {
                 if min_ok && max_ok {
                     vec![]
                 } else {
-                    vec![format!(
-                        "Type '{}' is not assignable to type '{}'.",
-                        value, destination
-                    )]
+                    vec![not_assignable_message()]
                 }
             }
 
@@ -148,6 +145,28 @@ impl Type {
                 }
                 vec![]
             }
+
+            // Tuple fits into Array if every element fits the array's element type
+            (
+                Type::Tuple {
+                    elements: val_elems,
+                },
+                Type::Array { element: dest_elem },
+            ) => val_elems
+                .iter()
+                .enumerate()
+                .find_map(|(i, val_elem)| {
+                    let elem_issues = val_elem
+                        .clone()
+                        .fit_issues(dest_elem.as_ref().clone(), _ctx);
+                    (!elem_issues.is_empty()).then(|| {
+                        format!(
+                            "Element at index {} is not compatible: {}",
+                            i, elem_issues[0]
+                        )
+                    })
+                })
+                .map_or_else(Vec::new, |msg| vec![msg]),
 
             // Object type compatibility: value must have exactly the same fields
             (
@@ -226,11 +245,9 @@ impl Type {
                 },
             ) => {
                 if val_name != dest_name {
-                    return vec![format!(
-                        "Type '{}' is not assignable to type '{}'.",
-                        value, destination
-                    )];
+                    return vec![not_assignable_message()];
                 }
+
                 for (key, dest_type) in dest_fields {
                     if let Some(val_type) = val_fields.get(key) {
                         let field_issues = val_type.clone().fit_issues(dest_type.clone(), _ctx);
@@ -317,10 +334,7 @@ impl Type {
                         return vec![]; // Fits into at least one variant
                     }
                 }
-                vec![format!(
-                    "Type '{}' is not assignable to type '{}'.",
-                    value, destination
-                )]
+                vec![not_assignable_message()]
             }
 
             // Union type as value: all variants must fit into destination
@@ -333,20 +347,14 @@ impl Type {
                 for variant in val_variants {
                     let issues = variant.clone().fit_issues(destination.clone(), _ctx);
                     if !issues.is_empty() {
-                        return vec![format!(
-                            "Type '{}' is not assignable to type '{}'. Not all union members are compatible.",
-                            value, destination
-                        )];
+                        return vec![not_assignable_message()];
                     }
                 }
                 vec![]
             }
 
             // Default case: types are incompatible
-            _ => vec![format!(
-                "Type '{}' is not assignable to type '{}'.",
-                value, destination
-            )],
+            _ => vec![not_assignable_message()],
         }
     }
 }

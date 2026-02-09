@@ -40,20 +40,39 @@ fn format_expression_types(results: &BTreeMap<String, String>) -> String {
         .join("\n")
 }
 
-fn test_infer(code: &str) {
-    println!("----- input code -----\n{}\n----------------------", code);
-
+fn test_infer(code: &str) -> String {
     let slice = Slice::new(Arc::new(code.to_string()));
-    let (_, parsed) = parse::module(slice).unwrap();
+    match parse::module(slice) {
+        Err(err) => format!("{}\n---\nParse error: {:#?}", code.trim(), err),
+        Ok((_, parsed)) => {
+            let mut results = BTreeMap::new();
+            collect_expression_types(&parsed.upcast(), &mut results);
 
-    let mut results = BTreeMap::new();
-    collect_expression_types(&parsed.upcast(), &mut results);
-
-    let output = format_expression_types(&results);
-    assert_snapshot!(output);
+            let types_output = format_expression_types(&results);
+            format!("{}\n---\n{}", code.trim(), types_output)
+        }
+    }
 }
 
-#[test]
-fn parser_test_1() {
-    test_infer(common::samples::SAMPLE_1);
+macro_rules! infer_test {
+    ($name:ident, $sample:ident) => {
+        #[test]
+        fn $name() {
+            assert_snapshot!(test_infer(common::samples::$sample));
+        }
+    };
 }
+
+infer_test!(literals, LITERALS);
+infer_test!(arithmetic, ARITHMETIC);
+infer_test!(comparison_and_logic, COMPARISON_AND_LOGIC);
+infer_test!(declarations, DECLARATIONS);
+infer_test!(imports, IMPORTS);
+infer_test!(functions, FUNCTIONS);
+infer_test!(function_types, FUNCTION_TYPES);
+infer_test!(if_else, IF_ELSE);
+infer_test!(collections, COLLECTIONS);
+infer_test!(property_access, PROPERTY_ACCESS);
+infer_test!(invocations, INVOCATIONS);
+infer_test!(type_annotations, TYPE_ANNOTATIONS);
+infer_test!(type_errors, TYPE_ERRORS);

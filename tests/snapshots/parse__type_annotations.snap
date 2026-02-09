@@ -1,0 +1,378 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: TYPE_ANNOTATIONS)"
+---
+const a: number = 1
+const b: string = 'hi'
+const c: boolean = true
+const d: nil = nil
+const e: unknown = 42
+const f: 0..10 = 5
+const g: 0.. = 100
+const h: ..100 = 50
+const i: number[] = [1, 2, 3]
+const j: typeof a = 2
+const k: (number) = 3
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst a: number = 1\nconst b: string = 'hi'\nconst c: boolean = true\nconst d: nil = nil\nconst e: unknown = 42\nconst f: 0..10 = 5\nconst g: 0.. = 100\nconst h: ..100 = 50\nconst i: number[] = [1, 2, 3]\nconst j: typeof a = 2\nconst k: (number) = 3"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a: number = 1"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("number"),
+                                        details: NumberTypeExpression,
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("1"),
+                                details: NumberLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b: string = 'hi'"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("string"),
+                                        details: StringTypeExpression,
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("'hi'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("hi"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c: boolean = true"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("boolean"),
+                                        details: BooleanTypeExpression,
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("true"),
+                                details: BooleanLiteral {
+                                    value: true,
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d: nil = nil"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("nil"),
+                                        details: NilTypeExpression,
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("nil"),
+                                details: NilLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e: unknown = 42"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("unknown"),
+                                        details: UnknownTypeExpression,
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("42"),
+                                details: NumberLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const f: 0..10 = 5"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("f"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("0..10"),
+                                        details: RangeTypeExpression {
+                                            start: Some(
+                                                Slice("0"),
+                                            ),
+                                            dots: Slice(".."),
+                                            end: Some(
+                                                Slice("10"),
+                                            ),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("5"),
+                                details: NumberLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const g: 0.. = 100"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("g"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("0.."),
+                                        details: RangeTypeExpression {
+                                            start: Some(
+                                                Slice("0"),
+                                            ),
+                                            dots: Slice(".."),
+                                            end: None,
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("100"),
+                                details: NumberLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const h: ..100 = 50"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("h"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("..100"),
+                                        details: RangeTypeExpression {
+                                            start: None,
+                                            dots: Slice(".."),
+                                            end: Some(
+                                                Slice("100"),
+                                            ),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("50"),
+                                details: NumberLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const i: number[] = [1, 2, 3]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("i"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("number[]"),
+                                        details: ArrayTypeExpression {
+                                            element: ASTInner {
+                                                slice: Slice("number"),
+                                                details: NumberTypeExpression,
+                                            },
+                                            open_bracket: Slice("["),
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[1, 2, 3]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("1"),
+                                            details: NumberLiteral,
+                                        },
+                                        ASTInner {
+                                            slice: Slice("2"),
+                                            details: NumberLiteral,
+                                        },
+                                        ASTInner {
+                                            slice: Slice("3"),
+                                            details: NumberLiteral,
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const j: typeof a = 2"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("j"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("typeof a"),
+                                        details: TypeOfTypeExpression {
+                                            keyword: Slice("typeof"),
+                                            expression: ASTInner {
+                                                slice: Slice("a"),
+                                                details: LocalIdentifier {
+                                                    identifier: ASTInner {
+                                                        slice: Slice("a"),
+                                                        details: PlainIdentifier,
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("2"),
+                                details: NumberLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const k: (number) = 3"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("k"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("(number)"),
+                                        details: ParenthesizedTypeExpression {
+                                            open_paren: Slice("("),
+                                            expression: ASTInner {
+                                                slice: Slice("number"),
+                                                details: NumberTypeExpression,
+                                            },
+                                            close_paren: Slice(")"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("3"),
+                                details: NumberLiteral,
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

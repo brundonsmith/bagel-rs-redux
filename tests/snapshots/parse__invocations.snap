@@ -1,0 +1,201 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: INVOCATIONS)"
+---
+const log = js.console.log
+const main = () => {
+    js.console.log('hello')
+    js.console.log(42)
+}
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst log = js.console.log\nconst main = () => {\n    js.console.log('hello')\n    js.console.log(42)\n}"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const log = js.console.log"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("log"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("js.console.log"),
+                                details: PropertyAccessExpression {
+                                    subject: ASTInner {
+                                        slice: Slice("js.console"),
+                                        details: PropertyAccessExpression {
+                                            subject: ASTInner {
+                                                slice: Slice("js"),
+                                                details: LocalIdentifier {
+                                                    identifier: ASTInner {
+                                                        slice: Slice("js"),
+                                                        details: PlainIdentifier,
+                                                    },
+                                                },
+                                            },
+                                            dot: Slice("."),
+                                            property: ASTInner {
+                                                slice: Slice("console"),
+                                                details: PlainIdentifier,
+                                            },
+                                        },
+                                    },
+                                    dot: Slice("."),
+                                    property: ASTInner {
+                                        slice: Slice("log"),
+                                        details: PlainIdentifier,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const main = () => {\n    js.console.log('hello')\n    js.console.log(42)\n}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("main"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("() => {\n    js.console.log('hello')\n    js.console.log(42)\n}"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: None,
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("{\n    js.console.log('hello')\n    js.console.log(42)\n}"),
+                                        details: Block(
+                                            ASTInner {
+                                                slice: Slice("{\n    js.console.log('hello')\n    js.console.log(42)\n}"),
+                                                details: Block {
+                                                    statements: [
+                                                        ASTInner {
+                                                            slice: Slice("js.console.log('hello')"),
+                                                            details: Invocation {
+                                                                function: ASTInner {
+                                                                    slice: Slice("js.console.log"),
+                                                                    details: PropertyAccessExpression {
+                                                                        subject: ASTInner {
+                                                                            slice: Slice("js.console"),
+                                                                            details: PropertyAccessExpression {
+                                                                                subject: ASTInner {
+                                                                                    slice: Slice("js"),
+                                                                                    details: LocalIdentifier {
+                                                                                        identifier: ASTInner {
+                                                                                            slice: Slice("js"),
+                                                                                            details: PlainIdentifier,
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                                dot: Slice("."),
+                                                                                property: ASTInner {
+                                                                                    slice: Slice("console"),
+                                                                                    details: PlainIdentifier,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                        dot: Slice("."),
+                                                                        property: ASTInner {
+                                                                            slice: Slice("log"),
+                                                                            details: PlainIdentifier,
+                                                                        },
+                                                                    },
+                                                                },
+                                                                open_paren: Slice("("),
+                                                                arguments: [
+                                                                    ASTInner {
+                                                                        slice: Slice("'hello'"),
+                                                                        details: StringLiteral {
+                                                                            open_quote: Slice("'"),
+                                                                            contents: Slice("hello"),
+                                                                            close_quote: Slice("'"),
+                                                                        },
+                                                                    },
+                                                                ],
+                                                                commas: [],
+                                                                trailing_comma: None,
+                                                                close_paren: Some(
+                                                                    Slice(")"),
+                                                                ),
+                                                            },
+                                                        },
+                                                        ASTInner {
+                                                            slice: Slice("js.console.log(42)"),
+                                                            details: Invocation {
+                                                                function: ASTInner {
+                                                                    slice: Slice("js.console.log"),
+                                                                    details: PropertyAccessExpression {
+                                                                        subject: ASTInner {
+                                                                            slice: Slice("js.console"),
+                                                                            details: PropertyAccessExpression {
+                                                                                subject: ASTInner {
+                                                                                    slice: Slice("js"),
+                                                                                    details: LocalIdentifier {
+                                                                                        identifier: ASTInner {
+                                                                                            slice: Slice("js"),
+                                                                                            details: PlainIdentifier,
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                                dot: Slice("."),
+                                                                                property: ASTInner {
+                                                                                    slice: Slice("console"),
+                                                                                    details: PlainIdentifier,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                        dot: Slice("."),
+                                                                        property: ASTInner {
+                                                                            slice: Slice("log"),
+                                                                            details: PlainIdentifier,
+                                                                        },
+                                                                    },
+                                                                },
+                                                                open_paren: Slice("("),
+                                                                arguments: [
+                                                                    ASTInner {
+                                                                        slice: Slice("42"),
+                                                                        details: NumberLiteral,
+                                                                    },
+                                                                ],
+                                                                commas: [],
+                                                                trailing_comma: None,
+                                                                close_paren: Some(
+                                                                    Slice(")"),
+                                                                ),
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

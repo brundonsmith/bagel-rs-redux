@@ -446,7 +446,7 @@ pub fn resolve_identifier<'a>(
 /// JavaScript built-ins to Bagel code.
 pub fn js_global_type() -> Type {
     Type::Interface {
-        name: "js".to_string(),
+        name: "JsGlobals".to_string(),
         fields: BTreeMap::from([(
             String::from("console"),
             Type::Interface {
@@ -579,15 +579,7 @@ fn is_exact_falsy(t: &Type) -> bool {
 /// Returns true if a type is "truthy" at the type level (an exact non-false,
 /// non-nil value).
 fn is_exact_truthy(t: &Type) -> bool {
-    matches!(
-        t,
-        Type::Boolean { value: Some(true) }
-            | Type::Number {
-                min_value: Some(_),
-                max_value: Some(_)
-            }
-            | Type::String { value: Some(_) }
-    )
+    matches!(t, Type::Boolean { value: Some(true) })
 }
 
 /// Helper: construct an exact number type (min == max == value).

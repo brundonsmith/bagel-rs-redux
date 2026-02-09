@@ -1,0 +1,13 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: DECLARATIONS)"
+---
+const a: number = 42
+const b: string = 'hello'
+const c: boolean = true
+const d: nil = nil
+const e: unknown = 42
+export const f: number = 1
+export const g = 'exported'
+---
+[]

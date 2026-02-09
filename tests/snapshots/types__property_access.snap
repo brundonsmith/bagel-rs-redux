@@ -1,0 +1,24 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: PROPERTY_ACCESS)"
+---
+const a = {x: 1, y: 2}
+const b = a.x
+const c = {inner: {deep: 42}}
+const d = c.inner.deep
+const e = js.console.log
+---
+1 -> 1
+2 -> 2
+42 -> 42
+a -> { x: 1, y: 2 }
+a.x -> 1
+c -> { inner: { deep: 42 } }
+c.inner -> { deep: 42 }
+c.inner.deep -> 42
+js -> JsGlobals { console: Console { log: (...args: unknown) => never } }
+js.console -> Console { log: (...args: unknown) => never }
+js.console.log -> (...args: unknown) => never
+{deep: 42} -> { deep: 42 }
+{inner: {deep: 42}} -> { inner: { deep: 42 } }
+{x: 1, y: 2} -> { x: 1, y: 2 }

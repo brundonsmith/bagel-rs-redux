@@ -1,0 +1,17 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: COLLECTIONS)"
+---
+const a = [1, 2, 3]
+const b = ['hello', 'world']
+const c = {name: 'alice', age: 42}
+const d = {x: 1, y: 2, z: 3}
+const e = [{name: 'bob'}, {name: 'carol'}]
+const f = {inner: {deep: true}}
+---
+const a = [1, 2, 3]
+const b = ['hello', 'world']
+const c = { name: 'alice', age: 42 }
+const d = { x: 1, y: 2, z: 3 }
+const e = [{ name: 'bob' }, { name: 'carol' }]
+const f = { inner: { deep: true } }

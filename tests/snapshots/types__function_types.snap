@@ -1,0 +1,19 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: FUNCTION_TYPES)"
+---
+const a: () => number = () => 42
+const b: (number) => number = (x) => x + 1
+const c: (number, number) => number = (a, b) => a + b
+const d: (x: number, y: number) => number = (a, b) => a + b
+---
+() => 42 -> () => 42
+(a, b) => a + b -> (arg0: number, arg1: number) => number
+(x) => x + 1 -> (arg0: number) => number
+1 -> 1
+42 -> 42
+a -> number
+a + b -> number
+b -> number
+x -> number
+x + 1 -> number

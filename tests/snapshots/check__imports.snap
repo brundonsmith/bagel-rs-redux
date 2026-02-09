@@ -1,0 +1,9 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: IMPORTS)"
+---
+from './foo.bgl' import { alpha }
+from './bar.bgl' import { beta, gamma }
+from './baz.bgl' import { delta as renamed }
+---
+[]

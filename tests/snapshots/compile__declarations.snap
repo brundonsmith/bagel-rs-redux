@@ -1,0 +1,19 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: DECLARATIONS)"
+---
+const a: number = 42
+const b: string = 'hello'
+const c: boolean = true
+const d: nil = nil
+const e: unknown = 42
+export const f: number = 1
+export const g = 'exported'
+---
+const a = 42;
+const b = 'hello';
+const c = true;
+const d = undefined;
+const e = 42;
+export const f = 1;
+export const g = 'exported';

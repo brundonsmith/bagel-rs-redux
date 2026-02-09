@@ -450,9 +450,9 @@ where
                                         severity: RuleSeverity::Error,
                                         details: BagelErrorDetails::MiscError {
                                             message: format!(
-                                            "Condition must be 'boolean' or 'nil', but got '{}'",
-                                            cond_type
-                                        ),
+                                                "Value of type '{}' can't be used as a condition",
+                                                cond_type
+                                            ),
                                         },
                                     });
                                 }
@@ -518,15 +518,11 @@ where
                             }
                         };
                         if let Some(expected) = expr_node.expected_type() {
-                            let norm_ctx = NormalizeContext {
-                                modules: Some(ctx.modules),
-                                current_module: ctx.current_module,
-                            };
                             let infer_ctx = InferTypeContext {
                                 modules: Some(ctx.modules),
                                 current_module: ctx.current_module,
                             };
-                            let inferred = expr_node.infer_type(infer_ctx).normalize(norm_ctx);
+                            let inferred = expr_node.infer_type(infer_ctx);
                             let fits_ctx = FitsContext {
                                 modules: Some(ctx.modules),
                             };
@@ -536,10 +532,7 @@ where
                                     src: self.slice().clone(),
                                     severity: RuleSeverity::Error,
                                     details: BagelErrorDetails::MiscError {
-                                        message: format!(
-                                            "Type '{}' is not assignable to type '{}'",
-                                            inferred, expected
-                                        ),
+                                        message: issues.join("\n"),
                                     },
                                 });
                             }

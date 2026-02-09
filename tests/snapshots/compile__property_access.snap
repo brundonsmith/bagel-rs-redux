@@ -1,0 +1,15 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: PROPERTY_ACCESS)"
+---
+const a = {x: 1, y: 2}
+const b = a.x
+const c = {inner: {deep: 42}}
+const d = c.inner.deep
+const e = js.console.log
+---
+const a = {x: 1, y: 2};
+const b = a.x;
+const c = {inner: {deep: 42}};
+const d = c.inner.deep;
+const e = console.log;

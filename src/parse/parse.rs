@@ -286,48 +286,82 @@ fn unary_expression(i: Slice) -> ParseResult<AST<Expression>> {
 pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
     let start = i.clone();
 
-    // Try parsing with parentheses first: (a: number, b: string) => expr
-    if let Ok((remaining, open_paren)) = w(tag("("))(i.clone()) {
-        // Parse parameter list
-        let mut parameters: Vec<(AST<PlainIdentifier>, Option<(Slice, AST<TypeExpression>)>)> =
-            Vec::new();
-        let mut commas = Vec::new();
-        let mut current = remaining;
-        let mut trailing_comma = None;
+    // Try parsing with parentheses: (a: number, b: string) => expr
+    // The entire path is soft — if "=>" isn't found after ")", we fall through
+    // to the non-parenthesized form below (and then to parenthesized_expression
+    // via alt() in atom_expression).
+    let parenthesized_result = w(tag("("))(i.clone())
+        .ok()
+        .and_then(|(remaining, open_paren)| {
+            let mut parameters: Vec<(AST<PlainIdentifier>, Option<(Slice, AST<TypeExpression>)>)> =
+                Vec::new();
+            let mut commas = Vec::new();
+            let mut current = remaining;
+            let mut trailing_comma = None;
 
-        // Parse first parameter if present (not immediately a close paren)
-        if let Ok((after_param, param)) = w(plain_identifier)(current.clone()) {
-            let (after_type_ann, type_ann) = parse_optional_type_annotation(after_param)?;
-            parameters.push((param.clone(), type_ann));
-            current = after_type_ann;
+            // Parse first parameter if present
+            if let Ok((after_param, param)) = w(plain_identifier)(current.clone()) {
+                if let Ok((after_type_ann, type_ann)) = parse_optional_type_annotation(after_param)
+                {
+                    parameters.push((param.clone(), type_ann));
+                    current = after_type_ann;
 
-            // Parse subsequent ", param" pairs
-            loop {
-                if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
-                    // Check if there's another parameter or if this is a trailing comma
-                    if let Ok((after_param, param)) = w(plain_identifier)(after_comma.clone()) {
-                        let (after_type_ann, type_ann) =
-                            parse_optional_type_annotation(after_param)?;
-                        commas.push(comma);
-                        parameters.push((param.clone(), type_ann));
-                        current = after_type_ann;
-                    } else {
-                        // Trailing comma
-                        trailing_comma = Some(comma);
-                        current = after_comma;
-                        break;
+                    // Parse subsequent ", param" pairs
+                    while let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
+                        match w(plain_identifier)(after_comma.clone()) {
+                            Ok((after_param, param)) => {
+                                match parse_optional_type_annotation(after_param) {
+                                    Ok((after_type_ann, type_ann)) => {
+                                        commas.push(comma);
+                                        parameters.push((param.clone(), type_ann));
+                                        current = after_type_ann;
+                                    }
+                                    Err(_) => {
+                                        trailing_comma = Some(comma);
+                                        current = after_comma;
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                trailing_comma = Some(comma);
+                                current = after_comma;
+                            }
+                        }
                     }
-                } else {
-                    break;
                 }
             }
-        }
 
-        // Parse closing paren with backtracking, optional return type, then arrow and body
-        let (current, close_paren) = w(backtrack(tag(")"), ")", "("))(current)?;
-        let (current, return_type) = parse_optional_type_annotation(current)?;
-        let (remaining, (arrow, mut body)) = seq!(expect_tag("=>"), function_body)(current)?;
+            // Parse closing paren, optional return type, then arrow and body
+            let (current, close_paren) = w(backtrack(tag(")"), ")", "("))(current).ok()?;
+            let close_paren = close_paren?;
+            let (current, return_type) = parse_optional_type_annotation(current).ok()?;
+            let (remaining, (arrow, body)) = seq!(w(tag("=>")), function_body)(current).ok()?;
 
+            Some((
+                remaining,
+                open_paren,
+                parameters,
+                commas,
+                trailing_comma,
+                close_paren,
+                return_type,
+                arrow,
+                body,
+            ))
+        });
+
+    if let Some((
+        remaining,
+        open_paren,
+        parameters,
+        commas,
+        trailing_comma,
+        close_paren,
+        return_type,
+        arrow,
+        mut body,
+    )) = parenthesized_result
+    {
         let consumed_len = start.len() - remaining.len();
         let span = start.slice_range(0, Some(consumed_len));
 
@@ -336,50 +370,50 @@ pub fn function_expression(i: Slice) -> ParseResult<AST<FunctionExpression>> {
             parameters: parameters.clone(),
             commas,
             trailing_comma,
-            close_paren,
+            close_paren: Some(close_paren),
             return_type: return_type.clone(),
             arrow,
             body: body.clone(),
         };
 
         let node = make_ast(span, func_expr);
-        for (mut param, type_ann) in parameters {
+        parameters.into_iter().for_each(|(mut param, type_ann)| {
             param.set_parent(&node);
             if let Some((_colon, mut type_expr)) = type_ann {
                 type_expr.set_parent(&node);
             }
-        }
+        });
         if let Some((_colon, mut ret_type)) = return_type {
             ret_type.set_parent(&node);
         }
         body.set_parent(&node);
 
-        return Ok((remaining, node));
+        Ok((remaining, node))
+    } else {
+        // Try parsing without parentheses: x => expr
+        let (remaining, (mut param, (arrow, mut body))) =
+            tuple((plain_identifier, seq!(tag("=>"), function_body)))(i)?;
+
+        let consumed_len = start.len() - remaining.len();
+        let span = start.slice_range(0, Some(consumed_len));
+
+        let func_expr = FunctionExpression {
+            open_paren: None,
+            parameters: vec![(param.clone(), None)],
+            commas: vec![],
+            trailing_comma: None,
+            close_paren: None,
+            return_type: None,
+            arrow,
+            body: body.clone(),
+        };
+
+        let node = make_ast(span, func_expr);
+        param.set_parent(&node);
+        body.set_parent(&node);
+
+        Ok((remaining, node))
     }
-
-    // Try parsing without parentheses: x => expr (no type annotation allowed here)
-    let (remaining, (mut param, (arrow, mut body))) =
-        tuple((plain_identifier, seq!(tag("=>"), function_body)))(i)?;
-
-    let consumed_len = start.len() - remaining.len();
-    let span = start.slice_range(0, Some(consumed_len));
-
-    let func_expr = FunctionExpression {
-        open_paren: None,
-        parameters: vec![(param.clone(), None)],
-        commas: vec![],
-        trailing_comma: None,
-        close_paren: None,
-        return_type: None,
-        arrow,
-        body: body.clone(),
-    };
-
-    let node = make_ast(span, func_expr);
-    param.set_parent(&node);
-    body.set_parent(&node);
-
-    Ok((remaining, node))
 }
 
 /// Parses an optional `: TypeExpression` type annotation.
@@ -797,7 +831,7 @@ fn unknown_type_expression(i: Slice) -> ParseResult<AST<UnknownTypeExpression>> 
 }
 
 fn nil_type_expression(i: Slice) -> ParseResult<AST<NilTypeExpression>> {
-    map(tag("null"), |matched: Slice| {
+    map(tag("nil"), |matched: Slice| {
         make_ast(matched, NilTypeExpression)
     })(i)
 }
@@ -901,7 +935,7 @@ fn function_type_param(
 fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>> {
     let start = i.clone();
 
-    let (remaining, open_paren) = tag("(")(i)?;
+    let (remaining, open_paren) = tag("(")(i.clone())?;
 
     let mut parameters: Vec<(Option<(AST<PlainIdentifier>, Slice)>, AST<TypeExpression>)> =
         Vec::new();
@@ -934,9 +968,33 @@ fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>
         }
     }
 
-    let (current, close_paren) = w(backtrack(tag(")"), ")", "("))(current)?;
-    let close_paren = close_paren.unwrap_or_else(|| current.clone().slice_range(0, Some(0)));
-    let (remaining, (arrow, mut return_type)) = seq!(expect_tag("=>"), type_expression)(current)?;
+    // Use soft matching for ")" and "=>" so that if this isn't actually a
+    // function type (e.g. it's a parenthesized type like `(number)`), we
+    // return a soft error and let alt() fall through.
+    let (current, close_paren) = match w(backtrack(tag(")"), ")", "("))(current) {
+        Ok((c, Some(cp))) => (c, cp),
+        _ => {
+            return Err(nom::Err::Error(BagelError {
+                src: i,
+                severity: RuleSeverity::Error,
+                details: BagelErrorDetails::ParseError {
+                    message: "not a function type".to_owned(),
+                },
+            }))
+        }
+    };
+    let (remaining, (arrow, mut return_type)) = match seq!(w(tag("=>")), type_expression)(current) {
+        Ok(result) => result,
+        Err(_) => {
+            return Err(nom::Err::Error(BagelError {
+                src: i,
+                severity: RuleSeverity::Error,
+                details: BagelErrorDetails::ParseError {
+                    message: "not a function type".to_owned(),
+                },
+            }))
+        }
+    };
 
     let consumed_len = start.len() - remaining.len();
     let span = start.slice_range(0, Some(consumed_len));
@@ -997,6 +1055,63 @@ fn typeof_type_expression(i: Slice) -> ParseResult<AST<TypeOfTypeExpression>> {
     Ok((remaining, node))
 }
 
+fn object_type_expression(i: Slice) -> ParseResult<AST<ObjectTypeExpression>> {
+    let (remaining, open_brace) = tag("{")(i)?;
+
+    let mut fields = Vec::new();
+    let mut commas = Vec::new();
+    let mut current = remaining;
+    let mut trailing_comma = None;
+
+    // Parse fields: "name: type" separated by commas
+    while let Ok((after_key, key)) = w(plain_identifier)(current.clone()) {
+        match w(tag(":"))(after_key) {
+            Ok((after_colon, colon)) => match w(type_expression)(after_colon) {
+                Ok((after_type, type_expr)) => {
+                    fields.push((key, colon, type_expr));
+                    current = after_type;
+
+                    match w(tag(","))(current.clone()) {
+                        Ok((after_comma, comma)) => {
+                            commas.push(comma);
+                            current = after_comma;
+                        }
+                        Err(_) => break,
+                    }
+                }
+                Err(_) => break,
+            },
+            Err(_) => break,
+        }
+    }
+
+    // Detect trailing comma (last comma without a following field)
+    if commas.len() == fields.len() && !commas.is_empty() {
+        trailing_comma = commas.pop();
+    }
+
+    let (remaining, close_brace) = w(backtrack(tag("}"), "}", "{"))(current)?;
+
+    let span = open_brace.spanning(close_brace.as_ref().unwrap_or(&open_brace));
+
+    let node = make_ast(
+        span,
+        ObjectTypeExpression {
+            open_brace: open_brace.clone(),
+            fields: fields.clone(),
+            commas,
+            trailing_comma,
+            close_brace: close_brace.unwrap_or(open_brace),
+        },
+    );
+    for (key, _, type_expr) in &mut fields {
+        key.set_parent(&node);
+        type_expr.set_parent(&node);
+    }
+
+    Ok((remaining, node))
+}
+
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(unknown_type_expression, |n| n.upcast()),
@@ -1006,6 +1121,7 @@ fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
         map(number_type_expression, |n| n.upcast()),
         map(string_type_expression, |n| n.upcast()),
         map(typeof_type_expression, |n| n.upcast()),
+        map(object_type_expression, |n| n.upcast()),
         map(function_type_expression, |n| n.upcast()),
         map(parenthesized_type_expression, |n| n.upcast()),
     ))(i)

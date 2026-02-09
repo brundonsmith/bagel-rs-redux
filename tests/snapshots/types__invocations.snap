@@ -1,0 +1,21 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: INVOCATIONS)"
+---
+const log = js.console.log
+const main = () => {
+    js.console.log('hello')
+    js.console.log(42)
+}
+---
+'hello' -> 'hello'
+() => {
+    js.console.log('hello')
+    js.console.log(42)
+} -> () => never
+42 -> 42
+js -> JsGlobals { console: Console { log: (...args: unknown) => never } }
+js.console -> Console { log: (...args: unknown) => never }
+js.console.log -> (...args: unknown) => never
+js.console.log('hello') -> never
+js.console.log(42) -> never

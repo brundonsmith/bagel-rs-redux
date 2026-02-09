@@ -1,0 +1,19 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: LITERALS)"
+---
+const a = nil
+const b = true
+const c = false
+const d = 42
+const e = 3.14
+const f = 'hello'
+const g = 'it\'s escaped \\ done'
+---
+const a = undefined;
+const b = true;
+const c = false;
+const d = 42;
+const e = 3.14;
+const f = 'hello';
+const g = 'it\'s escaped \\ done';

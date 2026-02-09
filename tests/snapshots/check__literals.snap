@@ -1,0 +1,13 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: LITERALS)"
+---
+const a = nil
+const b = true
+const c = false
+const d = 42
+const e = 3.14
+const f = 'hello'
+const g = 'it\'s escaped \\ done'
+---
+[]

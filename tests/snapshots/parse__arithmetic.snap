@@ -1,0 +1,262 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: ARITHMETIC)"
+---
+const a = 1 + 2
+const b = 10 - 3
+const c = 4 * 5
+const d = 8 / 2
+const e = (1 + 2) * 3
+const f = 1 + 2 * 3 - 4 / 2
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst a = 1 + 2\nconst b = 10 - 3\nconst c = 4 * 5\nconst d = 8 / 2\nconst e = (1 + 2) * 3\nconst f = 1 + 2 * 3 - 4 / 2"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a = 1 + 2"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("1 + 2"),
+                                details: BinaryOperation {
+                                    left: ASTInner {
+                                        slice: Slice("1"),
+                                        details: NumberLiteral,
+                                    },
+                                    operator: ASTInner {
+                                        slice: Slice("+"),
+                                        details: Add,
+                                    },
+                                    right: ASTInner {
+                                        slice: Slice("2"),
+                                        details: NumberLiteral,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b = 10 - 3"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("10 - 3"),
+                                details: BinaryOperation {
+                                    left: ASTInner {
+                                        slice: Slice("10"),
+                                        details: NumberLiteral,
+                                    },
+                                    operator: ASTInner {
+                                        slice: Slice("-"),
+                                        details: Subtract,
+                                    },
+                                    right: ASTInner {
+                                        slice: Slice("3"),
+                                        details: NumberLiteral,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c = 4 * 5"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("4 * 5"),
+                                details: BinaryOperation {
+                                    left: ASTInner {
+                                        slice: Slice("4"),
+                                        details: NumberLiteral,
+                                    },
+                                    operator: ASTInner {
+                                        slice: Slice("*"),
+                                        details: Multiply,
+                                    },
+                                    right: ASTInner {
+                                        slice: Slice("5"),
+                                        details: NumberLiteral,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d = 8 / 2"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("8 / 2"),
+                                details: BinaryOperation {
+                                    left: ASTInner {
+                                        slice: Slice("8"),
+                                        details: NumberLiteral,
+                                    },
+                                    operator: ASTInner {
+                                        slice: Slice("/"),
+                                        details: Divide,
+                                    },
+                                    right: ASTInner {
+                                        slice: Slice("2"),
+                                        details: NumberLiteral,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e = (1 + 2) * 3"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("(1 + 2) * 3"),
+                                details: BinaryOperation {
+                                    left: ASTInner {
+                                        slice: Slice("(1 + 2)"),
+                                        details: ParenthesizedExpression {
+                                            open_paren: Slice("("),
+                                            expression: ASTInner {
+                                                slice: Slice("1 + 2"),
+                                                details: BinaryOperation {
+                                                    left: ASTInner {
+                                                        slice: Slice("1"),
+                                                        details: NumberLiteral,
+                                                    },
+                                                    operator: ASTInner {
+                                                        slice: Slice("+"),
+                                                        details: Add,
+                                                    },
+                                                    right: ASTInner {
+                                                        slice: Slice("2"),
+                                                        details: NumberLiteral,
+                                                    },
+                                                },
+                                            },
+                                            close_paren: Slice(")"),
+                                        },
+                                    },
+                                    operator: ASTInner {
+                                        slice: Slice("*"),
+                                        details: Multiply,
+                                    },
+                                    right: ASTInner {
+                                        slice: Slice("3"),
+                                        details: NumberLiteral,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const f = 1 + 2 * 3 - 4 / 2"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("f"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("1 + 2 * 3 - 4 / 2"),
+                                details: BinaryOperation {
+                                    left: ASTInner {
+                                        slice: Slice("1 + 2 * 3"),
+                                        details: BinaryOperation {
+                                            left: ASTInner {
+                                                slice: Slice("1"),
+                                                details: NumberLiteral,
+                                            },
+                                            operator: ASTInner {
+                                                slice: Slice("+"),
+                                                details: Add,
+                                            },
+                                            right: ASTInner {
+                                                slice: Slice("2 * 3"),
+                                                details: BinaryOperation {
+                                                    left: ASTInner {
+                                                        slice: Slice("2"),
+                                                        details: NumberLiteral,
+                                                    },
+                                                    operator: ASTInner {
+                                                        slice: Slice("*"),
+                                                        details: Multiply,
+                                                    },
+                                                    right: ASTInner {
+                                                        slice: Slice("3"),
+                                                        details: NumberLiteral,
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                    operator: ASTInner {
+                                        slice: Slice("-"),
+                                        details: Subtract,
+                                    },
+                                    right: ASTInner {
+                                        slice: Slice("4 / 2"),
+                                        details: BinaryOperation {
+                                            left: ASTInner {
+                                                slice: Slice("4"),
+                                                details: NumberLiteral,
+                                            },
+                                            operator: ASTInner {
+                                                slice: Slice("/"),
+                                                details: Divide,
+                                            },
+                                            right: ASTInner {
+                                                slice: Slice("2"),
+                                                details: NumberLiteral,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

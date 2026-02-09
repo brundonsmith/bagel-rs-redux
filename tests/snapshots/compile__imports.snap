@@ -1,0 +1,11 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: IMPORTS)"
+---
+from './foo.bgl' import { alpha }
+from './bar.bgl' import { beta, gamma }
+from './baz.bgl' import { delta as renamed }
+---
+import { alpha } from './foo.js';
+import { beta, gamma } from './bar.js';
+import { delta as renamed } from './baz.js';

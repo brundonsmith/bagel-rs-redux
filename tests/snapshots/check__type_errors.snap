@@ -1,0 +1,142 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: TYPE_ERRORS)"
+---
+const a: string = 42
+const b: number = true
+const c = 1 + true
+const d = 'hello' - 1
+const e = 1 && 2
+const f = 1 < true
+const g = !42
+const h: boolean = nil ?? 5
+const i: 0..10 = 15
+const j: string[] = ['hello', 42]
+const k: () => string = () => 42
+const l: (string) => number = (x: number) => x
+const m = if 1 { 'yes' } else { 'no' }
+const n = {name: 'alice'}.age
+const o: {name: string} = {name: 'alice', age: 42}
+const p: {x: number, y: number} = {x: 1}
+---
+[
+    BagelError {
+        src: Slice("42"),
+        severity: Error,
+        details: MiscError {
+            message: "Type '42' is not assignable to type 'string'",
+        },
+    },
+    BagelError {
+        src: Slice("true"),
+        severity: Error,
+        details: MiscError {
+            message: "Type 'true' is not assignable to type 'number'",
+        },
+    },
+    BagelError {
+        src: Slice("true"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '+' cannot be applied to type 'true'",
+        },
+    },
+    BagelError {
+        src: Slice("'hello'"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '-' cannot be applied to type ''hello''",
+        },
+    },
+    BagelError {
+        src: Slice("1"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '&&' cannot be applied to type '1'",
+        },
+    },
+    BagelError {
+        src: Slice("2"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '&&' cannot be applied to type '2'",
+        },
+    },
+    BagelError {
+        src: Slice("true"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '<' cannot be applied to type 'true'",
+        },
+    },
+    BagelError {
+        src: Slice("42"),
+        severity: Error,
+        details: MiscError {
+            message: "Operator '!' cannot be applied to type '42'",
+        },
+    },
+    BagelError {
+        src: Slice("nil ?? 5"),
+        severity: Error,
+        details: MiscError {
+            message: "Type '5' is not assignable to type 'boolean'",
+        },
+    },
+    BagelError {
+        src: Slice("15"),
+        severity: Error,
+        details: MiscError {
+            message: "Type '15' is not assignable to type '0..10'",
+        },
+    },
+    BagelError {
+        src: Slice("['hello', 42]"),
+        severity: Error,
+        details: MiscError {
+            message: "Element at index 1 is not compatible: Type '42' is not assignable to type 'string'",
+        },
+    },
+    BagelError {
+        src: Slice("() => 42"),
+        severity: Error,
+        details: MiscError {
+            message: "Return type is not compatible: Type '42' is not assignable to type 'string'",
+        },
+    },
+    BagelError {
+        src: Slice("(x: number) => x"),
+        severity: Error,
+        details: MiscError {
+            message: "Parameter 0 is not compatible: Type 'string' is not assignable to type 'number'",
+        },
+    },
+    BagelError {
+        src: Slice("1"),
+        severity: Error,
+        details: MiscError {
+            message: "Value of type '1' can't be used as a condition",
+        },
+    },
+    BagelError {
+        src: Slice("age"),
+        severity: Error,
+        details: MiscError {
+            message: "Property 'age' does not exist on type '{ name: 'alice' }'",
+        },
+    },
+    BagelError {
+        src: Slice("{name: 'alice', age: 42}"),
+        severity: Error,
+        details: MiscError {
+            message: "Object literal may only specify known properties, and 'age' does not exist in type '{ name: string }'.",
+        },
+    },
+    BagelError {
+        src: Slice("{x: 1}"),
+        severity: Error,
+        details: MiscError {
+            message: "Property 'y' is missing in type '{ x: 1 }'.",
+        },
+    },
+]

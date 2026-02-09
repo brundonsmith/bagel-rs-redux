@@ -1,0 +1,15 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: INVOCATIONS)"
+---
+const log = js.console.log
+const main = () => {
+    js.console.log('hello')
+    js.console.log(42)
+}
+---
+const log = js.console.log
+const main = () => {
+js.console.log('hello')
+js.console.log(42)
+}

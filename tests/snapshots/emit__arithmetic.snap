@@ -1,0 +1,17 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: ARITHMETIC)"
+---
+const a = 1 + 2
+const b = 10 - 3
+const c = 4 * 5
+const d = 8 / 2
+const e = (1 + 2) * 3
+const f = 1 + 2 * 3 - 4 / 2
+---
+const a = 1 + 2
+const b = 10 - 3
+const c = 4 * 5
+const d = 8 / 2
+const e = (1 + 2) * 3
+const f = 1 + 2 * 3 - 4 / 2

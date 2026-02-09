@@ -1,0 +1,17 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: FUNCTIONS)"
+---
+const a = () => 42
+const b = (x: number) => x + 1
+const c = (x: number, y: number): number => x + y
+const d = x => x
+const e = () => {
+    js.console.log('hello')
+}
+const f = (a: number, b: number) => {
+    js.console.log(a)
+    js.console.log(b)
+}
+---
+[]

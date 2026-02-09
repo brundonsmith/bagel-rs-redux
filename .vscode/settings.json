@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.snap": "bagel",
+    "*.snap.new": "bagel"
+  }
+}

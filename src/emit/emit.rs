@@ -267,7 +267,7 @@ where
                     }
 
                     TypeExpression::ObjectTypeExpression(obj) => {
-                        write!(f, "{{")?;
+                        write!(f, "{{ ")?;
                         for (i, (name, _, type_expr)) in obj.fields.iter().enumerate() {
                             if i > 0 {
                                 write!(f, ", ")?;
@@ -279,7 +279,7 @@ where
                         if obj.trailing_comma.is_some() {
                             write!(f, ",")?;
                         }
-                        write!(f, "}}")
+                        write!(f, " }}")
                     }
 
                     TypeExpression::FunctionTypeExpression(func) => {

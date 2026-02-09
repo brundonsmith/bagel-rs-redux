@@ -1,0 +1,19 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: LITERALS)"
+---
+const a = nil
+const b = true
+const c = false
+const d = 42
+const e = 3.14
+const f = 'hello'
+const g = 'it\'s escaped \\ done'
+---
+'hello' -> 'hello'
+'it\'s escaped \\ done' -> 'it\'s escaped \\ done'
+3.14 -> number
+42 -> 42
+false -> false
+nil -> nil
+true -> true

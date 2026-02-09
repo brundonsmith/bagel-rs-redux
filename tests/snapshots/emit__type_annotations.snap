@@ -1,0 +1,27 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: TYPE_ANNOTATIONS)"
+---
+const a: number = 1
+const b: string = 'hi'
+const c: boolean = true
+const d: nil = nil
+const e: unknown = 42
+const f: 0..10 = 5
+const g: 0.. = 100
+const h: ..100 = 50
+const i: number[] = [1, 2, 3]
+const j: typeof a = 2
+const k: (number) = 3
+---
+const a: number = 1
+const b: string = 'hi'
+const c: boolean = true
+const d: nil = nil
+const e: unknown = 42
+const f: 0..10 = 5
+const g: 0.. = 100
+const h: ..100 = 50
+const i: number[] = [1, 2, 3]
+const j: typeof a = 2
+const k: (number) = 3

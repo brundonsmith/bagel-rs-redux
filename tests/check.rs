@@ -3,37 +3,56 @@ use bagel::ast::slice::Slice;
 use bagel::check::{CheckContext, Checkable};
 use bagel::config::Config;
 use bagel::parse;
-use insta::assert_debug_snapshot;
+use insta::assert_snapshot;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 mod common;
 
-fn test_check(code: &str) {
-    println!("----- input code -----\n{}\n----------------------", code);
-
+fn test_check(code: &str) -> String {
     let slice = Slice::new(Arc::new(code.to_string()));
-    let (_, parsed) = parse::module(slice).unwrap();
+    match parse::module(slice) {
+        Err(err) => format!("{}\n---\nParse error: {:#?}", code.trim(), err),
+        Ok((_, parsed)) => {
+            let config = Config::default();
+            let modules = ModulesStore {
+                modules: HashMap::new(),
+            };
+            let mut errors = Vec::new();
+            let errors_ref = &mut errors;
+            parsed.check(
+                &CheckContext {
+                    config: &config,
+                    modules: &modules,
+                    current_module: None,
+                },
+                &mut |e| errors_ref.push(e),
+            );
 
-    let config = Config::default();
-    let modules = ModulesStore {
-        modules: HashMap::new(),
+            format!("{}\n---\n{:#?}", code.trim(), errors)
+        }
+    }
+}
+
+macro_rules! check_test {
+    ($name:ident, $sample:ident) => {
+        #[test]
+        fn $name() {
+            assert_snapshot!(test_check(common::samples::$sample));
+        }
     };
-    let mut errors = Vec::new();
-    let errors_ref = &mut errors;
-    parsed.check(
-        &CheckContext {
-            config: &config,
-            modules: &modules,
-            current_module: None,
-        },
-        &mut |e| errors_ref.push(e),
-    );
-
-    assert_debug_snapshot!(errors);
 }
 
-#[test]
-fn parser_test_1() {
-    test_check(common::samples::SAMPLE_1);
-}
+check_test!(literals, LITERALS);
+check_test!(arithmetic, ARITHMETIC);
+check_test!(comparison_and_logic, COMPARISON_AND_LOGIC);
+check_test!(declarations, DECLARATIONS);
+check_test!(imports, IMPORTS);
+check_test!(functions, FUNCTIONS);
+check_test!(function_types, FUNCTION_TYPES);
+check_test!(if_else, IF_ELSE);
+check_test!(collections, COLLECTIONS);
+check_test!(property_access, PROPERTY_ACCESS);
+check_test!(invocations, INVOCATIONS);
+check_test!(type_annotations, TYPE_ANNOTATIONS);
+check_test!(type_errors, TYPE_ERRORS);

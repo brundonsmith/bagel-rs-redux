@@ -1,0 +1,42 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: FUNCTIONS)"
+---
+const a = () => 42
+const b = (x: number) => x + 1
+const c = (x: number, y: number): number => x + y
+const d = x => x
+const e = () => {
+    js.console.log('hello')
+}
+const f = (a: number, b: number) => {
+    js.console.log(a)
+    js.console.log(b)
+}
+---
+'hello' -> 'hello'
+() => 42 -> () => 42
+() => {
+    js.console.log('hello')
+} -> () => never
+(a: number, b: number) => {
+    js.console.log(a)
+    js.console.log(b)
+} -> (arg0: number, arg1: number) => never
+(x: number) => x + 1 -> (arg0: number) => number
+(x: number, y: number): number => x + y -> (arg0: number, arg1: number) => number
+1 -> 1
+42 -> 42
+a -> unknown
+b -> unknown
+js -> JsGlobals { console: Console { log: (...args: unknown) => never } }
+js.console -> Console { log: (...args: unknown) => never }
+js.console.log -> (...args: unknown) => never
+js.console.log('hello') -> never
+js.console.log(a) -> never
+js.console.log(b) -> never
+x -> unknown
+x + 1 -> number
+x + y -> number
+x => x -> (arg0: unknown) => unknown
+y -> number

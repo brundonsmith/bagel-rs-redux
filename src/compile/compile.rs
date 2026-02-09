@@ -73,7 +73,13 @@ where
                             }
                         }
                         write!(f, " }} from ")?;
-                        decl.path.compile(ctx, f)?;
+                        let path_contents = decl.path.unpack().contents;
+                        let path_str = path_contents.as_str();
+                        let compiled_path = path_str
+                            .strip_suffix(".bgl")
+                            .map(|stem| format!("{}.js", stem))
+                            .unwrap_or_else(|| path_str.to_string());
+                        write!(f, "'{}'", compiled_path)?;
                         Ok(())
                     }
                 },
@@ -81,8 +87,8 @@ where
                 Any::Expression(expression) => {
                     match expression {
                         Expression::NilLiteral(_) => {
-                            // nil -> null
-                            write!(f, "null")
+                            // nil -> undefined
+                            write!(f, "undefined")
                         }
 
                         Expression::BooleanLiteral(lit) => {
