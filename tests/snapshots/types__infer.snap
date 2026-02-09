@@ -2,6 +2,7 @@
 source: tests/types.rs
 expression: output
 ---
+'./bar.bgl' -> './bar.bgl'
 'other' -> 'other'
 () => {
     js.console.log(x)
@@ -17,7 +18,7 @@ expression: output
 2 -> 2
 42 -> 42
 5 -> 5
-[1, 2, {stuff: 'other'}] -> [1, 2, {stuff: 'other'}]
+[1, 2, {stuff: 'other'}] -> [1, 2, { stuff: 'other' }]
 a -> number
 a + b -> number
 a == b -> boolean
@@ -30,6 +31,10 @@ if a > 5 {
     } else {
         a + b
     } -> number | string
+js -> js { console: Console { log: (...args: unknown) => never } }
+js.console -> Console { log: (...args: unknown) => never }
+js.console.log -> (...args: unknown) => never
+js.console.log(x) -> never
 nil -> nil
 true -> true
 x -> 42
@@ -38,4 +43,4 @@ y != z -> true
 y * 2 -> number
 y * 2 + x -> number
 z -> false
-{stuff: 'other'} -> {stuff: 'other'}
+{stuff: 'other'} -> { stuff: 'other' }

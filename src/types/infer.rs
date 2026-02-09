@@ -70,16 +70,10 @@ impl AST<Expression> {
                     operand: Arc::new(unary_op.operand.infer_type(ctx)),
                 },
 
-                Invocation(inv) => {
-                    // Infer the function type
-                    let func_type = inv.function.infer_type(ctx);
-
-                    // If it's a function type, return its return type
-                    match func_type {
-                        Type::FuncType { returns, .. } => (*returns).clone(),
-                        _ => Type::Unknown,
-                    }
-                }
+                Invocation(inv) => Type::Invocation {
+                    function: Arc::new(inv.function.infer_type(ctx)),
+                    args: inv.arguments.iter().map(|a| a.infer_type(ctx)).collect(),
+                },
 
                 FunctionExpression(func) => {
                     let norm_ctx = NormalizeContext {

@@ -1,5 +1,5 @@
-use bagel::ast::container::AST;
-use bagel::ast::grammar::{Any, Declaration, Expression};
+use bagel::ast::container::{walk_ast, WalkAction, AST};
+use bagel::ast::grammar::{Any, Expression};
 use bagel::ast::slice::Slice;
 use bagel::parse::parse;
 use bagel::types::infer::InferTypeContext;
@@ -12,108 +12,23 @@ mod common;
 
 /// Recursively walks an AST and collects all expressions with their inferred types
 fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, String>) {
-    // Try to downcast to Expression
-    if let Some(expr) = ast.clone().try_downcast::<Expression>() {
-        let ctx = InferTypeContext {
-            modules: None,
-            current_module: None,
-        };
-        let norm_ctx = NormalizeContext {
-            modules: None,
-            current_module: None,
-        };
-        let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
-        let code = expr.slice().as_str().to_string();
-        let type_str = format!("{}", inferred_type);
-        results.insert(code, type_str);
-    }
-
-    // Recursively visit children
-    if let Some(details) = ast.details() {
-        match details {
-            Any::Module(module) => {
-                for decl in &module.declarations {
-                    collect_expression_types(&decl.clone().upcast(), results);
-                }
-            }
-            Any::Declaration(decl) => match decl {
-                Declaration::ConstDeclaration(const_decl) => {
-                    collect_expression_types(&const_decl.value.clone().upcast(), results);
-                }
-                Declaration::ImportDeclaration(_) => {}
-            },
-            Any::Expression(expr) => {
-                use bagel::ast::grammar::Expression::*;
-                match expr {
-                    BinaryOperation(bin_op) => {
-                        collect_expression_types(&bin_op.left.clone().upcast(), results);
-                        collect_expression_types(&bin_op.right.clone().upcast(), results);
-                    }
-                    UnaryOperation(unary_op) => {
-                        collect_expression_types(&unary_op.operand.clone().upcast(), results);
-                    }
-                    LocalIdentifier(_) => {}
-                    Invocation(inv) => {
-                        collect_expression_types(&inv.function.clone().upcast(), results);
-                        for arg in &inv.arguments {
-                            collect_expression_types(&arg.clone().upcast(), results);
-                        }
-                    }
-                    FunctionExpression(func) => {
-                        collect_expression_types(&func.body.clone().upcast(), results);
-                    }
-                    ArrayLiteral(arr) => {
-                        for elem in &arr.elements {
-                            collect_expression_types(&elem.clone().upcast(), results);
-                        }
-                    }
-                    ObjectLiteral(obj) => {
-                        for (_, _, value) in &obj.fields {
-                            collect_expression_types(&value.clone().upcast(), results);
-                        }
-                    }
-                    IfElseExpression(if_else) => {
-                        collect_expression_types(&if_else.condition.clone().upcast(), results);
-                        collect_expression_types(&if_else.consequent.clone().upcast(), results);
-                        match &if_else.else_clause {
-                            Some(bagel::ast::grammar::ElseClause::ElseBlock {
-                                expression, ..
-                            }) => {
-                                collect_expression_types(&expression.clone().upcast(), results);
-                            }
-                            Some(bagel::ast::grammar::ElseClause::ElseIf {
-                                if_else: nested,
-                                ..
-                            }) => {
-                                collect_expression_types(&nested.clone().upcast(), results);
-                            }
-                            None => {}
-                        }
-                    }
-                    PropertyAccessExpression(prop_access) => {
-                        collect_expression_types(&prop_access.subject.clone().upcast(), results);
-                    }
-                    _ => {
-                        // Leaf expressions (literals) have no children
-                    }
-                }
-            }
-            Any::FunctionBody(body) => {
-                use bagel::ast::grammar::FunctionBody::*;
-                match body {
-                    Expression(expr) => {
-                        collect_expression_types(&expr.clone().upcast(), results);
-                    }
-                    Block(block) => {
-                        collect_expression_types(&block.clone().upcast(), results);
-                    }
-                }
-            }
-            _ => {
-                // Other node types don't contain expressions
-            }
+    walk_ast(ast, &mut |node| {
+        if let Some(expr) = node.clone().try_downcast::<Expression>() {
+            let ctx = InferTypeContext {
+                modules: None,
+                current_module: None,
+            };
+            let norm_ctx = NormalizeContext {
+                modules: None,
+                current_module: None,
+            };
+            let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
+            let code = expr.slice().as_str().to_string();
+            let type_str = format!("{}", inferred_type);
+            results.insert(code, type_str);
         }
-    }
+        WalkAction::Continue
+    });
 }
 
 /// Formats collected expression types as a string with one line per expression

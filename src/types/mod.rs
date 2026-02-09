@@ -95,6 +95,10 @@ pub enum Type {
         consequent: Arc<Type>,
         alternate: Arc<Type>,
     },
+    Invocation {
+        function: Arc<Type>,
+        args: Vec<Type>,
+    },
     PropertyAccess {
         subject: Arc<Type>,
         property: String,
@@ -177,6 +181,13 @@ impl Type {
                 }
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
+            Invocation { function, args } => {
+                let func_type = function.as_ref().clone().normalize(ctx);
+                match func_type {
+                    FuncType { returns, .. } => returns.as_ref().clone(),
+                    _ => Unknown,
+                }
+            }
             PropertyAccess { subject, property } => {
                 let subject_normalized = subject.as_ref().clone().normalize(ctx);
                 match &subject_normalized {
@@ -837,26 +848,26 @@ impl fmt::Display for Type {
             }
             Type::Array { element } => write!(f, "{}[]", element),
             Type::Object { fields } => {
-                write!(f, "{{")?;
+                write!(f, "{{ ")?;
                 for (i, (key, value)) in fields.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
                     write!(f, "{}: {}", key, value)?;
                 }
-                write!(f, "}}")
+                write!(f, " }}")
             }
             Type::Interface { name, fields } => {
-                write!(f, "{}", name)?;
+                write!(f, "{} ", name)?;
                 if !fields.is_empty() {
-                    write!(f, "{{")?;
+                    write!(f, "{{ ")?;
                     for (i, (key, value)) in fields.iter().enumerate() {
                         if i > 0 {
                             write!(f, ", ")?;
                         }
                         write!(f, "{}: {}", key, value)?;
                     }
-                    write!(f, "}}")?;
+                    write!(f, " }}")?;
                 }
                 Ok(())
             }
@@ -906,6 +917,16 @@ impl fmt::Display for Type {
                 "(if {} {{ {} }} else {{ {} }})",
                 condition, consequent, alternate
             ),
+            Type::Invocation { function, args } => {
+                write!(f, "{}(", function)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
+            }
             Type::PropertyAccess { subject, property } => {
                 write!(f, "{}.{}", subject, property)
             }

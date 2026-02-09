@@ -6,7 +6,9 @@ use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock, Weak};
 
-use crate::ast::grammar::Any;
+use crate::ast::grammar::{
+    Any, Declaration, ElseClause, Expression, FunctionBody, Statement, TypeExpression,
+};
 use crate::ast::slice::Slice;
 
 /// Generic wrapper for all AST nodes in Bagel.
@@ -381,3 +383,204 @@ impl PartialEq for ASTInner {
 }
 
 impl Eq for ASTInner {}
+
+impl Any {
+    /// Calls `f` for each direct child AST node of this node.
+    /// Zero-allocation alternative to collecting children into a Vec.
+    pub fn for_each_child(&self, f: &mut dyn FnMut(AST<Any>)) {
+        match self {
+            Any::Module(module) => {
+                module
+                    .declarations
+                    .iter()
+                    .for_each(|d| f(d.clone().upcast()));
+            }
+            Any::Declaration(decl) => match decl {
+                Declaration::ConstDeclaration(c) => {
+                    f(c.identifier.clone().upcast());
+                    if let Some((_, type_ann)) = &c.type_annotation {
+                        f(type_ann.clone().upcast());
+                    }
+                    f(c.value.clone().upcast());
+                }
+                Declaration::ImportDeclaration(imp) => {
+                    f(imp.path.clone().upcast());
+                    imp.imports.iter().for_each(|spec| {
+                        f(spec.name.clone().upcast());
+                        if let Some((_, alias)) = &spec.alias {
+                            f(alias.clone().upcast());
+                        }
+                    });
+                }
+            },
+            Any::Expression(expr) => match expr {
+                Expression::NilLiteral(_)
+                | Expression::BooleanLiteral(_)
+                | Expression::NumberLiteral(_)
+                | Expression::StringLiteral(_) => {}
+                Expression::LocalIdentifier(local_id) => {
+                    f(local_id.identifier.clone().upcast());
+                }
+                Expression::BinaryOperation(bin_op) => {
+                    f(bin_op.left.clone().upcast());
+                    f(bin_op.operator.clone().upcast());
+                    f(bin_op.right.clone().upcast());
+                }
+                Expression::UnaryOperation(unary_op) => {
+                    f(unary_op.operator.clone().upcast());
+                    f(unary_op.operand.clone().upcast());
+                }
+                Expression::Invocation(inv) => {
+                    f(inv.function.clone().upcast());
+                    inv.arguments.iter().for_each(|arg| f(arg.clone().upcast()));
+                }
+                Expression::FunctionExpression(func) => {
+                    func.parameters.iter().for_each(|(name, type_ann)| {
+                        f(name.clone().upcast());
+                        if let Some((_, t)) = type_ann {
+                            f(t.clone().upcast());
+                        }
+                    });
+                    if let Some((_, ret)) = &func.return_type {
+                        f(ret.clone().upcast());
+                    }
+                    f(func.body.clone().upcast());
+                }
+                Expression::ArrayLiteral(arr) => {
+                    arr.elements.iter().for_each(|e| f(e.clone().upcast()));
+                }
+                Expression::ObjectLiteral(obj) => {
+                    obj.fields.iter().for_each(|(key, _, value)| {
+                        f(key.clone().upcast());
+                        f(value.clone().upcast());
+                    });
+                }
+                Expression::IfElseExpression(if_else) => {
+                    f(if_else.condition.clone().upcast());
+                    f(if_else.consequent.clone().upcast());
+                    match &if_else.else_clause {
+                        Some(ElseClause::ElseBlock { expression, .. }) => {
+                            f(expression.clone().upcast());
+                        }
+                        Some(ElseClause::ElseIf {
+                            if_else: nested, ..
+                        }) => {
+                            f(nested.clone().upcast());
+                        }
+                        None => {}
+                    }
+                }
+                Expression::ParenthesizedExpression(paren) => {
+                    f(paren.expression.clone().upcast());
+                }
+                Expression::PropertyAccessExpression(prop_access) => {
+                    f(prop_access.subject.clone().upcast());
+                    f(prop_access.property.clone().upcast());
+                }
+            },
+            Any::TypeExpression(type_expr) => match type_expr {
+                TypeExpression::UnknownTypeExpression(_)
+                | TypeExpression::NilTypeExpression(_)
+                | TypeExpression::BooleanTypeExpression(_)
+                | TypeExpression::NumberTypeExpression(_)
+                | TypeExpression::StringTypeExpression(_)
+                | TypeExpression::RangeTypeExpression(_) => {}
+                TypeExpression::TupleTypeExpression(tuple) => {
+                    tuple.elements.iter().for_each(|e| f(e.clone().upcast()));
+                }
+                TypeExpression::ArrayTypeExpression(array) => {
+                    f(array.element.clone().upcast());
+                }
+                TypeExpression::ObjectTypeExpression(obj) => {
+                    obj.fields.iter().for_each(|(name, _, typ)| {
+                        f(name.clone().upcast());
+                        f(typ.clone().upcast());
+                    });
+                }
+                TypeExpression::FunctionTypeExpression(func) => {
+                    func.parameters.iter().for_each(|(name_colon, typ)| {
+                        if let Some((name, _)) = name_colon {
+                            f(name.clone().upcast());
+                        }
+                        f(typ.clone().upcast());
+                    });
+                    f(func.return_type.clone().upcast());
+                }
+                TypeExpression::UnionTypeExpression(union) => {
+                    union.variants.iter().for_each(|v| f(v.clone().upcast()));
+                }
+                TypeExpression::ParenthesizedTypeExpression(paren) => {
+                    f(paren.expression.clone().upcast());
+                }
+                TypeExpression::TypeOfTypeExpression(type_of) => {
+                    f(type_of.expression.clone().upcast());
+                }
+            },
+            Any::FunctionBody(body) => match body {
+                FunctionBody::Expression(expr) => f(expr.clone().upcast()),
+                FunctionBody::Block(block) => f(block.clone().upcast()),
+            },
+            Any::Statement(statement) => match statement {
+                Statement::Invocation(inv) => {
+                    f(inv.function.clone().upcast());
+                    inv.arguments.iter().for_each(|arg| f(arg.clone().upcast()));
+                }
+                Statement::Block(block) => {
+                    block.statements.iter().for_each(|s| f(s.clone().upcast()));
+                }
+            },
+            Any::PlainIdentifier(_) | Any::BinaryOperator(_) | Any::UnaryOperator(_) => {}
+        }
+    }
+}
+
+/// Controls traversal behavior in `walk_ast`.
+pub enum WalkAction {
+    /// Continue traversing into children.
+    Continue,
+    /// Skip this node's children but continue the traversal.
+    SkipChildren,
+    /// Stop the entire traversal immediately.
+    Stop,
+}
+
+/// Pre-order traversal of the AST. Calls `visitor` on each node.
+/// Returns `false` if the traversal was stopped early via `WalkAction::Stop`.
+pub fn walk_ast(node: &AST<Any>, visitor: &mut dyn FnMut(&AST<Any>) -> WalkAction) -> bool {
+    match visitor(node) {
+        WalkAction::Stop => false,
+        WalkAction::SkipChildren => true,
+        WalkAction::Continue => {
+            if let Some(details) = node.details() {
+                let mut should_continue = true;
+                details.for_each_child(&mut |child| {
+                    if should_continue {
+                        should_continue = walk_ast(&child, visitor);
+                    }
+                });
+                should_continue
+            } else {
+                true
+            }
+        }
+    }
+}
+
+/// Finds the deepest (most specific) node in the AST that satisfies `predicate`.
+/// "Deepest" means: if both a parent and child match, the child is preferred.
+pub fn find_deepest(node: &AST<Any>, predicate: &dyn Fn(&AST<Any>) -> bool) -> Option<AST<Any>> {
+    if !predicate(node) {
+        None
+    } else {
+        // This node matches; see if any child matches more specifically
+        let mut deepest_child = None;
+        if let Some(details) = node.details() {
+            details.for_each_child(&mut |child| {
+                if deepest_child.is_none() {
+                    deepest_child = find_deepest(&child, predicate);
+                }
+            });
+        }
+        deepest_child.or_else(|| Some(node.clone()))
+    }
+}

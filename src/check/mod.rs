@@ -4,10 +4,7 @@ use std::path::Path;
 use crate::{
     ast::{
         container::AST,
-        grammar::{
-            Any, BinaryOperator, Declaration, ElseClause, Expression, FunctionBody, Statement,
-            TypeExpression, UnaryOperator,
-        },
+        grammar::{Any, BinaryOperator, Expression, UnaryOperator},
         modules::{Module, ModulesStore},
         slice::Slice,
     },
@@ -240,252 +237,287 @@ where
             }
 
             // Process valid nodes
-            Some(details) => match details {
-                Any::Module(module) => {
-                    // Recurse to all declarations
-                    module.declarations.check(ctx, report_error);
-                }
+            Some(details) => {
+                // Recurse to all children generically
+                details.for_each_child(&mut |child| {
+                    child.check(ctx, report_error);
+                });
 
-                Any::Declaration(declaration) => match declaration {
-                    Declaration::ConstDeclaration(decl) => {
-                        // Recurse to children
-                        decl.identifier.check(ctx, report_error);
-                        decl.type_annotation.check(ctx, report_error);
-                        decl.value.check(ctx, report_error);
-                    }
-                    Declaration::ImportDeclaration(decl) => {
-                        decl.path.check(ctx, report_error);
-                        for specifier in &decl.imports {
-                            specifier.name.check(ctx, report_error);
-                            if let Some((_, alias)) = &specifier.alias {
-                                alias.check(ctx, report_error);
-                            }
-                        }
-                    }
-                },
-
-                Any::Expression(expression) => {
-                    use Expression::*;
-                    match expression {
-                        NilLiteral(_) | BooleanLiteral(_) | NumberLiteral(_) | StringLiteral(_) => {
-                            // Leaf nodes, nothing to check
-                        }
-                        LocalIdentifier(local_id) => {
-                            // Recurse to identifier
-                            local_id.identifier.check(ctx, report_error);
-                        }
-                        BinaryOperation(bin_op) => {
-                            // Recurse to children
-                            bin_op.left.check(ctx, report_error);
-                            bin_op.operator.check(ctx, report_error);
-                            bin_op.right.check(ctx, report_error);
-
-                            // Type-check operands
-                            let norm_ctx = NormalizeContext {
-                                modules: Some(ctx.modules),
-                                current_module: ctx.current_module,
-                            };
-                            let infer_ctx = InferTypeContext {
-                                modules: Some(ctx.modules),
-                                current_module: ctx.current_module,
-                            };
-                            let left_type = bin_op.left.infer_type(infer_ctx).normalize(norm_ctx);
-                            let right_type = bin_op.right.infer_type(infer_ctx).normalize(norm_ctx);
-
-                            let (allowed, op_str) = match bin_op.operator.unpack() {
-                                BinaryOperator::Add => (
-                                    Some(Type::Union {
-                                        variants: vec![
-                                            Type::Number {
-                                                min_value: None,
-                                                max_value: None,
-                                            },
-                                            Type::String { value: None },
-                                        ],
-                                    }),
-                                    "+",
-                                ),
-                                BinaryOperator::Subtract => (
-                                    Some(Type::Number {
-                                        min_value: None,
-                                        max_value: None,
-                                    }),
-                                    "-",
-                                ),
-                                BinaryOperator::Multiply => (
-                                    Some(Type::Number {
-                                        min_value: None,
-                                        max_value: None,
-                                    }),
-                                    "*",
-                                ),
-                                BinaryOperator::Divide => (
-                                    Some(Type::Number {
-                                        min_value: None,
-                                        max_value: None,
-                                    }),
-                                    "/",
-                                ),
-                                BinaryOperator::And => (
-                                    Some(Type::Union {
-                                        variants: vec![Type::Boolean { value: None }, Type::Nil],
-                                    }),
-                                    "&&",
-                                ),
-                                BinaryOperator::Or => (
-                                    Some(Type::Union {
-                                        variants: vec![Type::Boolean { value: None }, Type::Nil],
-                                    }),
-                                    "||",
-                                ),
-                                BinaryOperator::Equal => (None, "=="),
-                                BinaryOperator::NotEqual => (None, "!="),
-                                BinaryOperator::LessThan => (
-                                    Some(Type::Number {
-                                        min_value: None,
-                                        max_value: None,
-                                    }),
-                                    "<",
-                                ),
-                                BinaryOperator::LessThanOrEqual => (
-                                    Some(Type::Number {
-                                        min_value: None,
-                                        max_value: None,
-                                    }),
-                                    "<=",
-                                ),
-                                BinaryOperator::GreaterThan => (
-                                    Some(Type::Number {
-                                        min_value: None,
-                                        max_value: None,
-                                    }),
-                                    ">",
-                                ),
-                                BinaryOperator::GreaterThanOrEqual => (
-                                    Some(Type::Number {
-                                        min_value: None,
-                                        max_value: None,
-                                    }),
-                                    ">=",
-                                ),
-                                BinaryOperator::NullishCoalescing => (None, "??"),
-                            };
-
-                            if let Some(allowed) = allowed {
-                                let fits_ctx = FitsContext {
+                // Per-variant checking logic (type checks only)
+                match details {
+                    Any::Expression(expression) => {
+                        match expression {
+                            Expression::BinaryOperation(bin_op) => {
+                                // Type-check operands
+                                let norm_ctx = NormalizeContext {
                                     modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
                                 };
-                                let left_issues =
-                                    left_type.clone().fit_issues(allowed.clone(), fits_ctx);
-                                let fits_ctx = FitsContext {
+                                let infer_ctx = InferTypeContext {
                                     modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
                                 };
-                                let right_issues = right_type.clone().fit_issues(allowed, fits_ctx);
-                                if !left_issues.is_empty() {
-                                    report_error(BagelError {
-                                        src: bin_op.left.slice().clone(),
-                                        severity: RuleSeverity::Error,
-                                        details: BagelErrorDetails::MiscError {
-                                            message: format!(
-                                                "Operator '{}' cannot be applied to type '{}'",
-                                                op_str, left_type
-                                            ),
-                                        },
-                                    });
-                                }
-                                if !right_issues.is_empty() {
-                                    report_error(BagelError {
-                                        src: bin_op.right.slice().clone(),
-                                        severity: RuleSeverity::Error,
-                                        details: BagelErrorDetails::MiscError {
-                                            message: format!(
-                                                "Operator '{}' cannot be applied to type '{}'",
-                                                op_str, right_type
-                                            ),
-                                        },
-                                    });
-                                }
-                            }
-                        }
-                        UnaryOperation(unary_op) => {
-                            // Recurse to children
-                            unary_op.operator.check(ctx, report_error);
-                            unary_op.operand.check(ctx, report_error);
+                                let left_type =
+                                    bin_op.left.infer_type(infer_ctx).normalize(norm_ctx);
+                                let right_type =
+                                    bin_op.right.infer_type(infer_ctx).normalize(norm_ctx);
 
-                            // Type-check operand
-                            let norm_ctx = NormalizeContext {
-                                modules: Some(ctx.modules),
-                                current_module: ctx.current_module,
-                            };
-                            let infer_ctx = InferTypeContext {
-                                modules: Some(ctx.modules),
-                                current_module: ctx.current_module,
-                            };
-                            let operand_type =
-                                unary_op.operand.infer_type(infer_ctx).normalize(norm_ctx);
+                                let (allowed, op_str) = match bin_op.operator.unpack() {
+                                    BinaryOperator::Add => (
+                                        Some(Type::Union {
+                                            variants: vec![
+                                                Type::Number {
+                                                    min_value: None,
+                                                    max_value: None,
+                                                },
+                                                Type::String { value: None },
+                                            ],
+                                        }),
+                                        "+",
+                                    ),
+                                    BinaryOperator::Subtract => (
+                                        Some(Type::Number {
+                                            min_value: None,
+                                            max_value: None,
+                                        }),
+                                        "-",
+                                    ),
+                                    BinaryOperator::Multiply => (
+                                        Some(Type::Number {
+                                            min_value: None,
+                                            max_value: None,
+                                        }),
+                                        "*",
+                                    ),
+                                    BinaryOperator::Divide => (
+                                        Some(Type::Number {
+                                            min_value: None,
+                                            max_value: None,
+                                        }),
+                                        "/",
+                                    ),
+                                    BinaryOperator::And => (
+                                        Some(Type::Union {
+                                            variants: vec![
+                                                Type::Boolean { value: None },
+                                                Type::Nil,
+                                            ],
+                                        }),
+                                        "&&",
+                                    ),
+                                    BinaryOperator::Or => (
+                                        Some(Type::Union {
+                                            variants: vec![
+                                                Type::Boolean { value: None },
+                                                Type::Nil,
+                                            ],
+                                        }),
+                                        "||",
+                                    ),
+                                    BinaryOperator::Equal => (None, "=="),
+                                    BinaryOperator::NotEqual => (None, "!="),
+                                    BinaryOperator::LessThan => (
+                                        Some(Type::Number {
+                                            min_value: None,
+                                            max_value: None,
+                                        }),
+                                        "<",
+                                    ),
+                                    BinaryOperator::LessThanOrEqual => (
+                                        Some(Type::Number {
+                                            min_value: None,
+                                            max_value: None,
+                                        }),
+                                        "<=",
+                                    ),
+                                    BinaryOperator::GreaterThan => (
+                                        Some(Type::Number {
+                                            min_value: None,
+                                            max_value: None,
+                                        }),
+                                        ">",
+                                    ),
+                                    BinaryOperator::GreaterThanOrEqual => (
+                                        Some(Type::Number {
+                                            min_value: None,
+                                            max_value: None,
+                                        }),
+                                        ">=",
+                                    ),
+                                    BinaryOperator::NullishCoalescing => (None, "??"),
+                                };
 
-                            match unary_op.operator.unpack() {
-                                UnaryOperator::Not => {
-                                    // ! only allows booleans or nil
-                                    let allowed = Type::Union {
-                                        variants: vec![Type::Boolean { value: None }, Type::Nil],
-                                    };
+                                if let Some(allowed) = allowed {
                                     let fits_ctx = FitsContext {
                                         modules: Some(ctx.modules),
                                     };
-                                    let issues = operand_type.clone().fit_issues(allowed, fits_ctx);
-                                    if !issues.is_empty() {
+                                    let left_issues =
+                                        left_type.clone().fit_issues(allowed.clone(), fits_ctx);
+                                    let fits_ctx = FitsContext {
+                                        modules: Some(ctx.modules),
+                                    };
+                                    let right_issues =
+                                        right_type.clone().fit_issues(allowed, fits_ctx);
+                                    if !left_issues.is_empty() {
                                         report_error(BagelError {
-                                            src: unary_op.operand.slice().clone(),
+                                            src: bin_op.left.slice().clone(),
                                             severity: RuleSeverity::Error,
                                             details: BagelErrorDetails::MiscError {
                                                 message: format!(
-                                                    "Operator '!' cannot be applied to type '{}'",
-                                                    operand_type
+                                                    "Operator '{}' cannot be applied to type '{}'",
+                                                    op_str, left_type
+                                                ),
+                                            },
+                                        });
+                                    }
+                                    if !right_issues.is_empty() {
+                                        report_error(BagelError {
+                                            src: bin_op.right.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Operator '{}' cannot be applied to type '{}'",
+                                                    op_str, right_type
                                                 ),
                                             },
                                         });
                                     }
                                 }
                             }
-                        }
-                        Invocation(inv) => {
-                            // Recurse to children
-                            inv.function.check(ctx, report_error);
-                            inv.arguments.check(ctx, report_error);
-                        }
-                        FunctionExpression(func) => {
-                            // Recurse to children
-                            func.parameters.check(ctx, report_error);
-                            func.return_type.check(ctx, report_error);
-                            func.body.check(ctx, report_error);
-                        }
-                        ArrayLiteral(arr) => {
-                            // Recurse to elements
-                            arr.elements.check(ctx, report_error);
-                        }
-                        ObjectLiteral(obj) => {
-                            // Recurse to fields
-                            obj.fields.check(ctx, report_error);
-                        }
-                        IfElseExpression(if_else) => {
-                            // Recurse to children
-                            if_else.condition.check(ctx, report_error);
-                            if_else.consequent.check(ctx, report_error);
+                            Expression::UnaryOperation(unary_op) => {
+                                // Type-check operand
+                                let norm_ctx = NormalizeContext {
+                                    modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
+                                };
+                                let infer_ctx = InferTypeContext {
+                                    modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
+                                };
+                                let operand_type =
+                                    unary_op.operand.infer_type(infer_ctx).normalize(norm_ctx);
 
-                            match &if_else.else_clause {
-                                Some(ElseClause::ElseBlock { expression, .. }) => {
-                                    expression.check(ctx, report_error);
+                                match unary_op.operator.unpack() {
+                                    UnaryOperator::Not => {
+                                        let allowed = Type::Union {
+                                            variants: vec![
+                                                Type::Boolean { value: None },
+                                                Type::Nil,
+                                            ],
+                                        };
+                                        let fits_ctx = FitsContext {
+                                            modules: Some(ctx.modules),
+                                        };
+                                        let issues =
+                                            operand_type.clone().fit_issues(allowed, fits_ctx);
+                                        if !issues.is_empty() {
+                                            report_error(BagelError {
+                                                src: unary_op.operand.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
+                                                    "Operator '!' cannot be applied to type '{}'",
+                                                    operand_type
+                                                ),
+                                                },
+                                            });
+                                        }
+                                    }
                                 }
-                                Some(ElseClause::ElseIf {
-                                    if_else: nested, ..
-                                }) => {
-                                    nested.check(ctx, report_error);
-                                }
-                                None => {}
                             }
+                            Expression::IfElseExpression(if_else) => {
+                                // Type-check: condition must be boolean or nil
+                                let norm_ctx = NormalizeContext {
+                                    modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
+                                };
+                                let infer_ctx = InferTypeContext {
+                                    modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
+                                };
+                                let cond_type =
+                                    if_else.condition.infer_type(infer_ctx).normalize(norm_ctx);
+                                let allowed = Type::Union {
+                                    variants: vec![Type::Boolean { value: None }, Type::Nil],
+                                };
+                                let fits_ctx = FitsContext {
+                                    modules: Some(ctx.modules),
+                                };
+                                let issues = cond_type.clone().fit_issues(allowed, fits_ctx);
+                                if !issues.is_empty() {
+                                    report_error(BagelError {
+                                        src: if_else.condition.slice().clone(),
+                                        severity: RuleSeverity::Error,
+                                        details: BagelErrorDetails::MiscError {
+                                            message: format!(
+                                            "Condition must be 'boolean' or 'nil', but got '{}'",
+                                            cond_type
+                                        ),
+                                        },
+                                    });
+                                }
+                            }
+                            Expression::PropertyAccessExpression(prop_access) => {
+                                // Check that the property exists on the subject type
+                                let norm_ctx = NormalizeContext {
+                                    modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
+                                };
+                                let infer_ctx = InferTypeContext {
+                                    modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
+                                };
+                                let subject_type = prop_access
+                                    .subject
+                                    .infer_type(infer_ctx)
+                                    .normalize(norm_ctx);
+                                let property_name =
+                                    prop_access.property.slice().as_str().to_string();
 
-                            // Type-check: condition must be boolean or nil
+                                match &subject_type {
+                                    Type::Object { fields } | Type::Interface { fields, .. }
+                                        if !fields.contains_key(&property_name) =>
+                                    {
+                                        report_error(BagelError {
+                                            src: prop_access.property.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Property '{}' does not exist on type '{}'",
+                                                    property_name, subject_type
+                                                ),
+                                            },
+                                        });
+                                    }
+                                    Type::Unknown | Type::Any => {}
+                                    Type::Object { .. } | Type::Interface { .. } => {}
+                                    _ => {
+                                        report_error(BagelError {
+                                            src: prop_access.property.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Property '{}' does not exist on type '{}'",
+                                                    property_name, subject_type
+                                                ),
+                                            },
+                                        });
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+
+                        // Generalized expected-type check: if this expression
+                        // appears in a context that expects a specific type,
+                        // verify that its inferred type fits.
+                        let expr_node: AST<Expression> = match self {
+                            AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
+                            AST::Malformed { inner, message } => {
+                                AST::<Expression>::new_malformed(inner.clone(), message.clone())
+                            }
+                        };
+                        if let Some(expected) = expr_node.expected_type() {
                             let norm_ctx = NormalizeContext {
                                 modules: Some(ctx.modules),
                                 current_module: ctx.current_module,
@@ -494,191 +526,28 @@ where
                                 modules: Some(ctx.modules),
                                 current_module: ctx.current_module,
                             };
-                            let cond_type =
-                                if_else.condition.infer_type(infer_ctx).normalize(norm_ctx);
-                            let allowed = Type::Union {
-                                variants: vec![Type::Boolean { value: None }, Type::Nil],
-                            };
+                            let inferred = expr_node.infer_type(infer_ctx).normalize(norm_ctx);
                             let fits_ctx = FitsContext {
                                 modules: Some(ctx.modules),
                             };
-                            let issues = cond_type.clone().fit_issues(allowed, fits_ctx);
+                            let issues = inferred.clone().fit_issues(expected.clone(), fits_ctx);
                             if !issues.is_empty() {
                                 report_error(BagelError {
-                                    src: if_else.condition.slice().clone(),
+                                    src: self.slice().clone(),
                                     severity: RuleSeverity::Error,
                                     details: BagelErrorDetails::MiscError {
                                         message: format!(
-                                            "Condition must be 'boolean' or 'nil', but got '{}'",
-                                            cond_type
+                                            "Type '{}' is not assignable to type '{}'",
+                                            inferred, expected
                                         ),
                                     },
                                 });
                             }
                         }
-                        PropertyAccessExpression(prop_access) => {
-                            // Recurse to subject
-                            prop_access.subject.check(ctx, report_error);
-
-                            // Check that the property exists on the subject type
-                            let norm_ctx = NormalizeContext {
-                                modules: Some(ctx.modules),
-                                current_module: ctx.current_module,
-                            };
-                            let infer_ctx = InferTypeContext {
-                                modules: Some(ctx.modules),
-                                current_module: ctx.current_module,
-                            };
-                            let subject_type = prop_access
-                                .subject
-                                .infer_type(infer_ctx)
-                                .normalize(norm_ctx);
-                            let property_name = prop_access.property.slice().as_str().to_string();
-
-                            match &subject_type {
-                                Type::Object { fields } | Type::Interface { fields, .. }
-                                    if !fields.contains_key(&property_name) =>
-                                {
-                                    report_error(BagelError {
-                                        src: prop_access.property.slice().clone(),
-                                        severity: RuleSeverity::Error,
-                                        details: BagelErrorDetails::MiscError {
-                                            message: format!(
-                                                "Property '{}' does not exist on type '{}'",
-                                                property_name, subject_type
-                                            ),
-                                        },
-                                    });
-                                }
-                                Type::Unknown | Type::Any => {}
-                                Type::Object { .. } | Type::Interface { .. } => {}
-                                _ => {
-                                    report_error(BagelError {
-                                        src: prop_access.property.slice().clone(),
-                                        severity: RuleSeverity::Error,
-                                        details: BagelErrorDetails::MiscError {
-                                            message: format!(
-                                                "Property '{}' does not exist on type '{}'",
-                                                property_name, subject_type
-                                            ),
-                                        },
-                                    });
-                                }
-                            }
-                        }
-                        ParenthesizedExpression(paren) => {
-                            paren.expression.check(ctx, report_error);
-                        }
                     }
-
-                    // Generalized expected-type check: if this expression
-                    // appears in a context that expects a specific type,
-                    // verify that its inferred type fits.
-                    let expr_node: AST<Expression> = match self {
-                        AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
-                        AST::Malformed { inner, message } => {
-                            AST::<Expression>::new_malformed(inner.clone(), message.clone())
-                        }
-                    };
-                    if let Some(expected) = expr_node.expected_type() {
-                        let norm_ctx = NormalizeContext {
-                            modules: Some(ctx.modules),
-                            current_module: ctx.current_module,
-                        };
-                        let infer_ctx = InferTypeContext {
-                            modules: Some(ctx.modules),
-                            current_module: ctx.current_module,
-                        };
-                        let inferred = expr_node.infer_type(infer_ctx).normalize(norm_ctx);
-                        let fits_ctx = FitsContext {
-                            modules: Some(ctx.modules),
-                        };
-                        let issues = inferred.clone().fit_issues(expected.clone(), fits_ctx);
-                        if !issues.is_empty() {
-                            report_error(BagelError {
-                                src: self.slice().clone(),
-                                severity: RuleSeverity::Error,
-                                details: BagelErrorDetails::MiscError {
-                                    message: format!(
-                                        "Type '{}' is not assignable to type '{}'",
-                                        inferred, expected
-                                    ),
-                                },
-                            });
-                        }
-                    }
+                    _ => {}
                 }
-
-                Any::TypeExpression(type_expression) => {
-                    use TypeExpression::*;
-                    match type_expression {
-                        UnknownTypeExpression(_)
-                        | NilTypeExpression(_)
-                        | BooleanTypeExpression(_)
-                        | NumberTypeExpression(_)
-                        | StringTypeExpression(_)
-                        | RangeTypeExpression(_) => {
-                            // Leaf nodes, nothing to check
-                        }
-                        TupleTypeExpression(tuple) => {
-                            // Recurse to elements
-                            tuple.elements.check(ctx, report_error);
-                        }
-                        ArrayTypeExpression(array) => {
-                            // Recurse to element type
-                            array.element.check(ctx, report_error);
-                        }
-                        ObjectTypeExpression(obj) => {
-                            // Recurse to field types
-                            obj.fields.check(ctx, report_error);
-                        }
-                        FunctionTypeExpression(func) => {
-                            // Recurse to parameter types and return type
-                            func.parameters.check(ctx, report_error);
-                            func.return_type.check(ctx, report_error);
-                        }
-                        UnionTypeExpression(union) => {
-                            // Recurse to variants
-                            union.variants.check(ctx, report_error);
-                        }
-                        ParenthesizedTypeExpression(paren) => {
-                            paren.expression.check(ctx, report_error);
-                        }
-                        TypeOfTypeExpression(type_of) => {
-                            type_of.expression.check(ctx, report_error);
-                        }
-                    }
-                }
-
-                Any::PlainIdentifier(_) => {
-                    // Leaf node, nothing to check
-                }
-
-                Any::BinaryOperator(_) => {
-                    // Leaf node, nothing to check
-                }
-
-                Any::UnaryOperator(_) => {
-                    // Leaf node, nothing to check
-                }
-
-                Any::FunctionBody(body) => match body {
-                    FunctionBody::Expression(expr) => expr.check(ctx, report_error),
-                    FunctionBody::Block(block) => block.check(ctx, report_error),
-                },
-
-                Any::Statement(statement) => match statement {
-                    Statement::Invocation(inv) => {
-                        inv.function.check(ctx, report_error);
-                        inv.arguments.check(ctx, report_error);
-                    }
-                    Statement::Block(block) => {
-                        // Block's statements are bare Statement enums, not AST-wrapped
-                        // For now, nothing to recurse into since blocks aren't parsed yet
-                        let _ = block;
-                    }
-                },
-            },
+            }
         }
     }
 }

@@ -6,8 +6,8 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use crate::ast::container::AST;
-use crate::ast::grammar::{Any, Declaration, Expression, FunctionBody};
+use crate::ast::container::{find_deepest, walk_ast, WalkAction, AST};
+use crate::ast::grammar::{Any, Declaration, Expression};
 use crate::ast::modules::{ModulePath, ModulesStore};
 use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
@@ -811,37 +811,39 @@ fn position_to_offset(text: &str, position: Position) -> usize {
 /// Recursively walks an expression tree and collects inlay hints for function
 /// parameters whose types can be inferred from context.
 fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<InlayHint>) {
-    if expr.details().is_none() {
-        return;
-    }
+    walk_ast(&expr.clone().upcast(), &mut |node| {
+        let Some(func_expr) = node.clone().try_downcast::<Expression>() else {
+            return WalkAction::Continue;
+        };
+        let Expression::FunctionExpression(func) = func_expr.unpack() else {
+            return WalkAction::Continue;
+        };
 
-    match expr.unpack() {
-        Expression::FunctionExpression(func) => {
-            // Early exit if all parameters already have type annotations
-            if func
-                .parameters
-                .iter()
-                .all(|(_, type_ann)| type_ann.is_some())
-            {
-                // Still recurse into body for nested functions
-            } else {
-                // Get the contextual expected type for this function expression
-                let norm_ctx = NormalizeContext {
-                    modules: None,
-                    current_module: None,
-                };
-                let expected_args =
-                    expr.expected_type()
-                        .and_then(|t| match t.normalize(norm_ctx) {
-                            Type::FuncType { args, .. } => Some(args),
-                            _ => None,
-                        });
+        // Skip if all parameters already have type annotations
+        if !func
+            .parameters
+            .iter()
+            .all(|(_, type_ann)| type_ann.is_some())
+        {
+            // Get the contextual expected type for this function expression
+            let norm_ctx = NormalizeContext {
+                modules: None,
+                current_module: None,
+            };
+            let expected_args =
+                func_expr
+                    .expected_type()
+                    .and_then(|t| match t.normalize(norm_ctx) {
+                        Type::FuncType { args, .. } => Some(args),
+                        _ => None,
+                    });
 
-                if let Some(expected_args) = expected_args {
-                    for (i, (param_name, type_ann)) in func.parameters.iter().enumerate() {
-                        if type_ann.is_some() {
-                            continue;
-                        }
+            if let Some(expected_args) = expected_args {
+                func.parameters
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (_, type_ann))| type_ann.is_none())
+                    .for_each(|(i, (param_name, _))| {
                         if let Some(arg_type) = expected_args.get(i) {
                             if *arg_type != Type::Unknown {
                                 let position = offset_to_position(text, param_name.slice().end);
@@ -857,66 +859,12 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
                                 });
                             }
                         }
-                    }
-                }
+                    });
             }
+        }
 
-            // Recurse into body for nested functions
-            match func.body.unpack() {
-                FunctionBody::Expression(body_expr) => {
-                    collect_parameter_hints(&body_expr, text, hints);
-                }
-                FunctionBody::Block(_) => {}
-            }
-        }
-        Expression::BinaryOperation(bin_op) => {
-            collect_parameter_hints(&bin_op.left, text, hints);
-            collect_parameter_hints(&bin_op.right, text, hints);
-        }
-        Expression::UnaryOperation(unary_op) => {
-            collect_parameter_hints(&unary_op.operand, text, hints);
-        }
-        Expression::Invocation(inv) => {
-            collect_parameter_hints(&inv.function, text, hints);
-            for arg in &inv.arguments {
-                collect_parameter_hints(arg, text, hints);
-            }
-        }
-        Expression::ArrayLiteral(arr) => {
-            for elem in &arr.elements {
-                collect_parameter_hints(elem, text, hints);
-            }
-        }
-        Expression::ObjectLiteral(obj) => {
-            for (_, _, value) in &obj.fields {
-                collect_parameter_hints(value, text, hints);
-            }
-        }
-        Expression::IfElseExpression(if_else) => {
-            collect_parameter_hints(&if_else.condition, text, hints);
-            collect_parameter_hints(&if_else.consequent, text, hints);
-            match &if_else.else_clause {
-                Some(crate::ast::grammar::ElseClause::ElseBlock { expression, .. }) => {
-                    collect_parameter_hints(expression, text, hints);
-                }
-                Some(crate::ast::grammar::ElseClause::ElseIf {
-                    if_else: nested, ..
-                }) => {
-                    collect_parameter_hints(&nested.clone().upcast(), text, hints);
-                }
-                None => {}
-            }
-        }
-        Expression::ParenthesizedExpression(paren) => {
-            collect_parameter_hints(&paren.expression, text, hints);
-        }
-        Expression::PropertyAccessExpression(prop_access) => {
-            collect_parameter_hints(&prop_access.subject, text, hints);
-        }
-        _ => {
-            // Leaf expressions (literals, identifiers) have no children
-        }
-    }
+        WalkAction::Continue
+    });
 }
 
 fn offset_to_position(text: &str, offset: usize) -> Position {
@@ -944,151 +892,10 @@ fn offset_to_position(text: &str, offset: usize) -> Position {
 }
 
 fn find_node_at_offset(ast: &AST<Any>, offset: usize) -> Option<AST<Any>> {
-    let slice = ast.slice();
-    eprintln!(
-        "[DEBUG] find_node_at_offset() - checking node at {}..{}, offset={}",
-        slice.start, slice.end, offset
-    );
-
-    // Check if offset is within this node's range
-    if offset < slice.start || offset > slice.end {
-        eprintln!(
-            "[DEBUG] find_node_at_offset() - offset {} outside node range {}..{}",
-            offset, slice.start, slice.end
-        );
-        return None;
-    }
-
-    // Try to find a more specific child node, or return this node if malformed/leaf
-    match ast.details() {
-        // Malformed nodes can't be traversed, return as-is
-        None => {
-            eprintln!("[DEBUG] find_node_at_offset() - node is malformed");
-            Some(ast.clone())
-        }
-
-        // Try to find more specific child nodes
-        Some(details) => {
-            let child = match details {
-                Any::Module(module) => {
-                    eprintln!(
-                        "[DEBUG] find_node_at_offset() - node is Module with {} declarations",
-                        module.declarations.len()
-                    );
-                    // Check each declaration
-                    module
-                        .declarations
-                        .iter()
-                        .enumerate()
-                        .find_map(|(idx, decl)| {
-                            eprintln!(
-                                "[DEBUG] find_node_at_offset() - checking declaration {}",
-                                idx
-                            );
-                            find_node_at_offset(&decl.clone().upcast(), offset).inspect(|_| {
-                                eprintln!(
-                                    "[DEBUG] find_node_at_offset() - found in declaration {}",
-                                    idx
-                                )
-                            })
-                        })
-                }
-                Any::Declaration(decl) => {
-                    eprintln!("[DEBUG] find_node_at_offset() - node is Declaration");
-                    match decl {
-                        Declaration::ConstDeclaration(const_decl) => find_node_at_offset(
-                            &const_decl.value.clone().upcast(),
-                            offset,
-                        )
-                        .inspect(|_| {
-                            eprintln!("[DEBUG] find_node_at_offset() - found in declaration value")
-                        }),
-                        Declaration::ImportDeclaration(_) => None,
-                    }
-                }
-                Any::Expression(expr) => {
-                    eprintln!(
-                        "[DEBUG] find_node_at_offset() - node is Expression: {:?}",
-                        std::mem::discriminant(expr)
-                    );
-                    match expr {
-                        Expression::BinaryOperation(bin_op) => {
-                            find_node_at_offset(&bin_op.left.clone().upcast(), offset).or_else(
-                                || find_node_at_offset(&bin_op.right.clone().upcast(), offset),
-                            )
-                        }
-                        Expression::UnaryOperation(unary_op) => {
-                            find_node_at_offset(&unary_op.operand.clone().upcast(), offset)
-                        }
-                        Expression::Invocation(inv) => {
-                            find_node_at_offset(&inv.function.clone().upcast(), offset).or_else(
-                                || {
-                                    inv.arguments.iter().find_map(|arg| {
-                                        find_node_at_offset(&arg.clone().upcast(), offset)
-                                    })
-                                },
-                            )
-                        }
-                        Expression::FunctionExpression(func) => {
-                            find_node_at_offset(&func.body.clone().upcast(), offset)
-                        }
-                        Expression::ParenthesizedExpression(paren) => {
-                            find_node_at_offset(&paren.expression.clone().upcast(), offset)
-                        }
-                        Expression::IfElseExpression(if_else) => {
-                            find_node_at_offset(&if_else.condition.clone().upcast(), offset)
-                                .or_else(|| {
-                                    find_node_at_offset(
-                                        &if_else.consequent.clone().upcast(),
-                                        offset,
-                                    )
-                                })
-                                .or_else(|| match &if_else.else_clause {
-                                    Some(crate::ast::grammar::ElseClause::ElseBlock {
-                                        expression,
-                                        ..
-                                    }) => find_node_at_offset(&expression.clone().upcast(), offset),
-                                    Some(crate::ast::grammar::ElseClause::ElseIf {
-                                        if_else: nested,
-                                        ..
-                                    }) => find_node_at_offset(&nested.clone().upcast(), offset),
-                                    None => None,
-                                })
-                        }
-                        Expression::ArrayLiteral(arr) => arr
-                            .elements
-                            .iter()
-                            .find_map(|elem| find_node_at_offset(&elem.clone().upcast(), offset)),
-                        Expression::ObjectLiteral(obj) => {
-                            obj.fields.iter().find_map(|(_, _, value)| {
-                                find_node_at_offset(&value.clone().upcast(), offset)
-                            })
-                        }
-                        Expression::PropertyAccessExpression(prop_access) => {
-                            find_node_at_offset(&prop_access.subject.clone().upcast(), offset)
-                        }
-                        _ => None,
-                    }
-                }
-                Any::FunctionBody(body) => match body {
-                    FunctionBody::Expression(expr) => {
-                        find_node_at_offset(&expr.clone().upcast(), offset)
-                    }
-                    FunctionBody::Block(_) => None,
-                },
-                _ => {
-                    eprintln!("[DEBUG] find_node_at_offset() - node is other type");
-                    None
-                }
-            };
-
-            // If no child contains the offset, return this node
-            child.or_else(|| {
-                eprintln!("[DEBUG] find_node_at_offset() - no child found, returning this node");
-                Some(ast.clone())
-            })
-        }
-    }
+    find_deepest(ast, &|node| {
+        let s = node.slice();
+        offset >= s.start && offset <= s.end
+    })
 }
 
 /// Convert an LSP document URI (e.g. "file:///path/to/foo.bgl") to a PathBuf.
