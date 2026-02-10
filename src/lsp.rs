@@ -355,8 +355,23 @@ impl LanguageServer for BagelLanguageServer {
                 node.slice().end
             );
 
-            // Try to get the type if it's an expression
-            let type_info = if let Some(expr) = node.clone().try_downcast::<Expression>() {
+            // Try to get the type: if this node is an expression, use it directly;
+            // otherwise walk up to find the nearest ancestor expression (e.g.
+            // PlainIdentifier -> LocalIdentifier)
+            let expr_node = node.clone().try_downcast::<Expression>().or_else(|| {
+                let mut current = node.parent();
+                while let Some(ancestor) = current {
+                    if let Some(expr) = ancestor.clone().try_downcast::<Expression>() {
+                        if expr.slice() == node.slice() {
+                            return Some(expr);
+                        }
+                        break;
+                    }
+                    current = ancestor.parent();
+                }
+                None
+            });
+            let type_info = if let Some(expr) = expr_node {
                 eprintln!("[DEBUG] hover() - node is an Expression, inferring type");
                 let store = self.modules.read().await;
                 let current_module =
@@ -377,16 +392,16 @@ impl LanguageServer for BagelLanguageServer {
                 String::new()
             };
 
-            let debug_str = format!("{:#?}", node);
-            eprintln!("[DEBUG] hover() - returning hover info");
-
-            return Ok(Some(Hover {
-                contents: HoverContents::Markup(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: format!("{}**AST:**\n```\n{}\n```", type_info, debug_str),
-                }),
-                range: None,
-            }));
+            if !type_info.is_empty() {
+                eprintln!("[DEBUG] hover() - returning hover info");
+                return Ok(Some(Hover {
+                    contents: HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: type_info,
+                    }),
+                    range: None,
+                }));
+            }
         }
 
         eprintln!("[DEBUG] hover() - no node found at offset, returning None");
