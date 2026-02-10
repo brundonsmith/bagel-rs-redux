@@ -14,6 +14,7 @@ const foo = () => {
         details: ParseError {
             message: "Expected expression",
         },
+        related: [],
     },
     BagelError {
         src: Slice("\n    (\n"),
@@ -21,5 +22,6 @@ const foo = () => {
         details: ParseError {
             message: "Expected statement",
         },
+        related: [],
     },
 ]

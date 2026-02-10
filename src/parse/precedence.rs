@@ -33,6 +33,7 @@ where
         details: BagelErrorDetails::ParseError {
             message: "Fail".to_string(),
         },
+        related: vec![],
     }))
 }
 

@@ -1005,6 +1005,7 @@ fn range_type_expression(i: Slice) -> ParseResult<AST<RangeTypeExpression>> {
             details: BagelErrorDetails::ParseError {
                 message: "Range type requires at least one bound".to_string(),
             },
+            related: vec![],
         }));
     }
 
@@ -1080,6 +1081,7 @@ fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>
                 details: BagelErrorDetails::ParseError {
                     message: "not a function type".to_owned(),
                 },
+                related: vec![],
             }))
         }
     };
@@ -1092,6 +1094,7 @@ fn function_type_expression(i: Slice) -> ParseResult<AST<FunctionTypeExpression>
                 details: BagelErrorDetails::ParseError {
                     message: "not a function type".to_owned(),
                 },
+                related: vec![],
             }))
         }
     };

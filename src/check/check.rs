@@ -1,10 +1,11 @@
+use std::collections::{HashMap as StdHashMap, HashSet};
 use std::fmt::Write;
 use std::path::Path;
 
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, Expression},
+        grammar::{Any, Declaration, Expression},
         modules::{Module, ModulesStore},
         slice::Slice,
     },
@@ -20,11 +21,18 @@ pub struct CheckContext<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct RelatedInfo {
+    pub src: Slice,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BagelError {
     // pub module_id: ModuleID,
     pub src: Slice,
     pub severity: RuleSeverity,
     pub details: BagelErrorDetails,
+    pub related: Vec<RelatedInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -232,6 +240,7 @@ where
                         details: BagelErrorDetails::ParseError {
                             message: message.to_string(),
                         },
+                        related: vec![],
                     });
                 }
             }
@@ -243,8 +252,38 @@ where
                     child.check(ctx, report_error);
                 });
 
-                // Per-variant checking logic (type checks only)
+                // Per-variant checking logic
                 match details {
+                    Any::Module(module) => {
+                        // Check for duplicate declaration names
+                        let mut seen_names: StdHashMap<String, Slice> = StdHashMap::new();
+                        for decl in &module.declarations {
+                            if let Some(Declaration::ConstDeclaration(c)) = decl.unpack() {
+                                let name = c.identifier.slice().as_str().to_string();
+                                match seen_names.get(&name) {
+                                    Some(first_src) => {
+                                        report_error(BagelError {
+                                            src: c.identifier.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Duplicate declaration '{}'",
+                                                    name
+                                                ),
+                                            },
+                                            related: vec![RelatedInfo {
+                                                src: first_src.clone(),
+                                                message: format!("'{}' first declared here", name),
+                                            }],
+                                        });
+                                    }
+                                    None => {
+                                        seen_names.insert(name, c.identifier.slice().clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Any::Expression(expression) => {
                         match expression {
                             Expression::BinaryOperation(bin_op) => {
@@ -277,6 +316,7 @@ where
                                                     })
                                                 ),
                                                 },
+                                                related: vec![],
                                             });
                                         }
                                         if !right_type.clone().fits(allowed, fits_ctx) {
@@ -293,6 +333,7 @@ where
                                                     })
                                                 ),
                                                 },
+                                                related: vec![],
                                             });
                                         }
                                     }
@@ -325,6 +366,7 @@ where
                                                     })
                                                 ),
                                             },
+                                            related: vec![],
                                         });
                                     }
                                 }
@@ -357,6 +399,7 @@ where
                                                 cond_type
                                             ),
                                         },
+                                        related: vec![],
                                     });
                                 }
                             }
@@ -390,6 +433,7 @@ where
                                                     property_name, subject_type
                                                 ),
                                             },
+                                            related: vec![],
                                         });
                                     }
                                     Type::Unknown | Type::Any | Type::Poisoned => {}
@@ -404,6 +448,7 @@ where
                                                     property_name, subject_type
                                                 ),
                                             },
+                                            related: vec![],
                                         });
                                     }
                                 }
@@ -437,6 +482,7 @@ where
                                     details: BagelErrorDetails::MiscError {
                                         message: issues.join("\n"),
                                     },
+                                    related: vec![],
                                 });
                             }
                         }

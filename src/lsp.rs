@@ -314,15 +314,12 @@ impl LanguageServer for BagelLanguageServer {
 
             // Try to get the type: if this node is an expression, use it directly;
             // otherwise walk up to find the nearest ancestor expression (e.g.
-            // PlainIdentifier -> LocalIdentifier)
+            // PlainIdentifier -> LocalIdentifier or PropertyAccessExpression)
             let expr_node = node.clone().try_downcast::<Expression>().or_else(|| {
                 let mut current = node.parent();
                 while let Some(ancestor) = current {
                     if let Some(expr) = ancestor.clone().try_downcast::<Expression>() {
-                        if expr.slice() == node.slice() {
-                            return Some(expr);
-                        }
-                        break;
+                        return Some(expr);
                     }
                     current = ancestor.parent();
                 }
@@ -342,7 +339,7 @@ impl LanguageServer for BagelLanguageServer {
                 };
                 let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
                 eprintln!("[DEBUG] hover() - inferred type: {}", inferred_type);
-                format!("**Type:** `{}`\n\n", inferred_type)
+                format!("```bagel\n{}\n```", inferred_type)
             } else {
                 eprintln!("[DEBUG] hover() - node is not an Expression");
                 String::new()
@@ -662,7 +659,7 @@ impl BagelLanguageServer {
         // Convert errors to LSP diagnostics
         let diagnostics: Vec<Diagnostic> = errors
             .into_iter()
-            .map(|error| bagel_error_to_diagnostic(&text, error))
+            .map(|error| bagel_error_to_diagnostic(uri, &text, error))
             .collect();
 
         eprintln!(
@@ -679,7 +676,7 @@ impl BagelLanguageServer {
     }
 }
 
-fn bagel_error_to_diagnostic(text: &str, error: BagelError) -> Diagnostic {
+fn bagel_error_to_diagnostic(uri: &str, text: &str, error: BagelError) -> Diagnostic {
     use crate::check::BagelErrorDetails;
     use crate::config::RuleSeverity;
 
@@ -698,6 +695,27 @@ fn bagel_error_to_diagnostic(text: &str, error: BagelError) -> Diagnostic {
     let start_pos = offset_to_position(text, error.src.start);
     let end_pos = offset_to_position(text, error.src.end);
 
+    let related_information = if error.related.is_empty() {
+        None
+    } else {
+        Some(
+            error
+                .related
+                .iter()
+                .map(|rel| DiagnosticRelatedInformation {
+                    location: Location {
+                        uri: uri.parse().unwrap(),
+                        range: Range {
+                            start: offset_to_position(text, rel.src.start),
+                            end: offset_to_position(text, rel.src.end),
+                        },
+                    },
+                    message: rel.message.clone(),
+                })
+                .collect(),
+        )
+    };
+
     Diagnostic {
         range: Range {
             start: start_pos,
@@ -708,7 +726,7 @@ fn bagel_error_to_diagnostic(text: &str, error: BagelError) -> Diagnostic {
         code_description: None,
         source: Some("bagel".to_string()),
         message,
-        related_information: None,
+        related_information,
         tags: None,
         data: None,
     }

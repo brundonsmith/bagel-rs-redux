@@ -22,6 +22,7 @@ const l: number = b * 3
         details: MiscError {
             message: "Type '2' is not assignable to type '1'",
         },
+        related: [],
     },
     BagelError {
         src: Slice("b"),
@@ -29,5 +30,6 @@ const l: number = b * 3
         details: MiscError {
             message: "Operator '*' cannot be applied to type ''hi''",
         },
+        related: [],
     },
 ]

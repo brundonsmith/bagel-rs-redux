@@ -28,6 +28,7 @@ impl nom::error::ParseError<Slice> for BagelError {
             details: BagelErrorDetails::ParseError {
                 message: format!("{:?}", kind),
             },
+            related: vec![],
         }
     }
 
@@ -42,6 +43,7 @@ impl nom::error::ParseError<Slice> for BagelError {
             details: BagelErrorDetails::ParseError {
                 message: format!("expected '{}'", ch),
             },
+            related: vec![],
         }
     }
 }
@@ -60,6 +62,7 @@ impl<E> nom::error::FromExternalError<Slice, E> for BagelError {
             details: BagelErrorDetails::ParseError {
                 message: format!("{:?}", kind),
             },
+            related: vec![],
         }
     }
 }
@@ -156,6 +159,7 @@ fn expect_inner<TResult, F: FnMut(Slice) -> ParseResult<TResult>>(
                 src: i,
                 severity: RuleSeverity::Error,
                 details: BagelErrorDetails::ParseError { message },
+                related: vec![],
             }))
         } else {
             res
