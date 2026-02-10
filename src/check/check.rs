@@ -1,4 +1,4 @@
-use std::collections::{HashMap as StdHashMap, HashSet};
+use std::collections::HashMap as StdHashMap;
 use std::fmt::Write;
 use std::path::Path;
 

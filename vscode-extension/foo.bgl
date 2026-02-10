@@ -7,3 +7,7 @@ const a: string = nil
 const b = x + y * 2
 const stuff: string = 123
 const sdfkgjhsdfg: number = thing
+
+const main = () => {
+    js.console.log(thing + ' <- imported!')
+}

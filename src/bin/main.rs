@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use bagel::ast::modules::{ModulePath, ModulesStore};
 use bagel::check::{CheckContext, Checkable};
+use bagel::compile::bundle::{bundle, BundleContext};
 use bagel::config::Config;
-use bagel::utils::resolve_targets;
+use bagel::utils::{resolve_entrypoint, resolve_targets};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -39,8 +40,60 @@ enum Command {
         /// Files, directories, or glob patterns to build
         targets: Vec<String>,
     },
+    /// Compile and run Bagel via Node.js
+    Run {
+        /// Files, directories, or glob patterns to run
+        targets: Vec<String>,
+    },
     /// Start the Language Server Protocol server
     Lsp,
+}
+
+async fn bundle_entrypoint(config: &Config, targets: Vec<String>) -> (PathBuf, String) {
+    let entrypoint = match resolve_entrypoint(&targets) {
+        Some(path) => path,
+        None => {
+            eprintln!("Cannot determine entrypoint from the given targets");
+            std::process::exit(1);
+        }
+    };
+
+    let files = resolve_targets(targets);
+    let store = match ModulesStore::load(files).await {
+        Ok(store) => store,
+        Err(e) => {
+            eprintln!("Failed to load modules: {:?}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let entry_module_path = ModulePath::File(
+        entrypoint
+            .canonicalize()
+            .unwrap_or_else(|_| entrypoint.clone()),
+    );
+    let entry_module = match store.modules.get(&entry_module_path) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "Entrypoint '{}' not found in loaded modules",
+                entrypoint.display()
+            );
+            std::process::exit(1);
+        }
+    };
+
+    let mut output = String::new();
+    let ctx = BundleContext {
+        config,
+        modules: &store,
+    };
+    if let Err(e) = bundle(ctx, &mut output) {
+        eprintln!("Build failed: {}", e);
+        std::process::exit(1);
+    }
+
+    (entrypoint, output)
 }
 
 #[tokio::main]
@@ -126,15 +179,31 @@ async fn main() {
             );
         }
         Command::Build { targets } => {
-            let files = resolve_targets(targets);
-            let store = match ModulesStore::load(files).await {
-                Ok(store) => store,
+            let (entrypoint, output) = bundle_entrypoint(&config, targets).await;
+
+            let output_path = PathBuf::from(format!("{}.js", entrypoint.display()));
+            if let Err(e) = std::fs::write(&output_path, &output) {
+                eprintln!("Failed to write {}: {}", output_path.display(), e);
+                std::process::exit(1);
+            }
+
+            eprintln!("Built {}", output_path.display());
+        }
+        Command::Run { targets } => {
+            let (_entrypoint, output) = bundle_entrypoint(&config, targets).await;
+
+            let status = std::process::Command::new("node")
+                .arg("-e")
+                .arg(&output)
+                .status();
+
+            match status {
+                Ok(s) => std::process::exit(s.code().unwrap_or(1)),
                 Err(e) => {
-                    eprintln!("Failed to load modules: {:?}", e);
+                    eprintln!("Failed to run node: {}", e);
                     std::process::exit(1);
                 }
-            };
-            eprintln!("TODO: build {} modules", store.modules.len());
+            }
         }
         Command::Lsp => {
             bagel::lsp::run_lsp().await;

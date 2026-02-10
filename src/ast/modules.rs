@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -236,5 +236,38 @@ impl ModulesStore {
     pub fn find_imported(&self, from: &Module, import_path: &str) -> Option<&Module> {
         let path = from.path.join(import_path);
         self.modules.get(&path)
+    }
+
+    /// Return all modules in topological order: dependencies before dependents.
+    ///
+    /// If A imports B and B imports C, the result is [C, B, A]. Modules with
+    /// no dependency relationship appear in arbitrary order relative to each
+    /// other.
+    pub fn topological_sort(&self) -> Vec<&Module> {
+        let mut visited = HashSet::new();
+        let mut result = Vec::with_capacity(self.modules.len());
+
+        fn visit<'a>(
+            path: &ModulePath,
+            modules: &'a HashMap<ModulePath, Module>,
+            visited: &mut HashSet<ModulePath>,
+            result: &mut Vec<&'a Module>,
+        ) {
+            if !visited.insert(path.clone()) {
+                return;
+            }
+            if let Some(module) = modules.get(path) {
+                for dep in module.import_paths() {
+                    visit(&dep, modules, visited, result);
+                }
+                result.push(module);
+            }
+        }
+
+        for path in self.modules.keys() {
+            visit(path, &self.modules, &mut visited, &mut result);
+        }
+
+        result
     }
 }
