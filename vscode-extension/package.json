@@ -32,6 +32,12 @@
         "scopeName": "source.bagel",
         "path": "./syntaxes/bagel.tmLanguage.json"
       }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "bagel.json",
+        "url": "./bagel.schema.json"
+      }
     ]
   },
   "scripts": {

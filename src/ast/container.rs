@@ -229,23 +229,12 @@ where
         }
     }
 
-    pub fn unpack(&self) -> TKind {
+    pub fn unpack(&self) -> Option<TKind> {
         match self {
             AST::Valid(inner, _) => match TKind::try_from(inner.details.clone()) {
-                Ok(res) => res,
+                Ok(res) => Some(res),
                 Err(_) => unreachable!(),
             },
-            AST::Malformed { .. } => panic!("Cannot unpack malformed AST node"),
-        }
-    }
-
-    pub fn try_unpack<TExpected>(&self) -> Option<TExpected>
-    where
-        TExpected: TryFrom<Any>,
-        Any: From<TExpected>,
-    {
-        match self {
-            AST::Valid(inner, _) => TExpected::try_from(inner.details.clone()).ok(),
             AST::Malformed { .. } => None,
         }
     }

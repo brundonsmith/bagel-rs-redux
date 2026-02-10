@@ -22,12 +22,12 @@ impl AST<Expression> {
         eprintln!("[DEBUG] infer_type({:?})", self);
         eprintln!("[DEBUG]   Slice: {:?}", self.slice());
 
-        match self.details() {
+        match self.unpack() {
             // Malformed expressions have unknown type
             None => Type::Poisoned,
 
             // Infer type from valid expressions
-            Some(_) => match self.unpack() {
+            Some(expr) => match expr {
                 NilLiteral(_) => Type::Nil,
 
                 BooleanLiteral(lit) => Type::Boolean {
@@ -57,13 +57,13 @@ impl AST<Expression> {
                 },
 
                 BinaryOperation(bin_op) => Type::BinaryOperation {
-                    operator: bin_op.operator.unpack(),
+                    operator: bin_op.operator.unpack().unwrap(),
                     left: Arc::new(bin_op.left.infer_type(ctx)),
                     right: Arc::new(bin_op.right.infer_type(ctx)),
                 },
 
                 UnaryOperation(unary_op) => Type::UnaryOperation {
-                    operator: unary_op.operator.unpack(),
+                    operator: unary_op.operator.unpack().unwrap(),
                     operand: Arc::new(unary_op.operand.infer_type(ctx)),
                 },
 
@@ -91,7 +91,7 @@ impl AST<Expression> {
                         .map(|(i, (_name, type_ann))| {
                             type_ann
                                 .as_ref()
-                                .map(|(_, t)| Type::from(t.unpack()))
+                                .and_then(|(_, t)| t.unpack().map(Type::from))
                                 .or_else(|| {
                                     expected_args.as_ref().and_then(|ea| ea.get(i).cloned())
                                 })
@@ -99,10 +99,13 @@ impl AST<Expression> {
                         })
                         .collect();
                     let returns = Arc::new(match &func.return_type {
-                        Some((_colon, ret_type)) => Type::from(ret_type.unpack()),
+                        Some((_colon, ret_type)) => {
+                            ret_type.unpack().map(Type::from).unwrap_or(Type::Poisoned)
+                        }
                         None => match func.body.unpack() {
-                            FunctionBody::Expression(expr) => expr.infer_type(ctx),
-                            FunctionBody::Block(_) => Type::Never,
+                            Some(FunctionBody::Expression(expr)) => expr.infer_type(ctx),
+                            Some(FunctionBody::Block(_)) => Type::Never,
+                            None => Type::Poisoned,
                         },
                     });
 

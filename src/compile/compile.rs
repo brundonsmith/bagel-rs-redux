@@ -73,13 +73,19 @@ where
                             }
                         }
                         write!(f, " }} from ")?;
-                        let path_contents = decl.path.unpack().contents;
-                        let path_str = path_contents.as_str();
-                        let compiled_path = path_str
-                            .strip_suffix(".bgl")
-                            .map(|stem| format!("{}.js", stem))
-                            .unwrap_or_else(|| path_str.to_string());
-                        write!(f, "'{}'", compiled_path)?;
+                        match decl.path.unpack() {
+                            Some(path_lit) => {
+                                let path_str = path_lit.contents.as_str();
+                                let compiled_path = path_str
+                                    .strip_suffix(".bgl")
+                                    .map(|stem| format!("{}.js", stem))
+                                    .unwrap_or_else(|| path_str.to_string());
+                                write!(f, "'{}'", compiled_path)?;
+                            }
+                            None => {
+                                write!(f, "{}", decl.path.slice().as_str())?;
+                            }
+                        }
                         Ok(())
                     }
                 },
@@ -297,7 +303,10 @@ fn compile_if_else_ternary<W: Write>(
         Some(ElseClause::ElseBlock { expression, .. }) => expression.compile(ctx, f),
         Some(ElseClause::ElseIf {
             if_else: nested, ..
-        }) => compile_if_else_ternary(&nested.unpack(), ctx, f),
+        }) => match nested.unpack() {
+            Some(nested_data) => compile_if_else_ternary(&nested_data, ctx, f),
+            None => write!(f, "{}", nested.slice().as_str()),
+        },
         None => write!(f, "null"),
     }
 }

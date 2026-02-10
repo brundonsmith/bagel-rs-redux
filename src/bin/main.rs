@@ -47,6 +47,15 @@ enum Command {
 async fn main() {
     let cli = Cli::parse();
 
+    let config = match Config::load_from_ancestors(&std::env::current_dir().unwrap()) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    };
+    eprintln!("config: {:?}", config);
+
     match cli.command {
         Command::Check { watch: _, targets } => {
             let files = resolve_targets(targets);
@@ -57,8 +66,6 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-
-            let config = Config::default();
             let mut error_count = 0;
             let module_count = store.modules.len();
 

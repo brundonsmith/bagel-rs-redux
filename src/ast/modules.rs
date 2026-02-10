@@ -116,16 +116,20 @@ impl Module {
     fn import_paths(&self) -> Vec<ModulePath> {
         self.ast
             .unpack()
-            .declarations
-            .iter()
-            .filter_map(|decl| match decl.unpack() {
-                grammar::Declaration::ImportDeclaration(import) => {
-                    Some(import.path.unpack().contents.as_str().to_string())
-                }
-                _ => None,
+            .map(|module| {
+                module
+                    .declarations
+                    .iter()
+                    .filter_map(|decl| match decl.unpack()? {
+                        grammar::Declaration::ImportDeclaration(import) => {
+                            Some(import.path.unpack()?.contents.as_str().to_string())
+                        }
+                        _ => None,
+                    })
+                    .map(|import_path| self.path.join(&import_path))
+                    .collect()
             })
-            .map(|import_path| self.path.join(&import_path))
-            .collect()
+            .unwrap_or(vec![])
     }
 }
 

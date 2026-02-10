@@ -250,24 +250,25 @@ where
                             Expression::BinaryOperation(bin_op) => {
                                 // Type-check operands
                                 let operator = bin_op.operator.unpack();
-                                if let Some(allowed) = operator.allowed_operand_type() {
-                                    let infer_ctx = InferTypeContext {
-                                        modules: Some(ctx.modules),
-                                        current_module: ctx.current_module,
-                                    };
-                                    let left_type = bin_op.left.infer_type(infer_ctx);
-                                    let right_type = bin_op.right.infer_type(infer_ctx);
-                                    let fits_ctx = FitsContext {
-                                        modules: Some(ctx.modules),
-                                    };
-                                    let op_str = operator.as_str();
+                                if let Some(operator) = operator {
+                                    if let Some(allowed) = operator.allowed_operand_type() {
+                                        let infer_ctx = InferTypeContext {
+                                            modules: Some(ctx.modules),
+                                            current_module: ctx.current_module,
+                                        };
+                                        let left_type = bin_op.left.infer_type(infer_ctx);
+                                        let right_type = bin_op.right.infer_type(infer_ctx);
+                                        let fits_ctx = FitsContext {
+                                            modules: Some(ctx.modules),
+                                        };
+                                        let op_str = operator.as_str();
 
-                                    if !left_type.clone().fits(allowed.clone(), fits_ctx) {
-                                        report_error(BagelError {
-                                            src: bin_op.left.slice().clone(),
-                                            severity: RuleSeverity::Error,
-                                            details: BagelErrorDetails::MiscError {
-                                                message: format!(
+                                        if !left_type.clone().fits(allowed.clone(), fits_ctx) {
+                                            report_error(BagelError {
+                                                src: bin_op.left.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
                                                     "Operator '{}' cannot be applied to type '{}'",
                                                     op_str,
                                                     left_type.normalize(NormalizeContext {
@@ -275,15 +276,15 @@ where
                                                         current_module: ctx.current_module
                                                     })
                                                 ),
-                                            },
-                                        });
-                                    }
-                                    if !right_type.clone().fits(allowed, fits_ctx) {
-                                        report_error(BagelError {
-                                            src: bin_op.right.slice().clone(),
-                                            severity: RuleSeverity::Error,
-                                            details: BagelErrorDetails::MiscError {
-                                                message: format!(
+                                                },
+                                            });
+                                        }
+                                        if !right_type.clone().fits(allowed, fits_ctx) {
+                                            report_error(BagelError {
+                                                src: bin_op.right.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
                                                     "Operator '{}' cannot be applied to type '{}'",
                                                     op_str,
                                                     right_type.normalize(NormalizeContext {
@@ -291,37 +292,41 @@ where
                                                         current_module: ctx.current_module
                                                     })
                                                 ),
-                                            },
-                                        });
+                                                },
+                                            });
+                                        }
                                     }
                                 }
                             }
                             Expression::UnaryOperation(unary_op) => {
                                 // Type-check operand
                                 let operator = unary_op.operator.unpack();
-                                let allowed = operator.allowed_operand_type();
-                                let operand_type = unary_op.operand.infer_type(InferTypeContext {
-                                    modules: Some(ctx.modules),
-                                    current_module: ctx.current_module,
-                                });
-                                let fits_ctx = FitsContext {
-                                    modules: Some(ctx.modules),
-                                };
-                                if !operand_type.clone().fits(allowed, fits_ctx) {
-                                    report_error(BagelError {
-                                        src: unary_op.operand.slice().clone(),
-                                        severity: RuleSeverity::Error,
-                                        details: BagelErrorDetails::MiscError {
-                                            message: format!(
-                                                "Operator '{}' cannot be applied to type '{}'",
-                                                operator.as_str(),
-                                                operand_type.normalize(NormalizeContext {
-                                                    modules: Some(ctx.modules),
-                                                    current_module: ctx.current_module
-                                                })
-                                            ),
-                                        },
-                                    });
+                                if let Some(operator) = operator {
+                                    let allowed = operator.allowed_operand_type();
+                                    let operand_type =
+                                        unary_op.operand.infer_type(InferTypeContext {
+                                            modules: Some(ctx.modules),
+                                            current_module: ctx.current_module,
+                                        });
+                                    let fits_ctx = FitsContext {
+                                        modules: Some(ctx.modules),
+                                    };
+                                    if !operand_type.clone().fits(allowed, fits_ctx) {
+                                        report_error(BagelError {
+                                            src: unary_op.operand.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Operator '{}' cannot be applied to type '{}'",
+                                                    operator.as_str(),
+                                                    operand_type.normalize(NormalizeContext {
+                                                        modules: Some(ctx.modules),
+                                                        current_module: ctx.current_module
+                                                    })
+                                                ),
+                                            },
+                                        });
+                                    }
                                 }
                             }
                             Expression::IfElseExpression(if_else) => {

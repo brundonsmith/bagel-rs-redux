@@ -434,8 +434,14 @@ impl LanguageServer for BagelLanguageServer {
 
         // Check if the node is within an import declaration
         if let Some(decl) = node.clone().try_downcast::<Declaration>() {
-            if let Declaration::ImportDeclaration(import_decl) = decl.unpack() {
-                let import_path = import_decl.path.unpack().contents.as_str().to_string();
+            if let Some(Declaration::ImportDeclaration(import_decl)) = decl.unpack() {
+                let Some(import_path) = import_decl
+                    .path
+                    .unpack()
+                    .map(|p| p.contents.as_str().to_string())
+                else {
+                    return Ok(None);
+                };
 
                 // Check if the cursor is on the path string
                 let path_slice = import_decl.path.slice();
@@ -482,14 +488,13 @@ impl LanguageServer for BagelLanguageServer {
                         .and_then(|target_module| {
                             let target_text = target_module.source.as_str();
                             let target_uri = path_to_uri(&target_module.path);
-                            let module_data = target_module.ast.unpack();
+                            let module_data = target_module.ast.unpack()?;
                             module_data
                                 .declarations
                                 .iter()
-                                .filter(|d| d.details().is_some())
                                 .filter_map(|d| match d.unpack() {
-                                    Declaration::ConstDeclaration(c) => Some(c),
-                                    Declaration::ImportDeclaration(_) => None,
+                                    Some(Declaration::ConstDeclaration(c)) => Some(c),
+                                    _ => None,
                                 })
                                 .find(|c| c.identifier.slice().as_str() == original_name)
                                 .map(|c| {
@@ -522,7 +527,7 @@ impl LanguageServer for BagelLanguageServer {
             None => return Ok(None),
         };
         let local_id = match expr.unpack() {
-            Expression::LocalIdentifier(id) => id,
+            Some(Expression::LocalIdentifier(id)) => id,
             _ => return Ok(None),
         };
 
@@ -620,73 +625,64 @@ impl LanguageServer for BagelLanguageServer {
 
         // Traverse the AST to find declarations
         eprintln!("[DEBUG] inlay_hint() - attempting to downcast to Module");
-        if let Some(module) = ast.try_downcast::<grammar::Module>() {
-            match module.details() {
-                None => {
-                    eprintln!("[DEBUG] inlay_hint() - module is malformed, skipping");
-                }
-                Some(_) => {
-                    let module_data = module.unpack();
-                    eprintln!(
-                        "[DEBUG] inlay_hint() - found Module with {} declarations",
-                        module_data.declarations.len()
-                    );
+        if let Some(module_data) = ast
+            .try_downcast::<grammar::Module>()
+            .map(|ast| ast.unpack())
+            .flatten()
+        {
+            eprintln!(
+                "[DEBUG] inlay_hint() - found Module with {} declarations",
+                module_data.declarations.len()
+            );
 
-                    for (idx, decl) in module_data.declarations.iter().enumerate() {
-                        if decl.details().is_none() {
-                            eprintln!(
-                                "[DEBUG] inlay_hint() - declaration {} is malformed, skipping",
-                                idx
-                            );
-                            continue;
-                        }
-
-                        match decl.unpack() {
-                            Declaration::ConstDeclaration(decl_data) => {
-                                if decl_data.type_annotation.is_none() {
-                                    eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
+            for (idx, decl) in module_data
+                .declarations
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, decl)| decl.unpack().map(|decl| (idx, decl)))
+            {
+                match decl {
+                    Declaration::ConstDeclaration(decl_data) => {
+                        if decl_data.type_annotation.is_none() {
+                            eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
                                         idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
 
-                                    // Infer the type of the value
-                                    let ctx = InferTypeContext {
-                                        modules: Some(&*store),
-                                        current_module,
-                                    };
-                                    let inferred_type =
-                                        decl_data.value.infer_type(ctx).normalize(norm_ctx);
-                                    eprintln!(
-                                        "[DEBUG] inlay_hint() - inferred type for decl {}: {}",
-                                        idx, inferred_type
-                                    );
+                            // Infer the type of the value
+                            let ctx = InferTypeContext {
+                                modules: Some(&*store),
+                                current_module,
+                            };
+                            let inferred_type = decl_data.value.infer_type(ctx).normalize(norm_ctx);
+                            eprintln!(
+                                "[DEBUG] inlay_hint() - inferred type for decl {}: {}",
+                                idx, inferred_type
+                            );
 
-                                    // Get the position after the identifier
-                                    let identifier_slice = decl_data.identifier.slice();
-                                    let position = offset_to_position(&text, identifier_slice.end);
-                                    eprintln!("[DEBUG] inlay_hint() - hint position for decl {}: line={} char={}",
-                                        idx, position.line, position.character);
+                            // Get the position after the identifier
+                            let identifier_slice = decl_data.identifier.slice();
+                            let position = offset_to_position(&text, identifier_slice.end);
+                            eprintln!(
+                                "[DEBUG] inlay_hint() - hint position for decl {}: line={} char={}",
+                                idx, position.line, position.character
+                            );
 
-                                    hints.push(InlayHint {
-                                        position,
-                                        label: InlayHintLabel::String(format!(
-                                            ": {}",
-                                            inferred_type
-                                        )),
-                                        kind: Some(InlayHintKind::TYPE),
-                                        text_edits: None,
-                                        tooltip: None,
-                                        padding_left: None,
-                                        padding_right: None,
-                                        data: None,
-                                    });
-                                }
-
-                                // Collect parameter hints from function expressions in the value
-                                collect_parameter_hints(&decl_data.value, &text, &mut hints);
-                            }
-                            Declaration::ImportDeclaration(_) => {
-                                // No inlay hints for imports
-                            }
+                            hints.push(InlayHint {
+                                position,
+                                label: InlayHintLabel::String(format!(": {}", inferred_type)),
+                                kind: Some(InlayHintKind::TYPE),
+                                text_edits: None,
+                                tooltip: None,
+                                padding_left: None,
+                                padding_right: None,
+                                data: None,
+                            });
                         }
+
+                        // Collect parameter hints from function expressions in the value
+                        collect_parameter_hints(&decl_data.value, &text, &mut hints);
+                    }
+                    Declaration::ImportDeclaration(_) => {
+                        // No inlay hints for imports
                     }
                 }
             }
@@ -816,7 +812,7 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
         let Some(func_expr) = node.clone().try_downcast::<Expression>() else {
             return WalkAction::Continue;
         };
-        let Expression::FunctionExpression(func) = func_expr.unpack() else {
+        let Some(Expression::FunctionExpression(func)) = func_expr.unpack() else {
             return WalkAction::Continue;
         };
 

@@ -243,7 +243,7 @@ pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
 pub fn local_identifier(i: Slice) -> ParseResult<AST<LocalIdentifier>> {
     map(plain_identifier, |identifier: AST<PlainIdentifier>| {
         let node = make_ast(identifier.slice().clone(), LocalIdentifier { identifier });
-        node.unpack().identifier.set_parent(&node);
+        node.unpack().unwrap().identifier.set_parent(&node);
 
         node
     })(i)
@@ -809,7 +809,7 @@ fn if_else_expression(i: Slice) -> ParseResult<AST<IfElseExpression>> {
     consequent.set_parent(&node);
 
     // Set parents on AST children within the else clause
-    match &node.unpack().else_clause {
+    match &node.unpack().unwrap().else_clause {
         Some(ElseClause::ElseBlock { expression, .. }) => {
             expression.clone().set_parent(&node);
         }

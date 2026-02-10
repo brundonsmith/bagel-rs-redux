@@ -277,12 +277,18 @@ impl From<TypeExpression> for Type {
                 let elements = tuple
                     .elements
                     .into_iter()
-                    .map(|elem| Type::from(elem.unpack()))
+                    .map(|elem| elem.unpack().map(Type::from).unwrap_or(Type::Poisoned))
                     .collect();
                 Type::Tuple { elements }
             }
             ArrayTypeExpression(array) => {
-                let element = Arc::new(Type::from(array.element.unpack()));
+                let element = Arc::new(
+                    array
+                        .element
+                        .unpack()
+                        .map(Type::from)
+                        .unwrap_or(Type::Poisoned),
+                );
                 Type::Array { element }
             }
             ObjectTypeExpression(obj) => {
@@ -291,7 +297,8 @@ impl From<TypeExpression> for Type {
                     .into_iter()
                     .map(|(name, _colon, type_expr)| {
                         let field_name = name.slice().as_str().to_string();
-                        let field_type = Type::from(type_expr.unpack());
+                        let field_type =
+                            type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned);
                         (field_name, field_type)
                     })
                     .collect();
@@ -301,9 +308,16 @@ impl From<TypeExpression> for Type {
                 let args = func
                     .parameters
                     .into_iter()
-                    .map(|(_name_colon, type_expr)| Type::from(type_expr.unpack()))
+                    .map(|(_name_colon, type_expr)| {
+                        type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned)
+                    })
                     .collect();
-                let returns = Arc::new(Type::from(func.return_type.unpack()));
+                let returns = Arc::new(
+                    func.return_type
+                        .unpack()
+                        .map(Type::from)
+                        .unwrap_or(Type::Poisoned),
+                );
                 Type::FuncType {
                     args,
                     args_spread: None,
@@ -324,11 +338,15 @@ impl From<TypeExpression> for Type {
                 let variants = union
                     .variants
                     .into_iter()
-                    .map(|variant| Type::from(variant.unpack()))
+                    .map(|variant| variant.unpack().map(Type::from).unwrap_or(Type::Poisoned))
                     .collect();
                 Type::Union { variants }
             }
-            ParenthesizedTypeExpression(paren) => Type::from(paren.expression.unpack()),
+            ParenthesizedTypeExpression(paren) => paren
+                .expression
+                .unpack()
+                .map(Type::from)
+                .unwrap_or(Type::Poisoned),
             TypeOfTypeExpression(type_of) => {
                 let ctx = InferTypeContext {
                     modules: None,

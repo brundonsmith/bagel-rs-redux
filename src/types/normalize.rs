@@ -2,7 +2,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::ast::container::AST;
-use crate::ast::grammar::{self, Any, BinaryOperator, Expression, FunctionBody, UnaryOperator};
+use crate::ast::grammar::{
+    self, Any, BinaryOperator, Declaration, Expression, FunctionBody, UnaryOperator,
+};
 use crate::ast::modules::{Module, ModulesStore};
 use crate::ast::slice::Slice;
 use crate::types::fits::FitsContext;
@@ -229,7 +231,7 @@ impl AST<Expression> {
             Any::Declaration(grammar::Declaration::ConstDeclaration(const_decl)) => const_decl
                 .type_annotation
                 .as_ref()
-                .map(|(_colon, type_expr)| Type::from(type_expr.unpack())),
+                .and_then(|(_colon, type_expr)| type_expr.unpack().map(Type::from)),
             Any::Expression(Expression::Invocation(inv)) => {
                 let arg_index = inv.arguments.iter().position(|arg| arg.ptr_eq(self))?;
 
@@ -252,7 +254,7 @@ impl AST<Expression> {
                     Any::Expression(Expression::FunctionExpression(func)) => func
                         .return_type
                         .as_ref()
-                        .map(|(_colon, type_expr)| Type::from(type_expr.unpack())),
+                        .and_then(|(_colon, type_expr)| type_expr.unpack().map(Type::from)),
                     _ => None,
                 }
             }
@@ -284,10 +286,9 @@ pub fn resolve_identifier<'a>(
                 let const_match = module
                     .declarations
                     .iter()
-                    .filter(|decl| decl.details().is_some())
                     .filter_map(|decl| match decl.unpack() {
-                        grammar::Declaration::ConstDeclaration(const_decl) => Some(const_decl),
-                        grammar::Declaration::ImportDeclaration(_) => None,
+                        Some(Declaration::ConstDeclaration(const_decl)) => Some(const_decl),
+                        _ => None,
                     })
                     .find(|const_decl| const_decl.identifier.slice().as_str() == name);
 
@@ -303,12 +304,9 @@ pub fn resolve_identifier<'a>(
                     let import_match = module
                         .declarations
                         .iter()
-                        .filter(|decl| decl.details().is_some())
                         .filter_map(|decl| match decl.unpack() {
-                            grammar::Declaration::ImportDeclaration(import_decl) => {
-                                Some(import_decl)
-                            }
-                            grammar::Declaration::ConstDeclaration(_) => None,
+                            Some(Declaration::ImportDeclaration(import_decl)) => Some(import_decl),
+                            _ => None,
                         })
                         .find_map(|import_decl| {
                             import_decl
@@ -322,11 +320,11 @@ pub fn resolve_identifier<'a>(
                                         .unwrap_or_else(|| spec.name.slice().as_str());
                                     local_name == name
                                 })
-                                .map(|spec| {
+                                .and_then(|spec| {
                                     let original_name = spec.name.slice().as_str().to_string();
                                     let import_path =
-                                        import_decl.path.unpack().contents.as_str().to_string();
-                                    (original_name, import_path)
+                                        import_decl.path.unpack()?.contents.as_str().to_string();
+                                    Some((original_name, import_path))
                                 })
                         });
 
@@ -422,7 +420,9 @@ fn resolve_local_identifier(
             match func_node.details() {
                 Some(Any::Expression(Expression::FunctionExpression(func))) => {
                     match &func.parameters[param_index].1 {
-                        Some((_colon, type_expr)) => Type::from(type_expr.unpack()),
+                        Some((_colon, type_expr)) => {
+                            type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned)
+                        }
                         None => {
                             // Try contextual typing: get expected type for the
                             // function expression and extract the parameter type
@@ -462,12 +462,12 @@ fn resolve_imported_identifier<'a>(
     let imported_module = store.find_imported(current_module, import_path)?;
 
     // Find the exported const declaration with the matching name in the imported module
-    let imported_module_data = imported_module.ast.unpack();
+    let imported_module_data = imported_module.ast.unpack()?;
     imported_module_data
         .declarations
         .iter()
         .filter(|decl| decl.details().is_some())
-        .filter_map(|decl| match decl.unpack() {
+        .filter_map(|decl| match decl.unpack().unwrap() {
             grammar::Declaration::ConstDeclaration(const_decl) => Some(const_decl),
             grammar::Declaration::ImportDeclaration(_) => None,
         })

@@ -1,0 +1,264 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Config",
+  "type": "object",
+  "required": [
+    "rules"
+  ],
+  "properties": {
+    "rules": {
+      "$ref": "#/definitions/Rules"
+    }
+  },
+  "definitions": {
+    "FunctionSyntax": {
+      "oneOf": [
+        {
+          "description": "Plain const syntax",
+          "type": "string",
+          "enum": [
+            "Const"
+          ]
+        },
+        {
+          "description": "Named function syntax",
+          "type": "string",
+          "enum": [
+            "Function"
+          ]
+        }
+      ]
+    },
+    "FunctionSyntaxConfig": {
+      "type": "object",
+      "required": [
+        "function_syntax",
+        "severity"
+      ],
+      "properties": {
+        "function_syntax": {
+          "$ref": "#/definitions/FunctionSyntax"
+        },
+        "severity": {
+          "$ref": "#/definitions/RuleSeverityOrOff"
+        }
+      }
+    },
+    "IndentationConfig": {
+      "type": "object",
+      "required": [
+        "severity",
+        "spaces"
+      ],
+      "properties": {
+        "severity": {
+          "$ref": "#/definitions/RuleSeverityOrOff"
+        },
+        "spaces": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        }
+      }
+    },
+    "LineWidthConfig": {
+      "type": "object",
+      "required": [
+        "severity",
+        "width"
+      ],
+      "properties": {
+        "severity": {
+          "$ref": "#/definitions/RuleSeverityOrOff"
+        },
+        "width": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        }
+      }
+    },
+    "Locality": {
+      "type": "string",
+      "enum": [
+        "Module",
+        "Project"
+      ]
+    },
+    "NoDeadCodeConfig": {
+      "type": "object",
+      "required": [
+        "locality",
+        "severity"
+      ],
+      "properties": {
+        "locality": {
+          "$ref": "#/definitions/Locality"
+        },
+        "severity": {
+          "$ref": "#/definitions/RuleSeverityOrOff"
+        }
+      }
+    },
+    "RuleSeverityOrOff": {
+      "type": "string",
+      "enum": [
+        "Off",
+        "Warn",
+        "Error",
+        "Autofix"
+      ]
+    },
+    "Rules": {
+      "type": "object",
+      "required": [
+        "explicit_pure_functions",
+        "function_syntax",
+        "indentation",
+        "line_width",
+        "lower_camel_case_module_constants",
+        "lower_camel_case_module_functions",
+        "lower_camel_case_module_local_variables",
+        "no_dead_code",
+        "no_unnecessary_conditional",
+        "no_unnecessary_mutable_variables",
+        "no_unnecessary_nil_coalescing",
+        "no_unnecessary_parenthesis",
+        "no_unused_imports",
+        "sorted_imports",
+        "upper_camel_case_module_types",
+        "use_expressions_where_possible"
+      ],
+      "properties": {
+        "explicit_pure_functions": {
+          "description": "If a function is inferred to be pure, require the explicit `pure` keyword to be on it",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "function_syntax": {
+          "description": "Standardize module-level function declarations to either be all plain const declarations, or all use the dedicated function syntax.\n\nConst declarations that have a type definition which can't be represented in the dedicated function syntax (eg, a named function type) will be ignored by this rule.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/FunctionSyntaxConfig"
+            }
+          ]
+        },
+        "indentation": {
+          "description": "Whether and at what count to enforce indentation",
+          "allOf": [
+            {
+              "$ref": "#/definitions/IndentationConfig"
+            }
+          ]
+        },
+        "line_width": {
+          "description": "Whether and at what width to enforce maximum line width",
+          "allOf": [
+            {
+              "$ref": "#/definitions/LineWidthConfig"
+            }
+          ]
+        },
+        "lower_camel_case_module_constants": {
+          "description": "Require that top-level constant names in modules are in lower camel case",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "lower_camel_case_module_functions": {
+          "description": "Require that top-level function names in modules are in lower camel case",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "lower_camel_case_module_local_variables": {
+          "description": "Require that local variables and constants are in lower camel case",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "no_dead_code": {
+          "description": "Require that every non-exported local declaration be referenced from somewhere.\n\nCan be set to \"module\", which only applies to non-exported declarations, or can be set to \"project\", which assumes an export that isn't used in the current project isn't used at all (use \"module\" for libraries).",
+          "allOf": [
+            {
+              "$ref": "#/definitions/NoDeadCodeConfig"
+            }
+          ]
+        },
+        "no_unnecessary_conditional": {
+          "description": "Require that all conditionals have the possibility to be either true or false (not guaranteed to be just one or the other, based on type information)",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "no_unnecessary_mutable_variables": {
+          "description": "Require that every mutable variable (declared with `let`) is mutated somewhere. Auto-fix for this rule will replace those cases of `let` with `const`.\n\nCan be set to \"module\", which only applies to non-exported declarations, or can be set to \"project\", which assumes an export that isn't used in the current project isn't used at all (use \"module\" for libraries).",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "no_unnecessary_nil_coalescing": {
+          "description": "Require that the nil coalescing operator's left operand be possibly-nil (otherwise the operator does nothing).",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "no_unnecessary_parenthesis": {
+          "description": "If a pair of parenthesis will have no effect on behavior (due to precedence) or otherwise, they shouldn't be there",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "no_unused_imports": {
+          "description": "Require that all imports (items and entire statements) be used somewhere in the module",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "sorted_imports": {
+          "description": "Require that all imports are at the top of the file, and sorted: - The first section is HTTP imports, followed by a blank line, followed by another section for relative imports - Within each section, imports are sorted alphabetically by path - Within each group of imported items, items are sorted alphabetically by name",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "upper_camel_case_module_types": {
+          "description": "Require that top-level type names in modules are in upper camel case",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        },
+        "use_expressions_where_possible": {
+          "description": "If a function body isn't a single expression, but could be, require that it must be",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RuleSeverityOrOff"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

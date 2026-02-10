@@ -1,11 +1,42 @@
+use std::path::{Path, PathBuf};
+
+use schemars::JsonSchema;
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+impl Config {
+    /// Search upward from `start_dir` for a `bagel.json` file. If found,
+    /// parse it as a `Config`. Returns `Ok(Config::default())` if no file
+    /// is found, or an error message if the file exists but can't be parsed.
+    pub fn load_from_ancestors(start_dir: &Path) -> Result<Self, String> {
+        match Self::find_config_file(start_dir) {
+            Some(path) => {
+                let contents = std::fs::read_to_string(&path)
+                    .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+                serde_json::from_str(&contents)
+                    .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+            }
+            None => Ok(Self::default()),
+        }
+    }
+
+    fn find_config_file(start_dir: &Path) -> Option<PathBuf> {
+        let mut dir = start_dir;
+        loop {
+            let candidate = dir.join("bagel.json");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            dir = dir.parent()?;
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema, Default)]
 pub struct Config {
     pub rules: Rules,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub struct Rules {
     /// Whether and at what count to enforce indentation
     indentation: IndentationConfig,
@@ -125,37 +156,37 @@ impl Default for Rules {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub struct IndentationConfig {
     severity: RuleSeverityOrOff,
     spaces: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub struct LineWidthConfig {
     severity: RuleSeverityOrOff,
     width: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub struct NoDeadCodeConfig {
     severity: RuleSeverityOrOff,
     locality: Locality,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub enum Locality {
     Module,
     Project,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub struct FunctionSyntaxConfig {
     severity: RuleSeverityOrOff,
     function_syntax: FunctionSyntax,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub enum FunctionSyntax {
     /// Plain const syntax
     Const,
@@ -164,7 +195,7 @@ pub enum FunctionSyntax {
     Function,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub enum RuleSeverity {
     Warn,
     Error,
@@ -184,7 +215,7 @@ impl TryFrom<RuleSeverityOrOff> for RuleSeverity {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 pub enum RuleSeverityOrOff {
     Off,
     Warn,
