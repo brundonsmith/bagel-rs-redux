@@ -7,13 +7,12 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::ast::container::{find_deepest, walk_ast, WalkAction, AST};
-use crate::ast::grammar::{self, Any, Declaration, Expression};
+use crate::ast::grammar::{Any, Declaration, Expression};
 use crate::ast::modules::{ModulePath, ModulesStore};
 use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
 use crate::config::Config;
 use crate::emit::{EmitContext, Emittable};
-use crate::parse;
 use crate::types::infer::InferTypeContext;
 use crate::types::{resolve_identifier, NormalizeContext, ResolvedIdentifier, Type};
 
@@ -153,7 +152,7 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] did_open() completed - stored document for {}", uri);
 
         // Publish diagnostics
-        self.publish_diagnostics(&uri, &text).await;
+        self.publish_diagnostics(&uri).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -184,7 +183,7 @@ impl LanguageServer for BagelLanguageServer {
             );
 
             // Publish diagnostics
-            self.publish_diagnostics(&uri, &text).await;
+            self.publish_diagnostics(&uri).await;
         } else {
             eprintln!("[DEBUG] did_change() - no changes to process");
         }
@@ -208,41 +207,25 @@ impl LanguageServer for BagelLanguageServer {
         let uri = params.text_document.uri.to_string();
         eprintln!("[DEBUG] did_save() called - uri: {}", uri);
 
-        let documents = self.documents.read().await;
-        let text = match documents.get(&uri) {
-            Some(text) => text.clone(),
-            None => {
-                eprintln!("[DEBUG] did_save() - document not found in store");
-                return;
-            }
-        };
-        drop(documents);
-
         // Re-publish diagnostics on save
-        self.publish_diagnostics(&uri, &text).await;
+        self.publish_diagnostics(&uri).await;
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri.to_string();
         eprintln!("[DEBUG] formatting() called - uri: {}", uri);
 
-        let documents = self.documents.read().await;
-        let text = match documents.get(&uri) {
-            Some(text) => text.clone(),
+        let store = self.modules.read().await;
+        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+            Some(m) => m,
             None => return Ok(None),
         };
-        drop(documents);
-
-        let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match parse::module(slice) {
-            Ok((_, ast)) => ast,
-            Err(_) => return Ok(None),
-        };
+        let text = module.source.as_str().to_string();
+        let ast = &module.ast;
 
         let config = Config::default();
         let mut formatted = String::new();
         {
-            let store = self.modules.read().await;
             let ctx = EmitContext {
                 config: &config,
                 modules: &*store,
@@ -308,39 +291,13 @@ impl LanguageServer for BagelLanguageServer {
             uri, position.line, position.character
         );
 
-        let documents = self.documents.read().await;
-        eprintln!(
-            "[DEBUG] hover() - acquired document lock, total docs: {}",
-            documents.len()
-        );
-        let text = match documents.get(&uri) {
-            Some(text) => {
-                eprintln!(
-                    "[DEBUG] hover() - found document, length: {} bytes",
-                    text.len()
-                );
-                text.clone()
-            }
-            None => {
-                eprintln!("[DEBUG] hover() - document not found in store, returning None");
-                return Ok(None);
-            }
+        let store = self.modules.read().await;
+        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+            Some(m) => m,
+            None => return Ok(None),
         };
-        drop(documents);
-
-        // Parse the document
-        eprintln!("[DEBUG] hover() - parsing document");
-        let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match parse::any(slice) {
-            Ok((_, ast)) => {
-                eprintln!("[DEBUG] hover() - parse successful");
-                ast
-            }
-            Err(e) => {
-                eprintln!("[DEBUG] hover() - parse failed: {:?}", e);
-                return Ok(None);
-            }
-        };
+        let text = module.source.as_str().to_string();
+        let ast: AST<Any> = module.ast.clone().upcast();
 
         // Convert LSP position to byte offset
         let offset = position_to_offset(&text, position);
@@ -373,7 +330,6 @@ impl LanguageServer for BagelLanguageServer {
             });
             let type_info = if let Some(expr) = expr_node {
                 eprintln!("[DEBUG] hover() - node is an Expression, inferring type");
-                let store = self.modules.read().await;
                 let current_module =
                     uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
                 let ctx = InferTypeContext {
@@ -423,19 +379,13 @@ impl LanguageServer for BagelLanguageServer {
             uri, position.line, position.character
         );
 
-        let documents = self.documents.read().await;
-        let text = match documents.get(&uri) {
-            Some(text) => text.clone(),
+        let store = self.modules.read().await;
+        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+            Some(m) => m,
             None => return Ok(None),
         };
-        drop(documents);
-
-        // Parse and find the node at the cursor
-        let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match parse::any(slice) {
-            Ok((_, ast)) => ast,
-            Err(_) => return Ok(None),
-        };
+        let text = module.source.as_str().to_string();
+        let ast: AST<Any> = module.ast.clone().upcast();
 
         let offset = position_to_offset(&text, position);
         let node = match find_node_at_offset(&ast, offset) {
@@ -443,7 +393,6 @@ impl LanguageServer for BagelLanguageServer {
             None => return Ok(None),
         };
 
-        let store = self.modules.read().await;
         let current_module =
             uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
 
@@ -595,42 +544,14 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] inlay_hint() called - uri: {}", uri);
         eprintln!("[DEBUG] inlay_hint() - range: {:?}", params.range);
 
-        let documents = self.documents.read().await;
-        eprintln!(
-            "[DEBUG] inlay_hint() - acquired document lock, total docs: {}",
-            documents.len()
-        );
-        let text = match documents.get(&uri) {
-            Some(text) => {
-                eprintln!(
-                    "[DEBUG] inlay_hint() - found document, length: {} bytes",
-                    text.len()
-                );
-                text.clone()
-            }
-            None => {
-                eprintln!("[DEBUG] inlay_hint() - document not found in store, returning None");
-                return Ok(None);
-            }
+        let store = self.modules.read().await;
+        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+            Some(m) => m,
+            None => return Ok(None),
         };
-        drop(documents);
-
-        // Parse the document
-        eprintln!("[DEBUG] inlay_hint() - parsing document");
-        let slice = Slice::new(Arc::new(text.clone()));
-        let ast = match parse::any(slice) {
-            Ok((_, ast)) => {
-                eprintln!("[DEBUG] inlay_hint() - parse successful");
-                ast
-            }
-            Err(e) => {
-                eprintln!("[DEBUG] inlay_hint() - parse failed: {:?}", e);
-                return Ok(None);
-            }
-        };
+        let text = module.source.as_str().to_string();
 
         let mut hints = Vec::new();
-        let store = self.modules.read().await;
         let current_module =
             uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
         let norm_ctx = NormalizeContext {
@@ -638,13 +559,9 @@ impl LanguageServer for BagelLanguageServer {
             current_module,
         };
 
-        // Traverse the AST to find declarations
-        eprintln!("[DEBUG] inlay_hint() - attempting to downcast to Module");
-        if let Some(module_data) = ast
-            .try_downcast::<grammar::Module>()
-            .map(|ast| ast.unpack())
-            .flatten()
-        {
+        // Traverse the module's declarations
+        eprintln!("[DEBUG] inlay_hint() - attempting to unpack Module");
+        if let Some(module_data) = module.ast.unpack() {
             eprintln!(
                 "[DEBUG] inlay_hint() - found Module with {} declarations",
                 module_data.declarations.len()
@@ -711,34 +628,26 @@ impl LanguageServer for BagelLanguageServer {
 }
 
 impl BagelLanguageServer {
-    async fn publish_diagnostics(&self, uri: &str, text: &str) {
+    async fn publish_diagnostics(&self, uri: &str) {
         eprintln!("[DEBUG] publish_diagnostics() called - uri: {}", uri);
 
-        // Parse the document
-        let slice = Slice::new(Arc::new(text.to_string()));
-        let ast = match parse::module(slice) {
-            Ok((_, ast)) => {
-                eprintln!("[DEBUG] publish_diagnostics() - parse successful");
-                ast
-            }
-            Err(e) => {
-                eprintln!("[DEBUG] publish_diagnostics() - parse failed: {:?}", e);
-                // On parse failure, publish empty diagnostics
-                self.client
-                    .publish_diagnostics(uri.parse().unwrap(), vec![], None)
-                    .await;
+        let store = self.modules.read().await;
+        let module = match uri_to_path(uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+            Some(m) => m,
+            None => {
+                eprintln!("[DEBUG] publish_diagnostics() - module not found in store");
                 return;
             }
         };
+        let text = module.source.as_str().to_string();
+        let ast = &module.ast;
 
         // Run check to collect errors
         let config = Config::default();
-        let store = self.modules.read().await;
-        let current_module = uri_to_path(uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
         let ctx = CheckContext {
             config: &config,
             modules: &*store,
-            current_module,
+            current_module: Some(module),
         };
         let mut errors = Vec::new();
         ast.check(&ctx, &mut |error| {
@@ -753,7 +662,7 @@ impl BagelLanguageServer {
         // Convert errors to LSP diagnostics
         let diagnostics: Vec<Diagnostic> = errors
             .into_iter()
-            .map(|error| bagel_error_to_diagnostic(text, error))
+            .map(|error| bagel_error_to_diagnostic(&text, error))
             .collect();
 
         eprintln!(
