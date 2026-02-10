@@ -1,0 +1,15 @@
+---
+source: tests/types.rs
+assertion_line: 72
+expression: "test_infer(common :: samples :: IMPORTS)"
+---
+from './foo.bgl' import { alpha }
+from './bar.bgl' import { beta, gamma }
+from './baz.bgl' import { delta as renamed }
+
+const alpha = 'stuff'
+---
+'./bar.bgl' -> './bar.bgl'
+'./baz.bgl' -> './baz.bgl'
+'./foo.bgl' -> './foo.bgl'
+'stuff' -> 'stuff'

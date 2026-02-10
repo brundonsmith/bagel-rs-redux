@@ -255,32 +255,169 @@ where
                 // Per-variant checking logic
                 match details {
                     Any::Module(module) => {
-                        // Check for duplicate declaration names
                         let mut seen_names: StdHashMap<String, Slice> = StdHashMap::new();
                         for decl in &module.declarations {
-                            if let Some(Declaration::ConstDeclaration(c)) = decl.unpack() {
-                                let name = c.identifier.slice().as_str().to_string();
-                                match seen_names.get(&name) {
-                                    Some(first_src) => {
-                                        report_error(BagelError {
-                                            src: c.identifier.slice().clone(),
-                                            severity: RuleSeverity::Error,
-                                            details: BagelErrorDetails::MiscError {
-                                                message: format!(
-                                                    "Duplicate declaration '{}'",
-                                                    name
-                                                ),
-                                            },
-                                            related: vec![RelatedInfo {
-                                                src: first_src.clone(),
-                                                message: format!("'{}' first declared here", name),
-                                            }],
-                                        });
-                                    }
-                                    None => {
-                                        seen_names.insert(name, c.identifier.slice().clone());
+                            match decl.unpack() {
+                                Some(Declaration::ConstDeclaration(c)) => {
+                                    let name = c.identifier.slice().as_str().to_string();
+                                    match seen_names.get(&name) {
+                                        Some(first_src) => {
+                                            report_error(BagelError {
+                                                src: c.identifier.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
+                                                        "Duplicate declaration '{}'",
+                                                        name
+                                                    ),
+                                                },
+                                                related: vec![RelatedInfo {
+                                                    src: first_src.clone(),
+                                                    message: format!(
+                                                        "'{}' first declared here",
+                                                        name
+                                                    ),
+                                                }],
+                                            });
+                                        }
+                                        None => {
+                                            seen_names.insert(name, c.identifier.slice().clone());
+                                        }
                                     }
                                 }
+                                Some(Declaration::ImportDeclaration(import)) => {
+                                    let path_str = import
+                                        .path
+                                        .unpack()
+                                        .map(|s| s.contents.as_str().to_string());
+
+                                    let target_module = path_str.as_deref().and_then(|p| {
+                                        ctx.current_module
+                                            .and_then(|m| ctx.modules.find_imported(m, p))
+                                    });
+
+                                    match target_module {
+                                        None => {
+                                            report_error(BagelError {
+                                                src: import.path.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
+                                                        "Module '{}' not found",
+                                                        path_str.as_deref().unwrap_or("<unknown>")
+                                                    ),
+                                                },
+                                                related: vec![],
+                                            });
+                                        }
+                                        Some(target) => {
+                                            let target_decls = target
+                                                .ast
+                                                .unpack()
+                                                .map(|m| m.declarations.clone())
+                                                .unwrap_or_default();
+
+                                            for specifier in &import.imports {
+                                                let name =
+                                                    specifier.name.slice().as_str().to_string();
+
+                                                let found_decl =
+                                                    target_decls.iter().find_map(|d| {
+                                                        match d.unpack() {
+                                                            Some(
+                                                                Declaration::ConstDeclaration(c),
+                                                            ) if c.identifier.slice().as_str()
+                                                                == name =>
+                                                            {
+                                                                Some(c)
+                                                            }
+                                                            _ => None,
+                                                        }
+                                                    });
+
+                                                match found_decl {
+                                                    None => {
+                                                        report_error(BagelError {
+                                                            src: specifier.name.slice().clone(),
+                                                            severity: RuleSeverity::Error,
+                                                            details: BagelErrorDetails::MiscError {
+                                                                message: format!(
+                                                                    "'{}' doesn't exist in '{}'",
+                                                                    name,
+                                                                    path_str
+                                                                        .as_deref()
+                                                                        .unwrap_or("<unknown>")
+                                                                ),
+                                                            },
+                                                            related: vec![],
+                                                        });
+                                                    }
+                                                    Some(c) if c.export_keyword.is_none() => {
+                                                        report_error(BagelError {
+                                                            src: specifier
+                                                                .name
+                                                                .slice()
+                                                                .clone(),
+                                                            severity: RuleSeverity::Error,
+                                                            details:
+                                                                BagelErrorDetails::MiscError {
+                                                                    message: format!(
+                                                                    "'{}' is not exported from '{}'",
+                                                                    name,
+                                                                    path_str
+                                                                        .as_deref()
+                                                                        .unwrap_or("<unknown>")
+                                                                ),
+                                                                },
+                                                            related: vec![],
+                                                        });
+                                                    }
+                                                    Some(_) => {}
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Check local names for duplicates
+                                    for specifier in &import.imports {
+                                        let (local_name, local_slice) = match &specifier.alias {
+                                            Some((_, alias)) => (
+                                                alias.slice().as_str().to_string(),
+                                                alias.slice().clone(),
+                                            ),
+                                            None => (
+                                                specifier.name.slice().as_str().to_string(),
+                                                specifier.name.slice().clone(),
+                                            ),
+                                        };
+
+                                        match seen_names.get(&local_name) {
+                                            Some(first_src) => {
+                                                report_error(BagelError {
+                                                    src: local_slice,
+                                                    severity: RuleSeverity::Error,
+                                                    details: BagelErrorDetails::MiscError {
+                                                        message: format!(
+                                                            "Duplicate declaration '{}'",
+                                                            local_name
+                                                        ),
+                                                    },
+                                                    related: vec![RelatedInfo {
+                                                        src: first_src.clone(),
+                                                        message: format!(
+                                                            "'{}' first declared here",
+                                                            local_name
+                                                        ),
+                                                    }],
+                                                });
+                                            }
+                                            None => {
+                                                seen_names.insert(local_name, local_slice);
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {}
                             }
                         }
                     }

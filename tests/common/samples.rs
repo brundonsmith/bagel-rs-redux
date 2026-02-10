@@ -49,6 +49,8 @@ pub const IMPORTS: &str = "
 from './foo.bgl' import { alpha }
 from './bar.bgl' import { beta, gamma }
 from './baz.bgl' import { delta as renamed }
+
+const alpha = 'stuff'
 ";
 
 /// Function expressions: various param styles, expression and block bodies

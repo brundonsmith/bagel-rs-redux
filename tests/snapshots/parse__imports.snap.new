@@ -1,0 +1,151 @@
+---
+source: tests/parse.rs
+assertion_line: 27
+expression: "test_parse(common :: samples :: IMPORTS)"
+---
+from './foo.bgl' import { alpha }
+from './bar.bgl' import { beta, gamma }
+from './baz.bgl' import { delta as renamed }
+
+const alpha = 'stuff'
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nfrom './foo.bgl' import { alpha }\nfrom './bar.bgl' import { beta, gamma }\nfrom './baz.bgl' import { delta as renamed }\n\nconst alpha = 'stuff'"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("from './foo.bgl' import { alpha }"),
+                        details: ImportDeclaration {
+                            from_keyword: Slice("from"),
+                            path: ASTInner {
+                                slice: Slice("'./foo.bgl'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("./foo.bgl"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
+                            import_keyword: Slice("import"),
+                            open_brace: Slice("{"),
+                            imports: [
+                                ImportSpecifier {
+                                    name: ASTInner {
+                                        slice: Slice("alpha"),
+                                        details: PlainIdentifier,
+                                    },
+                                    alias: None,
+                                },
+                            ],
+                            commas: [],
+                            trailing_comma: None,
+                            close_brace: Some(
+                                Slice("}"),
+                            ),
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("from './bar.bgl' import { beta, gamma }"),
+                        details: ImportDeclaration {
+                            from_keyword: Slice("from"),
+                            path: ASTInner {
+                                slice: Slice("'./bar.bgl'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("./bar.bgl"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
+                            import_keyword: Slice("import"),
+                            open_brace: Slice("{"),
+                            imports: [
+                                ImportSpecifier {
+                                    name: ASTInner {
+                                        slice: Slice("beta"),
+                                        details: PlainIdentifier,
+                                    },
+                                    alias: None,
+                                },
+                                ImportSpecifier {
+                                    name: ASTInner {
+                                        slice: Slice("gamma"),
+                                        details: PlainIdentifier,
+                                    },
+                                    alias: None,
+                                },
+                            ],
+                            commas: [
+                                Slice(","),
+                            ],
+                            trailing_comma: None,
+                            close_brace: Some(
+                                Slice("}"),
+                            ),
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("from './baz.bgl' import { delta as renamed }"),
+                        details: ImportDeclaration {
+                            from_keyword: Slice("from"),
+                            path: ASTInner {
+                                slice: Slice("'./baz.bgl'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("./baz.bgl"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
+                            import_keyword: Slice("import"),
+                            open_brace: Slice("{"),
+                            imports: [
+                                ImportSpecifier {
+                                    name: ASTInner {
+                                        slice: Slice("delta"),
+                                        details: PlainIdentifier,
+                                    },
+                                    alias: Some(
+                                        (
+                                            Slice("as"),
+                                            ASTInner {
+                                                slice: Slice("renamed"),
+                                                details: PlainIdentifier,
+                                            },
+                                        ),
+                                    ),
+                                },
+                            ],
+                            commas: [],
+                            trailing_comma: None,
+                            close_brace: Some(
+                                Slice("}"),
+                            ),
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const alpha = 'stuff'"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("alpha"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("'stuff'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("stuff"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)
