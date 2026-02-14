@@ -72,7 +72,7 @@ async fn bundle_entrypoint(config: &Config, targets: Vec<String>) -> (PathBuf, S
             .canonicalize()
             .unwrap_or_else(|_| entrypoint.clone()),
     );
-    let entry_module = match store.modules.get(&entry_module_path) {
+    let entry_module = match store.get(&entry_module_path) {
         Some(m) => m,
         None => {
             eprintln!(
@@ -120,9 +120,9 @@ async fn main() {
                 }
             };
             let mut error_count = 0;
-            let module_count = store.modules.len();
+            let module_count = store.len();
 
-            for (path, module) in &store.modules {
+            for (path, module) in store.iter() {
                 let file_path = match path {
                     ModulePath::File(p) => p.clone(),
                     ModulePath::Url(url) => PathBuf::from(url),
@@ -162,7 +162,7 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-            eprintln!("TODO: fix {} modules", store.modules.len());
+            eprintln!("TODO: fix {} modules", store.len());
         }
         Command::Test { watch, targets } => {
             let files = resolve_targets(targets);
@@ -173,10 +173,7 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-            eprintln!(
-                "TODO: test (watch: {watch}) {} modules",
-                store.modules.len()
-            );
+            eprintln!("TODO: test (watch: {watch}) {} modules", store.len());
         }
         Command::Build { targets } => {
             let (entrypoint, output) = bundle_entrypoint(&config, targets).await;

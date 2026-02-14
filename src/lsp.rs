@@ -60,10 +60,7 @@ impl LanguageServer for BagelLanguageServer {
                 eprintln!("[DEBUG] initialize() - loading {:?}", file);
                 let _ = store.add_file(file);
             }
-            eprintln!(
-                "[DEBUG] initialize() - loaded {} modules",
-                store.modules.len()
-            );
+            eprintln!("[DEBUG] initialize() - loaded {} modules", store.len());
         }
         let result = InitializeResult {
             server_info: Some(ServerInfo {
@@ -222,7 +219,7 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] formatting() called - uri: {}", uri);
 
         let store = self.modules.read().await;
-        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+        let module = match uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p))) {
             Some(m) => m,
             None => return Ok(None),
         };
@@ -298,7 +295,7 @@ impl LanguageServer for BagelLanguageServer {
         );
 
         let store = self.modules.read().await;
-        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+        let module = match uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p))) {
             Some(m) => m,
             None => return Ok(None),
         };
@@ -334,7 +331,7 @@ impl LanguageServer for BagelLanguageServer {
             let type_info = if let Some(expr) = expr_node {
                 eprintln!("[DEBUG] hover() - node is an Expression, inferring type");
                 let current_module =
-                    uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+                    uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
                 let ctx = InferTypeContext {
                     modules: Some(&*store),
                     current_module,
@@ -383,7 +380,7 @@ impl LanguageServer for BagelLanguageServer {
         );
 
         let store = self.modules.read().await;
-        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+        let module = match uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p))) {
             Some(m) => m,
             None => return Ok(None),
         };
@@ -396,8 +393,7 @@ impl LanguageServer for BagelLanguageServer {
             None => return Ok(None),
         };
 
-        let current_module =
-            uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+        let current_module = uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
 
         // Check if the node is within an import declaration
         if let Some(decl) = node.clone().try_downcast::<Declaration>() {
@@ -551,7 +547,7 @@ impl LanguageServer for BagelLanguageServer {
         );
 
         let store = self.modules.read().await;
-        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+        let module = match uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p))) {
             Some(m) => m,
             None => return Ok(None),
         };
@@ -598,8 +594,7 @@ impl LanguageServer for BagelLanguageServer {
                 None => return Ok(None),
             };
 
-            let current_module =
-                uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+            let current_module = uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
             let norm_ctx = NormalizeContext {
                 modules: Some(&*store),
                 current_module,
@@ -675,8 +670,7 @@ impl LanguageServer for BagelLanguageServer {
         );
 
         // Infer and normalize the type of the subject expression
-        let current_module =
-            uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+        let current_module = uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
         let ctx = InferTypeContext {
             modules: Some(&*store),
             current_module,
@@ -709,15 +703,14 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] inlay_hint() - range: {:?}", params.range);
 
         let store = self.modules.read().await;
-        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+        let module = match uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p))) {
             Some(m) => m,
             None => return Ok(None),
         };
         let text = module.source.as_str().to_string();
 
         let mut hints = Vec::new();
-        let current_module =
-            uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+        let current_module = uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
         let norm_ctx = NormalizeContext {
             modules: Some(&*store),
             current_module,
@@ -796,7 +789,7 @@ impl BagelLanguageServer {
         eprintln!("[DEBUG] publish_diagnostics() called - uri: {}", uri);
 
         let store = self.modules.read().await;
-        let module = match uri_to_path(uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+        let module = match uri_to_path(uri).and_then(|p| store.get(&ModulePath::File(p))) {
             Some(m) => m,
             None => {
                 eprintln!("[DEBUG] publish_diagnostics() - module not found in store");

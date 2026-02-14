@@ -4,7 +4,6 @@ use bagel::compile::{Compilable, CompileContext};
 use bagel::config::Config;
 use bagel::parse;
 use insta::assert_snapshot;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 mod common;
@@ -15,9 +14,7 @@ fn test_compile(code: &str) -> String {
         Err(err) => format!("{}\n---\nParse error: {:#?}", code.trim(), err),
         Ok((_, parsed)) => {
             let config = Config::default();
-            let modules = ModulesStore {
-                modules: HashMap::new(),
-            };
+            let modules = ModulesStore::new();
             let mut compiled = String::new();
             let success = parsed.compile(
                 CompileContext {

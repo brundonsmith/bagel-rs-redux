@@ -4,7 +4,6 @@ use bagel::check::{CheckContext, Checkable};
 use bagel::config::Config;
 use bagel::parse;
 use insta::assert_snapshot;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 mod common;
@@ -15,9 +14,7 @@ fn test_check(code: &str) -> String {
         Err(err) => format!("{}\n---\nParse error: {:#?}", code.trim(), err),
         Ok((_, parsed)) => {
             let config = Config::default();
-            let modules = ModulesStore {
-                modules: HashMap::new(),
-            };
+            let modules = ModulesStore::new();
             let mut errors = Vec::new();
             let errors_ref = &mut errors;
             parsed.check(

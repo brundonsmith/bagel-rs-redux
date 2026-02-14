@@ -4,7 +4,6 @@ use bagel::config::Config;
 use bagel::emit::{EmitContext, Emittable};
 use bagel::parse;
 use insta::assert_snapshot;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 mod common;
@@ -15,9 +14,7 @@ fn test_emit(code: &str) -> String {
         Err(err) => format!("{}\n---\nParse error: {:#?}", code.trim(), err),
         Ok((_, parsed)) => {
             let config = Config::default();
-            let modules = ModulesStore {
-                modules: HashMap::new(),
-            };
+            let modules = ModulesStore::new();
             let mut emitted = String::new();
             let success = parsed.emit(
                 EmitContext {

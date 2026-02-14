@@ -54,7 +54,16 @@ impl ModulePath {
 
 #[derive(Debug, Clone)]
 pub struct ModulesStore {
-    pub modules: HashMap<ModulePath, Module>,
+    /// All loaded modules, indexed by their canonicalized ModulePath
+    modules: HashMap<ModulePath, Module>,
+
+    /// Each time we add a new module, the current next_module_id is read and
+    /// stored under the new module's path, and then next_module_id is
+    /// incremented
+    module_ids: HashMap<ModulePath, i32>,
+
+    /// Incremented each time we insert a new module into the store
+    next_module_id: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -138,6 +147,8 @@ impl ModulesStore {
     pub fn new() -> Self {
         ModulesStore {
             modules: HashMap::new(),
+            module_ids: HashMap::new(),
+            next_module_id: 0,
         }
     }
 
@@ -145,9 +156,7 @@ impl ModulesStore {
     pub async fn load(
         entry_points: impl IntoIterator<Item = PathBuf>,
     ) -> Result<Self, ModuleLoadError> {
-        let mut store = ModulesStore {
-            modules: HashMap::new(),
-        };
+        let mut store = ModulesStore::new();
 
         let mut queue: Vec<ModulePath> = entry_points.into_iter().map(ModulePath::File).collect();
 
@@ -162,11 +171,40 @@ impl ModulesStore {
             };
 
             let imports = loaded.import_paths();
-            store.modules.insert(path, loaded);
+            store.insert(path, loaded);
             queue.extend(imports);
         }
 
         Ok(store)
+    }
+
+    /// Look up a module by its path.
+    pub fn get(&self, path: &ModulePath) -> Option<&Module> {
+        self.modules.get(path)
+    }
+
+    /// Return the number of modules in the store.
+    pub fn len(&self) -> usize {
+        self.modules.len()
+    }
+
+    /// Iterate over all (path, module) pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&ModulePath, &Module)> {
+        self.modules.iter()
+    }
+
+    /// Look up the numeric ID assigned to a module path.
+    pub fn module_id(&self, path: &ModulePath) -> Option<i32> {
+        self.module_ids.get(path).copied()
+    }
+
+    /// Insert a module into the store, assigning it a numeric ID.
+    fn insert(&mut self, path: ModulePath, module: Module) {
+        if !self.module_ids.contains_key(&path) {
+            self.module_ids.insert(path.clone(), self.next_module_id);
+            self.next_module_id += 1;
+        }
+        self.modules.insert(path, module);
     }
 
     /// Add a single file (and its transitive imports) to the store.
@@ -185,7 +223,7 @@ impl ModulesStore {
             };
 
             let imports = loaded.import_paths();
-            self.modules.insert(path, loaded);
+            self.insert(path, loaded);
             queue.extend(imports);
         }
 
@@ -194,8 +232,9 @@ impl ModulesStore {
 
     /// Remove a file from the store.
     pub fn remove_file(&mut self, file_path: &Path) {
-        self.modules
-            .remove(&ModulePath::File(file_path.to_path_buf()));
+        let key = ModulePath::File(file_path.to_path_buf());
+        self.modules.remove(&key);
+        self.module_ids.remove(&key);
     }
 
     /// Reload a file from new source text. If the file isn't in the store yet,
@@ -219,7 +258,7 @@ impl ModulesStore {
             None => {
                 let loaded = Module::from_source(key.clone(), source)?;
                 let imports = loaded.import_paths();
-                self.modules.insert(key, loaded);
+                self.insert(key, loaded);
                 for import_path in imports {
                     if !self.modules.contains_key(&import_path) {
                         if let ModulePath::File(fp) = &import_path {
