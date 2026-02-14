@@ -396,10 +396,8 @@ impl Any {
                 Expression::NilLiteral(_)
                 | Expression::BooleanLiteral(_)
                 | Expression::NumberLiteral(_)
-                | Expression::StringLiteral(_) => {}
-                Expression::LocalIdentifier(local_id) => {
-                    f(local_id.identifier.clone().upcast());
-                }
+                | Expression::StringLiteral(_)
+                | Expression::LocalIdentifier(_) => {}
                 Expression::BinaryOperation(bin_op) => {
                     f(bin_op.left.clone().upcast());
                     f(bin_op.operator.clone().upcast());

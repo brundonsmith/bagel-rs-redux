@@ -52,8 +52,8 @@ impl AST<Expression> {
                     value: Some(str_lit.contents.clone()),
                 },
 
-                LocalIdentifier(local_id) => Type::LocalIdentifier {
-                    identifier: local_id,
+                LocalIdentifier(_) => Type::LocalIdentifier {
+                    identifier: self.clone().try_downcast().unwrap(),
                 },
 
                 BinaryOperation(bin_op) => Type::BinaryOperation {

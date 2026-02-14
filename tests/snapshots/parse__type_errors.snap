@@ -537,12 +537,7 @@ Ok(
                                             ASTInner {
                                                 slice: Slice("x"),
                                                 details: LocalIdentifier {
-                                                    identifier: ASTInner {
-                                                        slice: Slice("x"),
-                                                        details: PlainIdentifier {
-                                                            slice: Slice("x"),
-                                                        },
-                                                    },
+                                                    slice: Slice("x"),
                                                 },
                                             },
                                         ),

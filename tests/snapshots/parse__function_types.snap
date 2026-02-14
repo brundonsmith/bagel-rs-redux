@@ -148,12 +148,7 @@ Ok(
                                                     left: ASTInner {
                                                         slice: Slice("x"),
                                                         details: LocalIdentifier {
-                                                            identifier: ASTInner {
-                                                                slice: Slice("x"),
-                                                                details: PlainIdentifier {
-                                                                    slice: Slice("x"),
-                                                                },
-                                                            },
+                                                            slice: Slice("x"),
                                                         },
                                                     },
                                                     operator: ASTInner {
@@ -267,12 +262,7 @@ Ok(
                                                     left: ASTInner {
                                                         slice: Slice("a"),
                                                         details: LocalIdentifier {
-                                                            identifier: ASTInner {
-                                                                slice: Slice("a"),
-                                                                details: PlainIdentifier {
-                                                                    slice: Slice("a"),
-                                                                },
-                                                            },
+                                                            slice: Slice("a"),
                                                         },
                                                     },
                                                     operator: ASTInner {
@@ -282,12 +272,7 @@ Ok(
                                                     right: ASTInner {
                                                         slice: Slice("b"),
                                                         details: LocalIdentifier {
-                                                            identifier: ASTInner {
-                                                                slice: Slice("b"),
-                                                                details: PlainIdentifier {
-                                                                    slice: Slice("b"),
-                                                                },
-                                                            },
+                                                            slice: Slice("b"),
                                                         },
                                                     },
                                                 },
@@ -411,12 +396,7 @@ Ok(
                                                     left: ASTInner {
                                                         slice: Slice("a"),
                                                         details: LocalIdentifier {
-                                                            identifier: ASTInner {
-                                                                slice: Slice("a"),
-                                                                details: PlainIdentifier {
-                                                                    slice: Slice("a"),
-                                                                },
-                                                            },
+                                                            slice: Slice("a"),
                                                         },
                                                     },
                                                     operator: ASTInner {
@@ -426,12 +406,7 @@ Ok(
                                                     right: ASTInner {
                                                         slice: Slice("b"),
                                                         details: LocalIdentifier {
-                                                            identifier: ASTInner {
-                                                                slice: Slice("b"),
-                                                                details: PlainIdentifier {
-                                                                    slice: Slice("b"),
-                                                                },
-                                                            },
+                                                            slice: Slice("b"),
                                                         },
                                                     },
                                                 },

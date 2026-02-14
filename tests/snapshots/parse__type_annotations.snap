@@ -359,12 +359,7 @@ Ok(
                                             expression: ASTInner {
                                                 slice: Slice("a"),
                                                 details: LocalIdentifier {
-                                                    identifier: ASTInner {
-                                                        slice: Slice("a"),
-                                                        details: PlainIdentifier {
-                                                            slice: Slice("a"),
-                                                        },
-                                                    },
+                                                    slice: Slice("a"),
                                                 },
                                             },
                                         },
@@ -443,12 +438,7 @@ Ok(
                                     left: ASTInner {
                                         slice: Slice("b"),
                                         details: LocalIdentifier {
-                                            identifier: ASTInner {
-                                                slice: Slice("b"),
-                                                details: PlainIdentifier {
-                                                    slice: Slice("b"),
-                                                },
-                                            },
+                                            slice: Slice("b"),
                                         },
                                     },
                                     operator: ASTInner {

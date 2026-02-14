@@ -132,12 +132,7 @@ Ok(
                                     subject: ASTInner {
                                         slice: Slice("obj"),
                                         details: LocalIdentifier {
-                                            identifier: ASTInner {
-                                                slice: Slice("obj"),
-                                                details: PlainIdentifier {
-                                                    slice: Slice("obj"),
-                                                },
-                                            },
+                                            slice: Slice("obj"),
                                         },
                                     },
                                     dot: Slice("."),
@@ -192,12 +187,7 @@ Ok(
                                                                         subject: ASTInner {
                                                                             slice: Slice("obja"),
                                                                             details: LocalIdentifier {
-                                                                                identifier: ASTInner {
-                                                                                    slice: Slice("obja"),
-                                                                                    details: PlainIdentifier {
-                                                                                        slice: Slice("obja"),
-                                                                                    },
-                                                                                },
+                                                                                slice: Slice("obja"),
                                                                             },
                                                                         },
                                                                         dot: Slice("."),
@@ -222,12 +212,7 @@ Ok(
                                                                 subject: ASTInner {
                                                                     slice: Slice("objb"),
                                                                     details: LocalIdentifier {
-                                                                        identifier: ASTInner {
-                                                                            slice: Slice("objb"),
-                                                                            details: PlainIdentifier {
-                                                                                slice: Slice("objb"),
-                                                                            },
-                                                                        },
+                                                                        slice: Slice("objb"),
                                                                     },
                                                                 },
                                                                 dot: Slice("."),

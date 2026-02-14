@@ -110,7 +110,9 @@ impl Emittable for Any {
                     write!(f, "'")
                 }
 
-                Expression::LocalIdentifier(local_id) => local_id.identifier.emit(ctx, f),
+                Expression::LocalIdentifier(local_id) => {
+                    write!(f, "{}", local_id.slice.as_str())
+                }
 
                 Expression::BinaryOperation(bin_op) => {
                     bin_op.left.emit(ctx, f)?;

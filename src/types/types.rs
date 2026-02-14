@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::Arc;
 
+use crate::ast::container::AST;
 use crate::ast::grammar::{BinaryOperator, LocalIdentifier, TypeExpression, UnaryOperator};
 use crate::ast::slice::Slice;
 
@@ -76,7 +77,7 @@ pub enum Type {
         property: String,
     },
     LocalIdentifier {
-        identifier: LocalIdentifier,
+        identifier: AST<LocalIdentifier>,
     },
 }
 
@@ -256,9 +257,10 @@ impl fmt::Display for Type {
             Type::PropertyAccess { subject, property } => {
                 write!(f, "{}.{}", subject, property)
             }
-            Type::LocalIdentifier { identifier } => {
-                write!(f, "{}", identifier.identifier.slice().as_str())
-            }
+            Type::LocalIdentifier { identifier } => match identifier.unpack() {
+                Some(id) => write!(f, "{}", id.slice.as_str()),
+                None => write!(f, "<unknown>"),
+            },
         }
     }
 }

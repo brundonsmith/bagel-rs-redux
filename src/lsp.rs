@@ -84,6 +84,10 @@ impl LanguageServer for BagelLanguageServer {
                 definition_provider: Some(OneOf::Left(true)),
                 inlay_hint_provider: Some(OneOf::Left(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
+                completion_provider: Some(CompletionOptions {
+                    trigger_characters: Some(vec![".".to_string()]),
+                    ..Default::default()
+                }),
                 workspace: Some(WorkspaceServerCapabilities {
                     file_operations: Some(WorkspaceFileOperationsServerCapabilities {
                         did_create: Some(FileOperationRegistrationOptions {
@@ -498,7 +502,7 @@ impl LanguageServer for BagelLanguageServer {
             current_module,
         };
 
-        let resolved = match resolve_identifier(&local_id, ctx) {
+        let resolved = match resolve_identifier(local_id.slice.as_str(), &node, ctx) {
             Some(r) => r,
             None => return Ok(None),
         };
@@ -534,6 +538,114 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] goto_definition() - resolved to {:?}", location);
 
         Ok(Some(GotoDefinitionResponse::Scalar(location)))
+    }
+
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+        eprintln!(
+            "[DEBUG] completion() called - uri: {}, position: line={} char={}",
+            uri, position.line, position.character
+        );
+
+        let store = self.modules.read().await;
+        let module = match uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p))) {
+            Some(m) => m,
+            None => return Ok(None),
+        };
+        let text = module.source.as_str().to_string();
+        let ast: AST<Any> = module.ast.clone().upcast();
+
+        // Convert LSP position to byte offset
+        let cursor_offset = position_to_offset(&text, position);
+        eprintln!("[DEBUG] completion() - cursor offset: {}", cursor_offset);
+
+        // Scan backwards from cursor past any partial identifier the user may
+        // have started typing, then check for a '.' character.
+        let before_cursor = &text[..cursor_offset];
+        let trimmed = before_cursor.trim_end_matches(|c: char| c.is_alphanumeric() || c == '_');
+        if !trimmed.ends_with('.') {
+            eprintln!("[DEBUG] completion() - no dot found before cursor");
+            return Ok(None);
+        }
+        let dot_offset = trimmed.len() - 1;
+
+        eprintln!("[DEBUG] completion() - dot at {}", dot_offset);
+
+        // Strategy: search the full AST for a PropertyAccessExpression whose
+        // dot is at exactly `dot_offset`. This handles both cases:
+        //   1. Parser greedily parsed `obj.\njs` as PropertyAccessExpression
+        //      with subject "obj" — we extract the subject.
+        //   2. Parser created a PropertyAccessExpression with malformed property
+        //      (dot with no identifier after it) — we extract the subject.
+        //
+        // If no PropertyAccessExpression has its dot at this offset, fall back
+        // to finding the node just before the dot and walking up to Expression.
+        let subject_expr = match find_property_access_subject_at_dot(&ast, dot_offset) {
+            Some(subject) => subject,
+            None => {
+                eprintln!(
+                    "[DEBUG] completion() - no PropertyAccess with dot at offset, falling back"
+                );
+                let subject_offset = dot_offset.saturating_sub(1);
+                let node = match find_node_at_offset(&ast, subject_offset) {
+                    Some(n) => n,
+                    None => {
+                        eprintln!("[DEBUG] completion() - no node found at subject offset");
+                        return Ok(None);
+                    }
+                };
+                match node.clone().try_downcast::<Expression>().or_else(|| {
+                    let mut current = node.parent();
+                    while let Some(ancestor) = current {
+                        if let Some(expr) = ancestor.clone().try_downcast::<Expression>() {
+                            return Some(expr);
+                        }
+                        current = ancestor.parent();
+                    }
+                    None
+                }) {
+                    Some(e) => e,
+                    None => {
+                        eprintln!("[DEBUG] completion() - no Expression found");
+                        return Ok(None);
+                    }
+                }
+            }
+        };
+
+        eprintln!(
+            "[DEBUG] completion() - subject expr: slice={:?}",
+            subject_expr.slice().as_str(),
+        );
+
+        // Infer and normalize the type of the subject expression
+        let current_module =
+            uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+        let ctx = InferTypeContext {
+            modules: Some(&*store),
+            current_module,
+        };
+        let norm_ctx = NormalizeContext {
+            modules: Some(&*store),
+            current_module,
+        };
+        let subject_type = subject_expr.infer_type(ctx).normalize(norm_ctx);
+        eprintln!("[DEBUG] completion() - subject type: {}", subject_type);
+
+        // Extract field names from the type
+        let items = completion_items_for_type(&subject_type);
+
+        if items.is_empty() {
+            eprintln!("[DEBUG] completion() - no completion items");
+            return Ok(None);
+        }
+
+        eprintln!(
+            "[DEBUG] completion() - returning {} completion items",
+            items.len()
+        );
+        Ok(Some(CompletionResponse::Array(items)))
     }
 
     async fn inlay_hint(&self, params: InlayHintParams) -> Result<Option<Vec<InlayHint>>> {
@@ -804,6 +916,74 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
 
         WalkAction::Continue
     });
+}
+
+/// Search the AST for a PropertyAccessExpression whose dot is at `dot_offset`,
+/// and return its subject expression. This handles the case where the parser
+/// greedily parsed across a newline (e.g. `obj.\njs` → PropertyAccessExpression
+/// { subject: "obj", property: "js" }).
+fn find_property_access_subject_at_dot(
+    ast: &AST<Any>,
+    dot_offset: usize,
+) -> Option<AST<Expression>> {
+    let mut result: Option<AST<Expression>> = None;
+    walk_ast(ast, &mut |node| {
+        if let Some(expr) = node.clone().try_downcast::<Expression>() {
+            if let Some(Expression::PropertyAccessExpression(pa)) = expr.unpack() {
+                if pa.dot.start == dot_offset {
+                    result = Some(pa.subject);
+                    return WalkAction::Stop;
+                }
+            }
+        }
+        WalkAction::Continue
+    });
+    result
+}
+
+/// Given a normalized type, produce completion items for its fields.
+fn completion_items_for_type(ty: &Type) -> Vec<CompletionItem> {
+    match ty {
+        Type::Object { fields } | Type::Interface { fields, .. } => fields
+            .keys()
+            .map(|name| CompletionItem {
+                label: name.clone(),
+                kind: Some(CompletionItemKind::FIELD),
+                ..Default::default()
+            })
+            .collect(),
+        Type::Union { variants } => {
+            // Collect only the fields that exist in every variant (intersection)
+            let field_sets: Vec<_> = variants
+                .iter()
+                .filter_map(|v| match v {
+                    Type::Object { fields } | Type::Interface { fields, .. } => {
+                        Some(fields.keys().collect::<std::collections::BTreeSet<_>>())
+                    }
+                    _ => None,
+                })
+                .collect();
+
+            if field_sets.is_empty() || field_sets.len() != variants.len() {
+                return Vec::new();
+            }
+
+            let mut common = field_sets[0].clone();
+            field_sets[1..].iter().for_each(|s| {
+                common = common.intersection(s).copied().collect();
+            });
+
+            common
+                .into_iter()
+                .map(|name| CompletionItem {
+                    label: name.clone(),
+                    kind: Some(CompletionItemKind::FIELD),
+                    ..Default::default()
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    }
 }
 
 fn offset_to_position(text: &str, offset: usize) -> Position {

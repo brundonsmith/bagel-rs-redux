@@ -37,12 +37,7 @@ Ok(
                                             subject: ASTInner {
                                                 slice: Slice("js"),
                                                 details: LocalIdentifier {
-                                                    identifier: ASTInner {
-                                                        slice: Slice("js"),
-                                                        details: PlainIdentifier {
-                                                            slice: Slice("js"),
-                                                        },
-                                                    },
+                                                    slice: Slice("js"),
                                                 },
                                             },
                                             dot: Slice("."),
@@ -111,12 +106,7 @@ Ok(
                                                                                 subject: ASTInner {
                                                                                     slice: Slice("js"),
                                                                                     details: LocalIdentifier {
-                                                                                        identifier: ASTInner {
-                                                                                            slice: Slice("js"),
-                                                                                            details: PlainIdentifier {
-                                                                                                slice: Slice("js"),
-                                                                                            },
-                                                                                        },
+                                                                                        slice: Slice("js"),
                                                                                     },
                                                                                 },
                                                                                 dot: Slice("."),
@@ -167,12 +157,7 @@ Ok(
                                                                                 subject: ASTInner {
                                                                                     slice: Slice("js"),
                                                                                     details: LocalIdentifier {
-                                                                                        identifier: ASTInner {
-                                                                                            slice: Slice("js"),
-                                                                                            details: PlainIdentifier {
-                                                                                                slice: Slice("js"),
-                                                                                            },
-                                                                                        },
+                                                                                        slice: Slice("js"),
                                                                                     },
                                                                                 },
                                                                                 dot: Slice("."),

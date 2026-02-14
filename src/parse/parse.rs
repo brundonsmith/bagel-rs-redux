@@ -141,15 +141,19 @@ where
     AST::Malformed(slice, message.to_string())
 }
 
+// Shared parser for identifier slices: [a-z]+ (but not a keyword)
+fn identifier_slice(i: Slice) -> ParseResult<Slice> {
+    nom::combinator::verify(
+        take_while1(|c: char| c.is_ascii_lowercase()),
+        |matched: &Slice| !is_keyword(matched.as_str()),
+    )(i)
+}
+
 // Parser for PlainIdentifier: [a-z]+ (but not a keyword)
 pub fn plain_identifier(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
-    map(
-        nom::combinator::verify(
-            take_while1(|c: char| c.is_ascii_lowercase()),
-            |matched: &Slice| !is_keyword(matched.as_str()),
-        ),
-        |matched: Slice| make_ast(matched.clone(), PlainIdentifier { slice: matched }),
-    )(i)
+    map(identifier_slice, |matched: Slice| {
+        make_ast(matched.clone(), PlainIdentifier { slice: matched })
+    })(i)
 }
 
 // Parser for NilLiteral: "nil"
@@ -231,11 +235,8 @@ pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
 
 // Parser for LocalIdentifier: PlainIdentifier (used as an expression)
 pub fn local_identifier(i: Slice) -> ParseResult<AST<LocalIdentifier>> {
-    map(plain_identifier, |identifier: AST<PlainIdentifier>| {
-        let node = make_ast(identifier.slice().clone(), LocalIdentifier { identifier });
-        node.unpack().unwrap().identifier.set_parent(&node);
-
-        node
+    map(identifier_slice, |matched: Slice| {
+        make_ast(matched.clone(), LocalIdentifier { slice: matched })
     })(i)
 }
 

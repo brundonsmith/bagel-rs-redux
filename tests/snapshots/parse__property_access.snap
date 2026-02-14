@@ -94,12 +94,7 @@ Ok(
                                     subject: ASTInner {
                                         slice: Slice("a"),
                                         details: LocalIdentifier {
-                                            identifier: ASTInner {
-                                                slice: Slice("a"),
-                                                details: PlainIdentifier {
-                                                    slice: Slice("a"),
-                                                },
-                                            },
+                                            slice: Slice("a"),
                                         },
                                     },
                                     dot: Slice("."),
@@ -200,12 +195,7 @@ Ok(
                                             subject: ASTInner {
                                                 slice: Slice("c"),
                                                 details: LocalIdentifier {
-                                                    identifier: ASTInner {
-                                                        slice: Slice("c"),
-                                                        details: PlainIdentifier {
-                                                            slice: Slice("c"),
-                                                        },
-                                                    },
+                                                    slice: Slice("c"),
                                                 },
                                             },
                                             dot: Slice("."),
@@ -250,12 +240,7 @@ Ok(
                                             subject: ASTInner {
                                                 slice: Slice("js"),
                                                 details: LocalIdentifier {
-                                                    identifier: ASTInner {
-                                                        slice: Slice("js"),
-                                                        details: PlainIdentifier {
-                                                            slice: Slice("js"),
-                                                        },
-                                                    },
+                                                    slice: Slice("js"),
                                                 },
                                             },
                                             dot: Slice("."),

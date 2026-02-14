@@ -271,13 +271,12 @@ impl AST<Expression> {
 /// Both type inference (`resolve_local_identifier`) and go-to-definition in
 /// the LSP consume this result.
 pub fn resolve_identifier<'a>(
-    identifier: &grammar::LocalIdentifier,
+    name: &str,
+    node: &AST<Any>,
     ctx: NormalizeContext<'a>,
 ) -> Option<ResolvedIdentifier<'a>> {
-    let name = identifier.identifier.slice().as_str();
-
     // Walk up the AST from the identifier's AST node to find a containing scope
-    let mut current = identifier.identifier.parent();
+    let mut current = node.parent();
 
     while let Some(node) = current {
         match node.details() {
@@ -392,15 +391,18 @@ pub fn js_global_type() -> Type {
 /// Thin wrapper around `resolve_identifier` that extracts the type from the
 /// resolution result. Called by `normalize()` for `Type::LocalIdentifier`.
 fn resolve_local_identifier(
-    identifier: &grammar::LocalIdentifier,
+    identifier: &AST<grammar::LocalIdentifier>,
     ctx: NormalizeContext<'_>,
 ) -> Type {
+    let name = identifier.slice().as_str();
+
     // Special built-in: the `js` global
-    if identifier.identifier.slice().as_str() == "js" {
+    if name == "js" {
         return js_global_type();
     }
 
-    match resolve_identifier(identifier, ctx) {
+    let node: AST<Any> = identifier.clone().upcast();
+    match resolve_identifier(name, &node, ctx) {
         Some(ResolvedIdentifier::ConstDeclaration { decl, module }) => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {

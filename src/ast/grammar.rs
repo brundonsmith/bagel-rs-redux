@@ -10,20 +10,20 @@ use super::container::AST;
 use super::slice::Slice;
 
 /// Terminal nodes (literals and identifiers)
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NilLiteral;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BooleanLiteral {
     pub value: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NumberLiteral {
     pub slice: Slice,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StringLiteral {
     pub open_quote: Slice,
     pub contents: Slice,
@@ -37,7 +37,7 @@ pub struct PlainIdentifier {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalIdentifier {
-    pub identifier: AST<PlainIdentifier>,
+    pub slice: Slice,
 }
 
 /// Binary operation nodes
@@ -112,13 +112,13 @@ impl UnaryOperator {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnaryOperation {
     pub operator: AST<UnaryOperator>,
     pub operand: AST<Expression>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BinaryOperation {
     pub left: AST<Expression>,
     pub operator: AST<BinaryOperator>,
@@ -126,7 +126,7 @@ pub struct BinaryOperation {
 }
 
 /// Invocation node: Expression "(" Expression (?:"," Expression)* ","? ")"
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Invocation {
     pub function: AST<Expression>,
     pub open_paren: Slice,
@@ -138,7 +138,7 @@ pub struct Invocation {
 
 /// FunctionExpression node: (?:"(" Param (?:"," Param)* ","? ")") (":" TypeExpression)? or PlainIdentifier "=>" FunctionBody
 /// where Param = PlainIdentifier (":" TypeExpression)?
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionExpression {
     pub open_paren: Option<Slice>,
     pub parameters: Vec<(AST<PlainIdentifier>, Option<(Slice, AST<TypeExpression>)>)>,
@@ -150,19 +150,19 @@ pub struct FunctionExpression {
     pub body: AST<FunctionBody>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FunctionBody {
     Expression(AST<Expression>),
     Block(AST<Block>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Block {
     pub statements: Vec<AST<Statement>>,
 }
 
 /// ArrayLiteral node: "[" Expression (?:"," Expression)* ","? "]"
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArrayLiteral {
     pub open_bracket: Slice,
     pub elements: Vec<AST<Expression>>,
@@ -172,7 +172,7 @@ pub struct ArrayLiteral {
 }
 
 /// IfElseExpression node: "if" Expression "{" Expression "}" ("else" ("{" Expression "}" | IfElseExpression))?
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IfElseExpression {
     pub if_keyword: Slice,
     pub condition: AST<Expression>,
@@ -182,7 +182,7 @@ pub struct IfElseExpression {
     pub else_clause: Option<ElseClause>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ElseClause {
     ElseBlock {
         else_keyword: Slice,
@@ -197,7 +197,7 @@ pub enum ElseClause {
 }
 
 /// ObjectLiteral node: "{" (PlainIdentifier ":" Expression (?:"," PlainIdentifier ":" Expression)*)? ","? "}"
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectLiteral {
     pub open_brace: Slice,
     pub fields: Vec<(AST<PlainIdentifier>, Slice, AST<Expression>)>, // (key, colon, value)
@@ -206,7 +206,7 @@ pub struct ObjectLiteral {
     pub close_brace: Option<Slice>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ParenthesizedExpression {
     pub open_paren: Slice,
     pub expression: AST<Expression>,
@@ -214,7 +214,7 @@ pub struct ParenthesizedExpression {
 }
 
 /// PropertyAccessExpression node: Expression "." PlainIdentifier
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PropertyAccessExpression {
     pub subject: AST<Expression>,
     pub dot: Slice,
@@ -222,22 +222,22 @@ pub struct PropertyAccessExpression {
 }
 
 // Type expression nodes
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnknownTypeExpression;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NilTypeExpression;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BooleanTypeExpression;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NumberTypeExpression;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StringTypeExpression;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TupleTypeExpression {
     pub open_bracket: Slice,
     pub elements: Vec<AST<TypeExpression>>,
@@ -246,14 +246,14 @@ pub struct TupleTypeExpression {
     pub close_bracket: Slice,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArrayTypeExpression {
     pub element: AST<TypeExpression>,
     pub open_bracket: Slice,
     pub close_bracket: Slice,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectTypeExpression {
     pub open_brace: Slice,
     pub fields: Vec<(AST<PlainIdentifier>, Slice, AST<TypeExpression>)>, // (name, colon, type)
@@ -262,7 +262,7 @@ pub struct ObjectTypeExpression {
     pub close_brace: Slice,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionTypeExpression {
     pub open_paren: Slice,
     pub parameters: Vec<(Option<(AST<PlainIdentifier>, Slice)>, AST<TypeExpression>)>, // (optional (name, colon), type)
@@ -273,20 +273,20 @@ pub struct FunctionTypeExpression {
     pub return_type: AST<TypeExpression>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RangeTypeExpression {
     pub start: Option<Slice>,
     pub dots: Slice,
     pub end: Option<Slice>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnionTypeExpression {
     pub variants: Vec<AST<TypeExpression>>,
     pub pipes: Vec<Slice>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ParenthesizedTypeExpression {
     pub open_paren: Slice,
     pub expression: AST<TypeExpression>,
@@ -296,14 +296,14 @@ pub struct ParenthesizedTypeExpression {
 /// Written `typeof foo` where `foo` is some Expression. This is a
 /// TypeExpression that infers the type of the Expression it's applied to,
 /// and evaluates to that.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeOfTypeExpression {
     pub keyword: Slice,
     pub expression: AST<Expression>,
 }
 
 /// Declaration node
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConstDeclaration {
     pub export_keyword: Option<Slice>,
     pub const_keyword: Slice,
@@ -314,7 +314,7 @@ pub struct ConstDeclaration {
 }
 
 /// ImportDeclaration node: from '<path>' import { foo, bar as other }
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ImportDeclaration {
     pub from_keyword: Slice,
     pub path: AST<StringLiteral>,
@@ -326,14 +326,14 @@ pub struct ImportDeclaration {
     pub close_brace: Option<Slice>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ImportSpecifier {
     pub name: AST<PlainIdentifier>,
     pub alias: Option<(Slice, AST<PlainIdentifier>)>, // (as_keyword, alias)
 }
 
 /// Module node (represents a whole document)
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Module {
     pub declarations: Vec<AST<Declaration>>,
 }

@@ -127,7 +127,9 @@ impl Compilable for Any {
                     write!(f, "'")
                 }
 
-                Expression::LocalIdentifier(local_id) => local_id.identifier.compile(ctx, f),
+                Expression::LocalIdentifier(local_id) => {
+                    write!(f, "{}", local_id.slice.as_str())
+                }
 
                 Expression::BinaryOperation(bin_op) => {
                     bin_op.left.compile(ctx, f)?;
@@ -224,7 +226,7 @@ impl Compilable for Any {
                     let is_js_global = matches!(
                         prop_access.subject.details(),
                         Some(Any::Expression(Expression::LocalIdentifier(id)))
-                            if id.identifier.slice().as_str() == "js"
+                            if id.slice.as_str() == "js"
                     );
 
                     if is_js_global {
