@@ -378,7 +378,7 @@ type_hierarchy! {
             TypeOfTypeExpression,
         },
         Statement {
-            Invocation,
+            Expression,
             Block
         },
         PlainIdentifier,

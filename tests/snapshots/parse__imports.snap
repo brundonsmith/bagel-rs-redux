@@ -5,12 +5,14 @@ expression: "test_parse(common :: samples :: IMPORTS)"
 from './foo.bgl' import { alpha }
 from './bar.bgl' import { beta, gamma }
 from './baz.bgl' import { delta as renamed }
+
+const alpha = 'stuff'
 ---
 Ok(
     (
         Slice("\n"),
         ASTInner {
-            slice: Slice("\nfrom './foo.bgl' import { alpha }\nfrom './bar.bgl' import { beta, gamma }\nfrom './baz.bgl' import { delta as renamed }"),
+            slice: Slice("\nfrom './foo.bgl' import { alpha }\nfrom './bar.bgl' import { beta, gamma }\nfrom './baz.bgl' import { delta as renamed }\n\nconst alpha = 'stuff'"),
             details: Module {
                 declarations: [
                     ASTInner {
@@ -118,6 +120,27 @@ Ok(
                             close_brace: Some(
                                 Slice("}"),
                             ),
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const alpha = 'stuff'"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("alpha"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("'stuff'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("stuff"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
                         },
                     },
                 ],

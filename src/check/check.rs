@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, Declaration, Expression},
+        grammar::{Any, Declaration, Expression, Statement},
         modules::{Module, ModulesStore},
         slice::Slice,
     },
@@ -598,8 +598,8 @@ where
                         // verify that its inferred type fits.
                         let expr_node: AST<Expression> = match self {
                             AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
-                            AST::Malformed { inner, message } => {
-                                AST::<Expression>::new_malformed(inner.clone(), message.clone())
+                            AST::Malformed(slice, message) => {
+                                AST::<Expression>::Malformed(slice.clone(), message.clone())
                             }
                         };
                         if let Some(expected) = expr_node.expected_type() {
@@ -624,6 +624,19 @@ where
                             }
                         }
                     }
+                    Any::Statement(Statement::Expression(expr)) => match expr {
+                        Expression::Invocation(_) => {}
+                        _ => {
+                            report_error(BagelError {
+                                src: self.slice().clone(),
+                                severity: RuleSeverity::Error,
+                                details: BagelErrorDetails::MiscError {
+                                    message: "Only invocations are allowed as statements".to_string(),
+                                },
+                                related: vec![],
+                            });
+                        }
+                    },
                     _ => {}
                 }
             }

@@ -6,6 +6,11 @@ const arr: number[] = [1,,.,3]
 const foo = () => {
     (
 }
+const other = obj.
+const otherfunc = () => {
+    obja.()
+    objb.
+}
 ---
 [
     BagelError {
@@ -21,6 +26,30 @@ const foo = () => {
         severity: Error,
         details: ParseError {
             message: "Expected statement",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice(""),
+        severity: Error,
+        details: ParseError {
+            message: "identifier",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice(""),
+        severity: Error,
+        details: ParseError {
+            message: "identifier",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice(""),
+        severity: Error,
+        details: ParseError {
+            message: "identifier",
         },
         related: [],
     },

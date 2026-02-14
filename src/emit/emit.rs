@@ -1,7 +1,10 @@
 use std::fmt::Write;
+use std::sync::Arc;
 
 use crate::{
-    ast::{container::AST, grammar::Any, modules::ModulesStore},
+    ast::container::{ASTInner, AST},
+    ast::grammar::Any,
+    ast::modules::ModulesStore,
     config::Config,
 };
 
@@ -353,19 +356,13 @@ where
                 },
 
                 Any::Statement(statement) => match statement {
-                    Statement::Invocation(inv) => {
-                        inv.function.emit(ctx, f)?;
-                        write!(f, "(")?;
-                        for (i, arg) in inv.arguments.iter().enumerate() {
-                            if i > 0 {
-                                write!(f, ", ")?;
-                            }
-                            arg.emit(ctx, f)?;
-                        }
-                        if inv.trailing_comma.is_some() {
-                            write!(f, ",")?;
-                        }
-                        write!(f, ")")
+                    Statement::Expression(expr) => {
+                        AST::<Any>::new(Arc::new(ASTInner {
+                            parent: Default::default(),
+                            slice: self.slice().clone(),
+                            details: Any::Expression(expr.clone()),
+                        }))
+                        .emit(ctx, f)
                     }
                     Statement::Block(block) => {
                         writeln!(f, "{{")?;

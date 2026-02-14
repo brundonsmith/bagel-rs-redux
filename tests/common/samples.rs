@@ -153,4 +153,9 @@ const arr: number[] = [1,,.,3]
 const foo = () => {
     (
 }
+const other = obj.
+const otherfunc = () => {
+    obja.()
+    objb.
+}
 ";

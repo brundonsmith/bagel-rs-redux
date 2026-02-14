@@ -38,10 +38,7 @@ where
     Any: From<TKind>,
 {
     Valid(Arc<ASTInner>, PhantomData<TKind>),
-    Malformed {
-        inner: Arc<ASTInner>,
-        message: String,
-    },
+    Malformed(Slice, String),
 }
 
 impl<TKind> std::hash::Hash for AST<TKind>
@@ -52,7 +49,10 @@ where
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             AST::Valid(inner, _) => Arc::as_ptr(inner).hash(state),
-            AST::Malformed { inner, .. } => Arc::as_ptr(inner).hash(state),
+            AST::Malformed(slice, message) => {
+                slice.hash(state);
+                message.hash(state);
+            }
         }
     }
 }
@@ -77,14 +77,14 @@ where
     }
 }
 
-fn ptr_of<TKind>(ast: &AST<TKind>) -> *const ASTInner
+fn ptr_of<TKind>(ast: &AST<TKind>) -> usize
 where
     TKind: Clone + TryFrom<Any>,
     Any: From<TKind>,
 {
     match ast {
-        AST::Valid(inner, _) => Arc::as_ptr(inner),
-        AST::Malformed { inner, .. } => Arc::as_ptr(inner),
+        AST::Valid(inner, _) => Arc::as_ptr(inner) as usize,
+        AST::Malformed(slice, _) => slice.start,
     }
 }
 
@@ -96,9 +96,9 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AST::Valid(inner, _) => Debug::fmt(inner, f),
-            AST::Malformed { inner, message } => f
+            AST::Malformed(slice, message) => f
                 .debug_struct("Malformed")
-                .field("inner", inner)
+                .field("slice", slice)
                 .field("message", message)
                 .finish(),
         }
@@ -117,11 +117,6 @@ where
         AST::Valid(inner, PhantomData)
     }
 
-    /// Creates a new malformed AST node with an error message.
-    pub fn new_malformed(inner: Arc<ASTInner>, message: String) -> Self {
-        AST::Malformed { inner, message }
-    }
-
     /// Returns true if this is a valid (non-malformed) node.
     pub fn is_valid(&self) -> bool {
         matches!(self, AST::Valid(_, _))
@@ -129,7 +124,7 @@ where
 
     /// Returns true if this is a malformed node.
     pub fn is_malformed(&self) -> bool {
-        matches!(self, AST::Malformed { .. })
+        matches!(self, AST::Malformed(..))
     }
 
     /// Returns the source code slice for this AST node.
@@ -139,7 +134,7 @@ where
     pub fn slice(&self) -> &Slice {
         match self {
             AST::Valid(inner, _) => &inner.slice,
-            AST::Malformed { inner, .. } => &inner.slice,
+            AST::Malformed(slice, _) => slice,
         }
     }
 
@@ -147,14 +142,14 @@ where
     pub fn details(&self) -> Option<&Any> {
         match self {
             AST::Valid(inner, _) => Some(&inner.details),
-            AST::Malformed { .. } => None,
+            AST::Malformed(..) => None,
         }
     }
 
     /// Returns the error message if this is a malformed node.
     pub fn malformed_message(&self) -> Option<&str> {
         match self {
-            AST::Malformed { message, .. } => Some(message),
+            AST::Malformed(_, message) => Some(message),
             _ => None,
         }
     }
@@ -164,29 +159,23 @@ where
         TOtherKind: Clone + TryFrom<Any>,
         Any: From<TOtherKind>,
     {
-        let self_ptr = match self {
-            AST::Valid(inner, _) => Arc::as_ptr(inner),
-            AST::Malformed { inner, .. } => Arc::as_ptr(inner),
-        };
-        let other_ptr = match other {
-            AST::Valid(inner, _) => Arc::as_ptr(inner),
-            AST::Malformed { inner, .. } => Arc::as_ptr(inner),
-        };
-        std::ptr::eq(self_ptr, other_ptr)
+        match (self, other) {
+            (AST::Valid(a, _), AST::Valid(b, _)) => Arc::ptr_eq(a, b),
+            _ => false,
+        }
     }
 
     pub fn parent(&self) -> Option<AST<Any>> {
-        let inner = match self {
-            AST::Valid(inner, _) => inner,
-            AST::Malformed { inner, .. } => inner,
-        };
-        inner
-            .parent
-            .read()
-            .unwrap()
-            .as_ref()
-            .and_then(|weak| weak.upgrade())
-            .map(|node| AST::<Any>::Valid(node, PhantomData))
+        match self {
+            AST::Valid(inner, _) => inner
+                .parent
+                .read()
+                .unwrap()
+                .as_ref()
+                .and_then(|weak: &Weak<ASTInner>| weak.upgrade())
+                .map(|node| AST::<Any>::Valid(node, PhantomData)),
+            AST::Malformed(..) => None,
+        }
     }
 
     pub fn contains_child(&self, other: &AST<Any>) -> bool {
@@ -210,7 +199,7 @@ where
     {
         match self {
             AST::Valid(inner, _) => AST::<TExpected>::Valid(inner, PhantomData),
-            AST::Malformed { inner, message } => AST::<TExpected>::Malformed { inner, message },
+            AST::Malformed(slice, message) => AST::<TExpected>::Malformed(slice, message),
         }
     }
 
@@ -223,9 +212,7 @@ where
             AST::Valid(inner, _) => TExpected::try_from(inner.details.clone())
                 .ok()
                 .map(|_| AST::<TExpected>::Valid(inner, PhantomData)),
-            AST::Malformed { inner, message } => {
-                Some(AST::<TExpected>::Malformed { inner, message })
-            }
+            AST::Malformed(slice, message) => Some(AST::<TExpected>::Malformed(slice, message)),
         }
     }
 
@@ -235,7 +222,7 @@ where
                 Ok(res) => Some(res),
                 Err(_) => unreachable!(),
             },
-            AST::Malformed { .. } => None,
+            AST::Malformed(..) => None,
         }
     }
 }
@@ -277,11 +264,11 @@ where
     {
         let self_inner = match self {
             AST::Valid(inner, _) => inner,
-            AST::Malformed { inner, .. } => inner,
+            AST::Malformed(..) => return,
         };
         let parent_inner = match parent {
             AST::Valid(inner, _) => inner,
-            AST::Malformed { inner, .. } => inner,
+            AST::Malformed(..) => return,
         };
         *self_inner.as_ref().parent.write().unwrap() = Some(Arc::downgrade(parent_inner));
     }
@@ -513,9 +500,8 @@ impl Any {
                 FunctionBody::Block(block) => f(block.clone().upcast()),
             },
             Any::Statement(statement) => match statement {
-                Statement::Invocation(inv) => {
-                    f(inv.function.clone().upcast());
-                    inv.arguments.iter().for_each(|arg| f(arg.clone().upcast()));
+                Statement::Expression(expr) => {
+                    Any::Expression(expr.clone()).for_each_child(f);
                 }
                 Statement::Block(block) => {
                     block.statements.iter().for_each(|s| f(s.clone().upcast()));

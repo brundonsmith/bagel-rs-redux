@@ -6,12 +6,17 @@ const arr: number[] = [1,,.,3]
 const foo = () => {
     (
 }
+const other = obj.
+const otherfunc = () => {
+    obja.()
+    objb.
+}
 ---
 Ok(
     (
         Slice("\n"),
         ASTInner {
-            slice: Slice("\nconst arr: number[] = [1,,.,3]\nconst foo = () => {\n    (\n}"),
+            slice: Slice("\nconst arr: number[] = [1,,.,3]\nconst foo = () => {\n    (\n}\nconst other = obj.\nconst otherfunc = () => {\n    obja.()\n    objb.\n}"),
             details: Module {
                 declarations: [
                     ASTInner {
@@ -46,10 +51,7 @@ Ok(
                                     open_bracket: Slice("["),
                                     elements: [
                                         Malformed {
-                                            inner: ASTInner {
-                                                slice: Slice("1,,.,3"),
-                                                details: NilLiteral,
-                                            },
+                                            slice: Slice("1,,.,3"),
                                             message: "Expected expression",
                                         },
                                     ],
@@ -95,11 +97,131 @@ Ok(
                                                 details: Block {
                                                     statements: [
                                                         Malformed {
-                                                            inner: ASTInner {
-                                                                slice: Slice("\n    (\n"),
-                                                                details: NilLiteral,
-                                                            },
+                                                            slice: Slice("\n    (\n"),
                                                             message: "Expected statement",
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const other = obj."),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("other"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("obj."),
+                                details: PropertyAccessExpression {
+                                    subject: ASTInner {
+                                        slice: Slice("obj"),
+                                        details: LocalIdentifier {
+                                            identifier: ASTInner {
+                                                slice: Slice("obj"),
+                                                details: PlainIdentifier,
+                                            },
+                                        },
+                                    },
+                                    dot: Slice("."),
+                                    property: Malformed {
+                                        slice: Slice(""),
+                                        message: "identifier",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const otherfunc = () => {\n    obja.()\n    objb.\n}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("otherfunc"),
+                                details: PlainIdentifier,
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("() => {\n    obja.()\n    objb.\n}"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: None,
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("{\n    obja.()\n    objb.\n}"),
+                                        details: Block(
+                                            ASTInner {
+                                                slice: Slice("{\n    obja.()\n    objb.\n}"),
+                                                details: Block {
+                                                    statements: [
+                                                        ASTInner {
+                                                            slice: Slice("obja.()"),
+                                                            details: Invocation {
+                                                                function: ASTInner {
+                                                                    slice: Slice("obja."),
+                                                                    details: PropertyAccessExpression {
+                                                                        subject: ASTInner {
+                                                                            slice: Slice("obja"),
+                                                                            details: LocalIdentifier {
+                                                                                identifier: ASTInner {
+                                                                                    slice: Slice("obja"),
+                                                                                    details: PlainIdentifier,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                        dot: Slice("."),
+                                                                        property: Malformed {
+                                                                            slice: Slice(""),
+                                                                            message: "identifier",
+                                                                        },
+                                                                    },
+                                                                },
+                                                                open_paren: Slice("("),
+                                                                arguments: [],
+                                                                commas: [],
+                                                                trailing_comma: None,
+                                                                close_paren: Some(
+                                                                    Slice(")"),
+                                                                ),
+                                                            },
+                                                        },
+                                                        ASTInner {
+                                                            slice: Slice("objb."),
+                                                            details: PropertyAccessExpression {
+                                                                subject: ASTInner {
+                                                                    slice: Slice("objb"),
+                                                                    details: LocalIdentifier {
+                                                                        identifier: ASTInner {
+                                                                            slice: Slice("objb"),
+                                                                            details: PlainIdentifier,
+                                                                        },
+                                                                    },
+                                                                },
+                                                                dot: Slice("."),
+                                                                property: Malformed {
+                                                                    slice: Slice(""),
+                                                                    message: "identifier",
+                                                                },
+                                                            },
                                                         },
                                                     ],
                                                 },

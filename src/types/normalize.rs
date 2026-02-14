@@ -428,8 +428,8 @@ fn resolve_local_identifier(
                             // function expression and extract the parameter type
                             let func_expr_node: AST<Expression> = match &func_node {
                                 AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
-                                AST::Malformed { inner, message } => {
-                                    AST::<Expression>::new_malformed(inner.clone(), message.clone())
+                                AST::Malformed(slice, message) => {
+                                    AST::Malformed(slice.clone(), message.clone())
                                 }
                             };
                             func_expr_node

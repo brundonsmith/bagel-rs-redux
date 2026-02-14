@@ -1,8 +1,10 @@
 use std::fmt::Write;
+use std::sync::Arc;
 
 use crate::{
-    ast::grammar::{ElseClause, IfElseExpression},
-    ast::{container::AST, grammar::Any, modules::ModulesStore},
+    ast::container::{ASTInner, AST},
+    ast::grammar::{Any, ElseClause, IfElseExpression},
+    ast::modules::ModulesStore,
     config::Config,
 };
 
@@ -260,16 +262,13 @@ where
                 },
 
                 Any::Statement(statement) => match statement {
-                    Statement::Invocation(inv) => {
-                        inv.function.compile(ctx, f)?;
-                        write!(f, "(")?;
-                        for (i, arg) in inv.arguments.iter().enumerate() {
-                            if i > 0 {
-                                write!(f, ", ")?;
-                            }
-                            arg.compile(ctx, f)?;
-                        }
-                        write!(f, ")")
+                    Statement::Expression(expr) => {
+                        AST::<Any>::new(Arc::new(ASTInner {
+                            parent: Default::default(),
+                            slice: self.slice().clone(),
+                            details: Any::Expression(expr.clone()),
+                        }))
+                        .compile(ctx, f)
                     }
                     Statement::Block(block) => {
                         write!(f, "{{ ");

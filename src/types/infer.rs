@@ -171,9 +171,12 @@ impl AST<Expression> {
                     }
                 }
 
-                PropertyAccessExpression(prop_access) => Type::PropertyAccess {
-                    subject: Arc::new(prop_access.subject.infer_type(ctx)),
-                    property: prop_access.property.slice().as_str().to_string(),
+                PropertyAccessExpression(prop_access) => match prop_access.property {
+                    AST::Valid(inner, _) => Type::PropertyAccess {
+                        subject: Arc::new(prop_access.subject.infer_type(ctx)),
+                        property: inner.slice.as_str().to_string(),
+                    },
+                    AST::Malformed(_, _) => Type::Poisoned,
                 },
 
                 ParenthesizedExpression(paren) => paren.expression.infer_type(ctx),

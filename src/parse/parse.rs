@@ -138,17 +138,7 @@ where
     TKind: Clone + TryFrom<Any>,
     Any: From<TKind>,
 {
-    use std::sync::RwLock;
-    // The details value is irrelevant for Malformed nodes (details() returns None)
-    let dummy_details: Any = Any::Expression(Expression::NilLiteral(NilLiteral));
-    AST::new_malformed(
-        Arc::new(ASTInner {
-            parent: Arc::new(RwLock::new(None)),
-            slice,
-            details: dummy_details,
-        }),
-        message.to_string(),
-    )
+    AST::Malformed(slice, message.to_string())
 }
 
 // Parser for PlainIdentifier: [a-z]+ (but not a keyword)
@@ -554,9 +544,19 @@ fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
                 PostfixSuffix::Invocation(open_paren, args, commas, trailing_comma, close_paren)
             },
         ),
-        map(seq!(tag("."), plain_identifier), |(dot, prop)| {
-            PostfixSuffix::PropertyAccess(dot, prop)
-        }),
+        |i: Slice| {
+            let (after_dot, dot) = preceded(whitespace, tag("."))(i)?;
+            let prop = match preceded(whitespace, plain_identifier)(after_dot.clone()) {
+                Ok((remaining, prop)) => (remaining, prop),
+                Err(nom::Err::Error(_)) => {
+                    // Dot with no valid identifier: create a zero-width malformed node
+                    let empty_slice = after_dot.clone().slice_range(0, Some(0));
+                    (after_dot, make_malformed(empty_slice, "identifier"))
+                }
+                Err(e) => return Err(e),
+            };
+            Ok((prop.0, PostfixSuffix::PropertyAccess(dot, prop.1)))
+        },
     ));
 
     map(
@@ -822,12 +822,11 @@ fn if_else_expression(i: Slice) -> ParseResult<AST<IfElseExpression>> {
     Ok((remaining, node))
 }
 
-// Parser for a statement: currently only invocations (possibly via property access chains)
+// Parser for a statement: any expression is accepted so that the AST preserves
+// structure for LSP features like autocomplete. Non-invocation expressions
+// are rejected later during type checking.
 fn statement(i: Slice) -> ParseResult<AST<Statement>> {
-    map(
-        nom::combinator::map_opt(postfix_expression, |expr| expr.try_downcast::<Invocation>()),
-        |inv| inv.upcast(),
-    )(i)
+    map(postfix_expression, |expr| expr.upcast::<Statement>())(i)
 }
 
 // Parser for a block: "{" statement* "}"
