@@ -631,7 +631,8 @@ where
                                 src: self.slice().clone(),
                                 severity: RuleSeverity::Error,
                                 details: BagelErrorDetails::MiscError {
-                                    message: "Only invocations are allowed as statements".to_string(),
+                                    message: "Only invocations are allowed as statements"
+                                        .to_string(),
                                 },
                                 related: vec![],
                             });

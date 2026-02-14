@@ -22,7 +22,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("log"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("log"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -37,21 +39,27 @@ Ok(
                                                 details: LocalIdentifier {
                                                     identifier: ASTInner {
                                                         slice: Slice("js"),
-                                                        details: PlainIdentifier,
+                                                        details: PlainIdentifier {
+                                                            slice: Slice("js"),
+                                                        },
                                                     },
                                                 },
                                             },
                                             dot: Slice("."),
                                             property: ASTInner {
                                                 slice: Slice("console"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("console"),
+                                                },
                                             },
                                         },
                                     },
                                     dot: Slice("."),
                                     property: ASTInner {
                                         slice: Slice("log"),
-                                        details: PlainIdentifier,
+                                        details: PlainIdentifier {
+                                            slice: Slice("log"),
+                                        },
                                     },
                                 },
                             },
@@ -64,7 +72,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("main"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("main"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -103,21 +113,27 @@ Ok(
                                                                                     details: LocalIdentifier {
                                                                                         identifier: ASTInner {
                                                                                             slice: Slice("js"),
-                                                                                            details: PlainIdentifier,
+                                                                                            details: PlainIdentifier {
+                                                                                                slice: Slice("js"),
+                                                                                            },
                                                                                         },
                                                                                     },
                                                                                 },
                                                                                 dot: Slice("."),
                                                                                 property: ASTInner {
                                                                                     slice: Slice("console"),
-                                                                                    details: PlainIdentifier,
+                                                                                    details: PlainIdentifier {
+                                                                                        slice: Slice("console"),
+                                                                                    },
                                                                                 },
                                                                             },
                                                                         },
                                                                         dot: Slice("."),
                                                                         property: ASTInner {
                                                                             slice: Slice("log"),
-                                                                            details: PlainIdentifier,
+                                                                            details: PlainIdentifier {
+                                                                                slice: Slice("log"),
+                                                                            },
                                                                         },
                                                                     },
                                                                 },
@@ -153,21 +169,27 @@ Ok(
                                                                                     details: LocalIdentifier {
                                                                                         identifier: ASTInner {
                                                                                             slice: Slice("js"),
-                                                                                            details: PlainIdentifier,
+                                                                                            details: PlainIdentifier {
+                                                                                                slice: Slice("js"),
+                                                                                            },
                                                                                         },
                                                                                     },
                                                                                 },
                                                                                 dot: Slice("."),
                                                                                 property: ASTInner {
                                                                                     slice: Slice("console"),
-                                                                                    details: PlainIdentifier,
+                                                                                    details: PlainIdentifier {
+                                                                                        slice: Slice("console"),
+                                                                                    },
                                                                                 },
                                                                             },
                                                                         },
                                                                         dot: Slice("."),
                                                                         property: ASTInner {
                                                                             slice: Slice("log"),
-                                                                            details: PlainIdentifier,
+                                                                            details: PlainIdentifier {
+                                                                                slice: Slice("log"),
+                                                                            },
                                                                         },
                                                                     },
                                                                 },
@@ -175,7 +197,9 @@ Ok(
                                                                 arguments: [
                                                                     ASTInner {
                                                                         slice: Slice("42"),
-                                                                        details: NumberLiteral,
+                                                                        details: NumberLiteral {
+                                                                            slice: Slice("42"),
+                                                                        },
                                                                     },
                                                                 ],
                                                                 commas: [],

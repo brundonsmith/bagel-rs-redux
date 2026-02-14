@@ -33,7 +33,9 @@ Ok(
                                 ImportSpecifier {
                                     name: ASTInner {
                                         slice: Slice("alpha"),
-                                        details: PlainIdentifier,
+                                        details: PlainIdentifier {
+                                            slice: Slice("alpha"),
+                                        },
                                     },
                                     alias: None,
                                 },
@@ -63,14 +65,18 @@ Ok(
                                 ImportSpecifier {
                                     name: ASTInner {
                                         slice: Slice("beta"),
-                                        details: PlainIdentifier,
+                                        details: PlainIdentifier {
+                                            slice: Slice("beta"),
+                                        },
                                     },
                                     alias: None,
                                 },
                                 ImportSpecifier {
                                     name: ASTInner {
                                         slice: Slice("gamma"),
-                                        details: PlainIdentifier,
+                                        details: PlainIdentifier {
+                                            slice: Slice("gamma"),
+                                        },
                                     },
                                     alias: None,
                                 },
@@ -102,14 +108,18 @@ Ok(
                                 ImportSpecifier {
                                     name: ASTInner {
                                         slice: Slice("delta"),
-                                        details: PlainIdentifier,
+                                        details: PlainIdentifier {
+                                            slice: Slice("delta"),
+                                        },
                                     },
                                     alias: Some(
                                         (
                                             Slice("as"),
                                             ASTInner {
                                                 slice: Slice("renamed"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("renamed"),
+                                                },
                                             },
                                         ),
                                     ),
@@ -129,7 +139,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("alpha"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("alpha"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),

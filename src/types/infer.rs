@@ -34,9 +34,9 @@ impl AST<Expression> {
                     value: Some(lit.value),
                 },
 
-                NumberLiteral(_) => {
+                NumberLiteral(num) => {
                     // Parse the number from the slice to determine if it's an exact type
-                    let text = self.slice().as_str();
+                    let text = num.slice.as_str();
 
                     if let Ok(value) = text.parse::<i64>() {
                         Type::Number {

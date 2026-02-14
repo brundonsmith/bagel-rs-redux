@@ -27,7 +27,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("a"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -36,7 +38,9 @@ Ok(
                                 details: BinaryOperation {
                                     left: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     operator: ASTInner {
                                         slice: Slice("=="),
@@ -44,7 +48,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("2"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("2"),
+                                        },
                                     },
                                 },
                             },
@@ -57,7 +63,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("b"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -66,7 +74,9 @@ Ok(
                                 details: BinaryOperation {
                                     left: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     operator: ASTInner {
                                         slice: Slice("!="),
@@ -74,7 +84,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("2"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("2"),
+                                        },
                                     },
                                 },
                             },
@@ -87,7 +99,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("c"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -96,7 +110,9 @@ Ok(
                                 details: BinaryOperation {
                                     left: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     operator: ASTInner {
                                         slice: Slice("<"),
@@ -104,7 +120,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("2"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("2"),
+                                        },
                                     },
                                 },
                             },
@@ -117,7 +135,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("d"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -126,7 +146,9 @@ Ok(
                                 details: BinaryOperation {
                                     left: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     operator: ASTInner {
                                         slice: Slice("<="),
@@ -134,7 +156,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("2"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("2"),
+                                        },
                                     },
                                 },
                             },
@@ -147,7 +171,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("e"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("e"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -156,7 +182,9 @@ Ok(
                                 details: BinaryOperation {
                                     left: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     operator: ASTInner {
                                         slice: Slice(">"),
@@ -164,7 +192,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("2"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("2"),
+                                        },
                                     },
                                 },
                             },
@@ -177,7 +207,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("f"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("f"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -186,7 +218,9 @@ Ok(
                                 details: BinaryOperation {
                                     left: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     operator: ASTInner {
                                         slice: Slice(">="),
@@ -194,7 +228,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("2"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("2"),
+                                        },
                                     },
                                 },
                             },
@@ -207,7 +243,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("g"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("g"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -241,7 +279,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("h"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("h"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -275,7 +315,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("i"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("i"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -292,7 +334,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("5"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("5"),
+                                        },
                                     },
                                 },
                             },
@@ -305,7 +349,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("j"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("j"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),

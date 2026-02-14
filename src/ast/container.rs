@@ -23,7 +23,7 @@ use crate::ast::slice::Slice;
 /// # Example
 /// ```ignore
 /// // Create a valid AST node
-/// let node = make_ast(slice, NumberLiteral);
+/// let node = make_ast(slice.clone(), NumberLiteral { slice });
 ///
 /// // Pattern match to handle both cases
 /// match node {

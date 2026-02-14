@@ -148,7 +148,7 @@ pub fn plain_identifier(i: Slice) -> ParseResult<AST<PlainIdentifier>> {
             take_while1(|c: char| c.is_ascii_lowercase()),
             |matched: &Slice| !is_keyword(matched.as_str()),
         ),
-        |matched: Slice| make_ast(matched, PlainIdentifier),
+        |matched: Slice| make_ast(matched.clone(), PlainIdentifier { slice: matched }),
     )(i)
 }
 
@@ -175,7 +175,7 @@ pub fn number_literal(i: Slice) -> ParseResult<AST<NumberLiteral>> {
                 take_while1(|c: char| c.is_ascii_digit()),
             ))),
         ))),
-        |matched: Slice| make_ast(matched, NumberLiteral),
+        |matched: Slice| make_ast(matched.clone(), NumberLiteral { slice: matched }),
     )(i)
 }
 

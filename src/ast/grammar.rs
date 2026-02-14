@@ -10,7 +10,6 @@ use super::container::AST;
 use super::slice::Slice;
 
 /// Terminal nodes (literals and identifiers)
-/// Note: The slice for each node is stored in ASTInner, not in these structs
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NilLiteral;
 
@@ -20,7 +19,9 @@ pub struct BooleanLiteral {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NumberLiteral;
+pub struct NumberLiteral {
+    pub slice: Slice,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StringLiteral {
@@ -30,7 +31,9 @@ pub struct StringLiteral {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PlainIdentifier;
+pub struct PlainIdentifier {
+    pub slice: Slice,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalIdentifier {

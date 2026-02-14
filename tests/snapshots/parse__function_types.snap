@@ -21,7 +21,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("a"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -63,7 +65,9 @@ Ok(
                                         details: Expression(
                                             ASTInner {
                                                 slice: Slice("42"),
-                                                details: NumberLiteral,
+                                                details: NumberLiteral {
+                                                    slice: Slice("42"),
+                                                },
                                             },
                                         ),
                                     },
@@ -78,7 +82,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("b"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -119,7 +125,9 @@ Ok(
                                         (
                                             ASTInner {
                                                 slice: Slice("x"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("x"),
+                                                },
                                             },
                                             None,
                                         ),
@@ -142,7 +150,9 @@ Ok(
                                                         details: LocalIdentifier {
                                                             identifier: ASTInner {
                                                                 slice: Slice("x"),
-                                                                details: PlainIdentifier,
+                                                                details: PlainIdentifier {
+                                                                    slice: Slice("x"),
+                                                                },
                                                             },
                                                         },
                                                     },
@@ -152,7 +162,9 @@ Ok(
                                                     },
                                                     right: ASTInner {
                                                         slice: Slice("1"),
-                                                        details: NumberLiteral,
+                                                        details: NumberLiteral {
+                                                            slice: Slice("1"),
+                                                        },
                                                     },
                                                 },
                                             },
@@ -169,7 +181,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("c"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -219,14 +233,18 @@ Ok(
                                         (
                                             ASTInner {
                                                 slice: Slice("a"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("a"),
+                                                },
                                             },
                                             None,
                                         ),
                                         (
                                             ASTInner {
                                                 slice: Slice("b"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("b"),
+                                                },
                                             },
                                             None,
                                         ),
@@ -251,7 +269,9 @@ Ok(
                                                         details: LocalIdentifier {
                                                             identifier: ASTInner {
                                                                 slice: Slice("a"),
-                                                                details: PlainIdentifier,
+                                                                details: PlainIdentifier {
+                                                                    slice: Slice("a"),
+                                                                },
                                                             },
                                                         },
                                                     },
@@ -264,7 +284,9 @@ Ok(
                                                         details: LocalIdentifier {
                                                             identifier: ASTInner {
                                                                 slice: Slice("b"),
-                                                                details: PlainIdentifier,
+                                                                details: PlainIdentifier {
+                                                                    slice: Slice("b"),
+                                                                },
                                                             },
                                                         },
                                                     },
@@ -283,7 +305,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("d"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -298,7 +322,9 @@ Ok(
                                                         (
                                                             ASTInner {
                                                                 slice: Slice("x"),
-                                                                details: PlainIdentifier,
+                                                                details: PlainIdentifier {
+                                                                    slice: Slice("x"),
+                                                                },
                                                             },
                                                             Slice(":"),
                                                         ),
@@ -313,7 +339,9 @@ Ok(
                                                         (
                                                             ASTInner {
                                                                 slice: Slice("y"),
-                                                                details: PlainIdentifier,
+                                                                details: PlainIdentifier {
+                                                                    slice: Slice("y"),
+                                                                },
                                                             },
                                                             Slice(":"),
                                                         ),
@@ -349,14 +377,18 @@ Ok(
                                         (
                                             ASTInner {
                                                 slice: Slice("a"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("a"),
+                                                },
                                             },
                                             None,
                                         ),
                                         (
                                             ASTInner {
                                                 slice: Slice("b"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("b"),
+                                                },
                                             },
                                             None,
                                         ),
@@ -381,7 +413,9 @@ Ok(
                                                         details: LocalIdentifier {
                                                             identifier: ASTInner {
                                                                 slice: Slice("a"),
-                                                                details: PlainIdentifier,
+                                                                details: PlainIdentifier {
+                                                                    slice: Slice("a"),
+                                                                },
                                                             },
                                                         },
                                                     },
@@ -394,7 +428,9 @@ Ok(
                                                         details: LocalIdentifier {
                                                             identifier: ASTInner {
                                                                 slice: Slice("b"),
-                                                                details: PlainIdentifier,
+                                                                details: PlainIdentifier {
+                                                                    slice: Slice("b"),
+                                                                },
                                                             },
                                                         },
                                                     },

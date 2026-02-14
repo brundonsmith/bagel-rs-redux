@@ -26,7 +26,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("arr"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("arr"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -71,7 +73,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("foo"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("foo"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -116,7 +120,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("other"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("other"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -128,7 +134,9 @@ Ok(
                                         details: LocalIdentifier {
                                             identifier: ASTInner {
                                                 slice: Slice("obj"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("obj"),
+                                                },
                                             },
                                         },
                                     },
@@ -148,7 +156,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("otherfunc"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("otherfunc"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -184,7 +194,9 @@ Ok(
                                                                             details: LocalIdentifier {
                                                                                 identifier: ASTInner {
                                                                                     slice: Slice("obja"),
-                                                                                    details: PlainIdentifier,
+                                                                                    details: PlainIdentifier {
+                                                                                        slice: Slice("obja"),
+                                                                                    },
                                                                                 },
                                                                             },
                                                                         },
@@ -212,7 +224,9 @@ Ok(
                                                                     details: LocalIdentifier {
                                                                         identifier: ASTInner {
                                                                             slice: Slice("objb"),
-                                                                            details: PlainIdentifier,
+                                                                            details: PlainIdentifier {
+                                                                                slice: Slice("objb"),
+                                                                            },
                                                                         },
                                                                     },
                                                                 },

@@ -29,7 +29,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("a"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -43,7 +45,9 @@ Ok(
                             equals: Slice("="),
                             value: ASTInner {
                                 slice: Slice("1"),
-                                details: NumberLiteral,
+                                details: NumberLiteral {
+                                    slice: Slice("1"),
+                                },
                             },
                         },
                     },
@@ -54,7 +58,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("b"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -83,7 +89,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("c"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -110,7 +118,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("d"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -135,7 +145,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("e"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("e"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -149,7 +161,9 @@ Ok(
                             equals: Slice("="),
                             value: ASTInner {
                                 slice: Slice("42"),
-                                details: NumberLiteral,
+                                details: NumberLiteral {
+                                    slice: Slice("42"),
+                                },
                             },
                         },
                     },
@@ -160,7 +174,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("f"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("f"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -182,7 +198,9 @@ Ok(
                             equals: Slice("="),
                             value: ASTInner {
                                 slice: Slice("5"),
-                                details: NumberLiteral,
+                                details: NumberLiteral {
+                                    slice: Slice("5"),
+                                },
                             },
                         },
                     },
@@ -193,7 +211,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("g"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("g"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -213,7 +233,9 @@ Ok(
                             equals: Slice("="),
                             value: ASTInner {
                                 slice: Slice("100"),
-                                details: NumberLiteral,
+                                details: NumberLiteral {
+                                    slice: Slice("100"),
+                                },
                             },
                         },
                     },
@@ -224,7 +246,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("h"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("h"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -244,7 +268,9 @@ Ok(
                             equals: Slice("="),
                             value: ASTInner {
                                 slice: Slice("50"),
-                                details: NumberLiteral,
+                                details: NumberLiteral {
+                                    slice: Slice("50"),
+                                },
                             },
                         },
                     },
@@ -255,7 +281,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("i"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("i"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -281,15 +309,21 @@ Ok(
                                     elements: [
                                         ASTInner {
                                             slice: Slice("1"),
-                                            details: NumberLiteral,
+                                            details: NumberLiteral {
+                                                slice: Slice("1"),
+                                            },
                                         },
                                         ASTInner {
                                             slice: Slice("2"),
-                                            details: NumberLiteral,
+                                            details: NumberLiteral {
+                                                slice: Slice("2"),
+                                            },
                                         },
                                         ASTInner {
                                             slice: Slice("3"),
-                                            details: NumberLiteral,
+                                            details: NumberLiteral {
+                                                slice: Slice("3"),
+                                            },
                                         },
                                     ],
                                     commas: [
@@ -311,7 +345,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("j"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("j"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -325,7 +361,9 @@ Ok(
                                                 details: LocalIdentifier {
                                                     identifier: ASTInner {
                                                         slice: Slice("a"),
-                                                        details: PlainIdentifier,
+                                                        details: PlainIdentifier {
+                                                            slice: Slice("a"),
+                                                        },
                                                     },
                                                 },
                                             },
@@ -336,7 +374,9 @@ Ok(
                             equals: Slice("="),
                             value: ASTInner {
                                 slice: Slice("2"),
-                                details: NumberLiteral,
+                                details: NumberLiteral {
+                                    slice: Slice("2"),
+                                },
                             },
                         },
                     },
@@ -347,7 +387,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("k"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("k"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -368,7 +410,9 @@ Ok(
                             equals: Slice("="),
                             value: ASTInner {
                                 slice: Slice("3"),
-                                details: NumberLiteral,
+                                details: NumberLiteral {
+                                    slice: Slice("3"),
+                                },
                             },
                         },
                     },
@@ -379,7 +423,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("l"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("l"),
+                                },
                             },
                             type_annotation: Some(
                                 (
@@ -399,7 +445,9 @@ Ok(
                                         details: LocalIdentifier {
                                             identifier: ASTInner {
                                                 slice: Slice("b"),
-                                                details: PlainIdentifier,
+                                                details: PlainIdentifier {
+                                                    slice: Slice("b"),
+                                                },
                                             },
                                         },
                                     },
@@ -409,7 +457,9 @@ Ok(
                                     },
                                     right: ASTInner {
                                         slice: Slice("3"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("3"),
+                                        },
                                     },
                                 },
                             },

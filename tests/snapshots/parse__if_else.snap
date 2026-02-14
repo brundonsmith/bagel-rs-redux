@@ -21,7 +21,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("a"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -38,7 +40,9 @@ Ok(
                                     open_brace: Slice("{"),
                                     consequent: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     close_brace: Slice("}"),
                                     else_clause: Some(
@@ -47,7 +51,9 @@ Ok(
                                             open_brace: Slice("{"),
                                             expression: ASTInner {
                                                 slice: Slice("2"),
-                                                details: NumberLiteral,
+                                                details: NumberLiteral {
+                                                    slice: Slice("2"),
+                                                },
                                             },
                                             close_brace: Slice("}"),
                                         },
@@ -63,7 +69,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("b"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -99,7 +107,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("c"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
@@ -116,7 +126,9 @@ Ok(
                                     open_brace: Slice("{"),
                                     consequent: ASTInner {
                                         slice: Slice("1"),
-                                        details: NumberLiteral,
+                                        details: NumberLiteral {
+                                            slice: Slice("1"),
+                                        },
                                     },
                                     close_brace: Slice("}"),
                                     else_clause: Some(
@@ -135,7 +147,9 @@ Ok(
                                                     open_brace: Slice("{"),
                                                     consequent: ASTInner {
                                                         slice: Slice("2"),
-                                                        details: NumberLiteral,
+                                                        details: NumberLiteral {
+                                                            slice: Slice("2"),
+                                                        },
                                                     },
                                                     close_brace: Slice("}"),
                                                     else_clause: Some(
@@ -144,7 +158,9 @@ Ok(
                                                             open_brace: Slice("{"),
                                                             expression: ASTInner {
                                                                 slice: Slice("3"),
-                                                                details: NumberLiteral,
+                                                                details: NumberLiteral {
+                                                                    slice: Slice("3"),
+                                                                },
                                                             },
                                                             close_brace: Slice("}"),
                                                         },
@@ -164,7 +180,9 @@ Ok(
                             const_keyword: Slice("const"),
                             identifier: ASTInner {
                                 slice: Slice("d"),
-                                details: PlainIdentifier,
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
                             },
                             type_annotation: None,
                             equals: Slice("="),
