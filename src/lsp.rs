@@ -14,7 +14,9 @@ use crate::check::{BagelError, CheckContext, Checkable};
 use crate::config::Config;
 use crate::emit::{EmitContext, Emittable};
 use crate::types::infer::InferTypeContext;
-use crate::types::{resolve_identifier, NormalizeContext, ResolvedIdentifier, Type};
+use crate::types::{
+    identifiers_in_scope, resolve_identifier, NormalizeContext, ResolvedIdentifier, Type,
+};
 
 #[derive(Debug)]
 struct BagelLanguageServer {
@@ -565,8 +567,61 @@ impl LanguageServer for BagelLanguageServer {
         let before_cursor = &text[..cursor_offset];
         let trimmed = before_cursor.trim_end_matches(|c: char| c.is_alphanumeric() || c == '_');
         if !trimmed.ends_with('.') {
-            eprintln!("[DEBUG] completion() - no dot found before cursor");
-            return Ok(None);
+            eprintln!("[DEBUG] completion() - no dot found, trying identifier completion");
+
+            // Try identifier completion: find the node at the cursor and check
+            // if it's a LocalIdentifier (or we're inside one)
+            let node = find_node_at_offset(&ast, cursor_offset.saturating_sub(1));
+            let ident_node = node.and_then(|n| {
+                if matches!(
+                    n.details(),
+                    Some(Any::Expression(Expression::LocalIdentifier(_)))
+                ) {
+                    Some(n)
+                } else {
+                    let mut cur = n.parent();
+                    while let Some(ancestor) = cur {
+                        if matches!(
+                            ancestor.details(),
+                            Some(Any::Expression(Expression::LocalIdentifier(_)))
+                        ) {
+                            return Some(ancestor);
+                        }
+                        cur = ancestor.parent();
+                    }
+                    None
+                }
+            });
+
+            let ident_node = match ident_node {
+                Some(n) => n,
+                None => return Ok(None),
+            };
+
+            let current_module =
+                uri_to_path(&uri).and_then(|p| store.modules.get(&ModulePath::File(p)));
+            let norm_ctx = NormalizeContext {
+                modules: Some(&*store),
+                current_module,
+            };
+
+            let mut items: Vec<CompletionItem> = identifiers_in_scope(&ident_node, norm_ctx)
+                .iter()
+                .map(|resolved| completion_item_for_identifier(resolved, norm_ctx))
+                .collect();
+
+            // Add the built-in `js` global
+            items.push(CompletionItem {
+                label: "js".to_string(),
+                kind: Some(CompletionItemKind::MODULE),
+                ..Default::default()
+            });
+
+            eprintln!(
+                "[DEBUG] completion() - returning {} identifier completion items",
+                items.len()
+            );
+            return Ok(Some(CompletionResponse::Array(items)));
         }
         let dot_offset = trimmed.len() - 1;
 
@@ -945,44 +1000,124 @@ fn find_property_access_subject_at_dot(
 fn completion_items_for_type(ty: &Type) -> Vec<CompletionItem> {
     match ty {
         Type::Object { fields } | Type::Interface { fields, .. } => fields
-            .keys()
-            .map(|name| CompletionItem {
+            .iter()
+            .map(|(name, field_type)| CompletionItem {
                 label: name.clone(),
-                kind: Some(CompletionItemKind::FIELD),
+                kind: Some(completion_item_kind_for_type(field_type)),
                 ..Default::default()
             })
             .collect(),
         Type::Union { variants } => {
-            // Collect only the fields that exist in every variant (intersection)
-            let field_sets: Vec<_> = variants
+            // Collect the fields from every variant; only include names present
+            // in all variants (intersection), using the first variant's type
+            // for the CompletionItemKind.
+            let field_maps: Vec<_> = variants
                 .iter()
                 .filter_map(|v| match v {
-                    Type::Object { fields } | Type::Interface { fields, .. } => {
-                        Some(fields.keys().collect::<std::collections::BTreeSet<_>>())
-                    }
+                    Type::Object { fields } | Type::Interface { fields, .. } => Some(fields),
                     _ => None,
                 })
                 .collect();
 
-            if field_sets.is_empty() || field_sets.len() != variants.len() {
+            if field_maps.is_empty() || field_maps.len() != variants.len() {
                 return Vec::new();
             }
 
-            let mut common = field_sets[0].clone();
-            field_sets[1..].iter().for_each(|s| {
-                common = common.intersection(s).copied().collect();
-            });
+            let common_keys: std::collections::BTreeSet<_> = field_maps[0]
+                .keys()
+                .filter(|k| field_maps[1..].iter().all(|m| m.contains_key(*k)))
+                .collect();
 
-            common
+            common_keys
                 .into_iter()
                 .map(|name| CompletionItem {
                     label: name.clone(),
-                    kind: Some(CompletionItemKind::FIELD),
+                    kind: Some(completion_item_kind_for_type(&field_maps[0][name])),
                     ..Default::default()
                 })
                 .collect()
         }
         _ => Vec::new(),
+    }
+}
+
+/// Map a resolved identifier to a CompletionItem with a kind derived from the
+/// identifier's fully-inferred, normalized type.
+fn completion_item_for_identifier(
+    resolved: &ResolvedIdentifier<'_>,
+    ctx: NormalizeContext<'_>,
+) -> CompletionItem {
+    let ty = resolve_identifier_type(resolved, ctx);
+
+    CompletionItem {
+        label: resolved.name().to_string(),
+        kind: Some(completion_item_kind_for_type(&ty)),
+        ..Default::default()
+    }
+}
+
+/// Infer and normalize the type of a resolved identifier, mirroring the logic
+/// used when normalizing a `Type::LocalIdentifier`.
+fn resolve_identifier_type(resolved: &ResolvedIdentifier<'_>, ctx: NormalizeContext<'_>) -> Type {
+    match resolved {
+        ResolvedIdentifier::ConstDeclaration { decl, module } => {
+            let decl_ctx = match module {
+                Some(m) => NormalizeContext {
+                    modules: ctx.modules,
+                    current_module: Some(m),
+                },
+                None => ctx,
+            };
+            let decl_infer_ctx = InferTypeContext {
+                modules: decl_ctx.modules,
+                current_module: decl_ctx.current_module,
+            };
+            decl.value.infer_type(decl_infer_ctx).normalize(decl_ctx)
+        }
+        ResolvedIdentifier::FunctionParam {
+            param_index,
+            func_node,
+            ..
+        } => match func_node.details() {
+            Some(Any::Expression(Expression::FunctionExpression(func))) => {
+                match &func.parameters[*param_index].1 {
+                    Some((_colon, type_expr)) => {
+                        type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned)
+                    }
+                    None => {
+                        let func_expr_node: AST<Expression> = match func_node {
+                            AST::Valid(inner, _) => AST::<Expression>::new(inner.clone()),
+                            AST::Malformed(slice, message) => {
+                                AST::Malformed(slice.clone(), message.clone())
+                            }
+                        };
+                        func_expr_node
+                            .expected_type()
+                            .and_then(|t| match t.normalize(ctx) {
+                                Type::FuncType { args, .. } => args.into_iter().nth(*param_index),
+                                _ => None,
+                            })
+                            .unwrap_or(Type::Unknown)
+                    }
+                }
+            }
+            _ => Type::Unknown,
+        },
+    }
+}
+
+/// Map a normalized Type to the most appropriate LSP CompletionItemKind.
+fn completion_item_kind_for_type(ty: &Type) -> CompletionItemKind {
+    match ty {
+        Type::FuncType { .. } => CompletionItemKind::FUNCTION,
+        Type::Object { .. } => CompletionItemKind::STRUCT,
+        Type::Interface { .. } => CompletionItemKind::MODULE,
+        Type::Array { .. } | Type::Tuple { .. } => CompletionItemKind::VARIABLE,
+        Type::Boolean { .. } | Type::Number { .. } | Type::String { .. } | Type::Nil => {
+            CompletionItemKind::CONSTANT
+        }
+        Type::Union { .. } => CompletionItemKind::ENUM,
+        _ => CompletionItemKind::VARIABLE,
     }
 }
 

@@ -33,6 +33,15 @@ pub enum ResolvedIdentifier<'a> {
     },
 }
 
+impl ResolvedIdentifier<'_> {
+    pub fn name(&self) -> &str {
+        match self {
+            ResolvedIdentifier::ConstDeclaration { decl, .. } => decl.identifier.slice().as_str(),
+            ResolvedIdentifier::FunctionParam { name, .. } => name.slice().as_str(),
+        }
+    }
+}
+
 impl Type {
     /// Some types can be exactly equivalent in the set of values they describe,
     /// but structurally represented differently. For example, a union that
@@ -263,107 +272,100 @@ impl AST<Expression> {
     }
 }
 
-/// The shared core of identifier resolution. Walks up the AST scope chain to
-/// find where an identifier is declared — as a const declaration (possibly in
-/// an imported module) or as a function parameter.
-///
-/// This is the single source of truth for "what does this name refer to?".
-/// Both type inference (`resolve_local_identifier`) and go-to-definition in
-/// the LSP consume this result.
+/// Walks up the AST scope chain from the given node and collects all
+/// identifiers (const declarations, imports, function parameters) that are
+/// visible at that point.
+pub fn identifiers_in_scope<'a>(
+    node: &AST<Any>,
+    ctx: NormalizeContext<'a>,
+) -> Vec<ResolvedIdentifier<'a>> {
+    let mut results = Vec::new();
+    let mut current = node.parent();
+
+    while let Some(ancestor) = current {
+        match ancestor.details() {
+            Some(Any::Module(module)) => {
+                // Collect module-level const declarations
+                results.extend(
+                    module
+                        .declarations
+                        .iter()
+                        .filter_map(|decl| match decl.unpack() {
+                            Some(Declaration::ConstDeclaration(const_decl)) => Some(const_decl),
+                            _ => None,
+                        })
+                        .map(|const_decl| ResolvedIdentifier::ConstDeclaration {
+                            decl: const_decl,
+                            module: None,
+                        }),
+                );
+
+                // Collect imported identifiers
+                if let (Some(store), Some(current_module)) = (ctx.modules, ctx.current_module) {
+                    results.extend(
+                        module
+                            .declarations
+                            .iter()
+                            .filter_map(|decl| match decl.unpack() {
+                                Some(Declaration::ImportDeclaration(import_decl)) => {
+                                    Some(import_decl)
+                                }
+                                _ => None,
+                            })
+                            .flat_map(|import_decl| {
+                                let import_path = import_decl
+                                    .path
+                                    .unpack()
+                                    .map(|lit| lit.contents.as_str().to_string());
+                                import_decl
+                                    .imports
+                                    .iter()
+                                    .filter_map(move |spec| {
+                                        let original_name = spec.name.slice().as_str().to_string();
+                                        let path = import_path.as_ref()?;
+                                        resolve_imported_identifier(
+                                            &original_name,
+                                            path,
+                                            store,
+                                            current_module,
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                            }),
+                    );
+                }
+
+                // Module is the top-level scope; stop walking
+                break;
+            }
+            Some(Any::Expression(Expression::FunctionExpression(func))) => {
+                results.extend(func.parameters.iter().enumerate().map(
+                    |(param_index, (param_name, _type_ann))| ResolvedIdentifier::FunctionParam {
+                        name: param_name.clone(),
+                        param_index,
+                        func_node: ancestor.clone(),
+                    },
+                ));
+            }
+            _ => {}
+        }
+
+        current = ancestor.parent();
+    }
+
+    results
+}
+
+/// Resolve a specific identifier name at the given AST node. Walks up the
+/// scope chain and returns the first declaration matching `name`.
 pub fn resolve_identifier<'a>(
     name: &str,
     node: &AST<Any>,
     ctx: NormalizeContext<'a>,
 ) -> Option<ResolvedIdentifier<'a>> {
-    // Walk up the AST from the identifier's AST node to find a containing scope
-    let mut current = node.parent();
-
-    while let Some(node) = current {
-        match node.details() {
-            Some(Any::Module(module)) => {
-                // First, search module-level const declarations for one matching our name
-                let const_match = module
-                    .declarations
-                    .iter()
-                    .filter_map(|decl| match decl.unpack() {
-                        Some(Declaration::ConstDeclaration(const_decl)) => Some(const_decl),
-                        _ => None,
-                    })
-                    .find(|const_decl| const_decl.identifier.slice().as_str() == name);
-
-                if let Some(const_decl) = const_match {
-                    return Some(ResolvedIdentifier::ConstDeclaration {
-                        decl: const_decl,
-                        module: None,
-                    });
-                }
-
-                // Next, check import declarations for a matching imported name
-                if let (Some(store), Some(current_module)) = (ctx.modules, ctx.current_module) {
-                    let import_match = module
-                        .declarations
-                        .iter()
-                        .filter_map(|decl| match decl.unpack() {
-                            Some(Declaration::ImportDeclaration(import_decl)) => Some(import_decl),
-                            _ => None,
-                        })
-                        .find_map(|import_decl| {
-                            import_decl
-                                .imports
-                                .iter()
-                                .find(|spec| {
-                                    let local_name = spec
-                                        .alias
-                                        .as_ref()
-                                        .map(|(_, alias)| alias.slice().as_str())
-                                        .unwrap_or_else(|| spec.name.slice().as_str());
-                                    local_name == name
-                                })
-                                .and_then(|spec| {
-                                    let original_name = spec.name.slice().as_str().to_string();
-                                    let import_path =
-                                        import_decl.path.unpack()?.contents.as_str().to_string();
-                                    Some((original_name, import_path))
-                                })
-                        });
-
-                    if let Some((original_name, import_path)) = import_match {
-                        return resolve_imported_identifier(
-                            &original_name,
-                            &import_path,
-                            store,
-                            current_module,
-                        );
-                    }
-                }
-
-                return None;
-            }
-            Some(Any::Expression(Expression::FunctionExpression(func))) => {
-                // Check if one of the function's parameters matches our name
-                let param_match = func
-                    .parameters
-                    .iter()
-                    .enumerate()
-                    .find(|(_, (param_name, _type_ann))| param_name.slice().as_str() == name);
-
-                if let Some((param_index, (param_name, _type_ann))) = param_match {
-                    return Some(ResolvedIdentifier::FunctionParam {
-                        name: param_name.clone(),
-                        param_index,
-                        func_node: node.clone(),
-                    });
-                }
-
-                // Not a parameter of this function — keep walking up
-            }
-            _ => {}
-        }
-
-        current = node.parent();
-    }
-
-    None
+    identifiers_in_scope(node, ctx)
+        .into_iter()
+        .find(|r| r.name() == name)
 }
 
 /// The built-in `js` global object type. This is an Interface that exposes

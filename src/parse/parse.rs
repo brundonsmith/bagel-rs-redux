@@ -859,7 +859,13 @@ fn block(i: Slice) -> ParseResult<AST<Block>> {
     let (remaining, close_brace) = w(expect_tag("}"))(current)?;
 
     let span = open_brace.spanning(&close_brace);
-    let node = make_ast(span, Block { statements });
+    let node = make_ast(
+        span,
+        Block {
+            statements: statements.clone(),
+        },
+    );
+    statements.set_parent(&node);
 
     Ok((remaining, node))
 }
