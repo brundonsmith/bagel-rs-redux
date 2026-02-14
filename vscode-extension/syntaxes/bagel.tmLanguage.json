@@ -123,9 +123,16 @@
           "include": "#binary-operator"
         },
         {
+          "include": "#js-keyword"
+        },
+        {
           "include": "#plain-identifier"
         }
       ]
+    },
+    "js-keyword": {
+      "name": "keyword.other.js.bagel",
+      "match": "\\bjs\\b"
     },
     "function-expression": {
       "patterns": [
@@ -378,7 +385,7 @@
     },
     "plain-identifier": {
       "name": "variable.other.bagel",
-      "match": "\\b(?!true\\b|false\\b|nil\\b|const\\b|export\\b|from\\b|import\\b|as\\b|if\\b|else\\b|typeof\\b)[a-z]+\\b"
+      "match": "\\b(?!true\\b|false\\b|nil\\b|const\\b|export\\b|from\\b|import\\b|as\\b|if\\b|else\\b|typeof\\b|js\\b)[a-z]+\\b"
     },
     "type-annotation": {
       "name": "meta.type.annotation.bagel",

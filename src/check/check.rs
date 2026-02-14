@@ -260,6 +260,21 @@ where
                             match decl.unpack() {
                                 Some(Declaration::ConstDeclaration(c)) => {
                                     let name = c.identifier.slice().as_str().to_string();
+
+                                    if name == "js" {
+                                        report_error(BagelError {
+                                            src: c.identifier.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "'{}' cannot be used as a declaration name",
+                                                    name
+                                                ),
+                                            },
+                                            related: vec![],
+                                        });
+                                    }
+
                                     match seen_names.get(&name) {
                                         Some(first_src) => {
                                             report_error(BagelError {
