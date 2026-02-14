@@ -1155,6 +1155,7 @@ fn path_to_uri(path: &ModulePath) -> String {
     match path {
         ModulePath::File(p) => format!("file://{}", p.display()),
         ModulePath::Url(u) => u.clone(),
+        ModulePath::Mock(name) => format!("mock://{}", name),
     }
 }
 

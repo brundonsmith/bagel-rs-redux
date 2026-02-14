@@ -10,10 +10,10 @@ const e = 3.14
 const f = 'hello'
 const g = 'it\'s escaped \\ done'
 ---
-const a = undefined;
-const b = true;
-const c = false;
-const d = 42;
-const e = 3.14;
-const f = 'hello';
-const g = 'it\'s escaped \\ done';
+const module_0_a = undefined;
+const module_0_b = true;
+const module_0_c = false;
+const module_0_d = 42;
+const module_0_e = 3.14;
+const module_0_f = 'hello';
+const module_0_g = 'it\'s escaped \\ done';

@@ -1,4 +1,4 @@
-use bagel::ast::modules::ModulesStore;
+use bagel::ast::modules::{Module, ModulePath, ModulesStore};
 use bagel::ast::slice::Slice;
 use bagel::compile::{Compilable, CompileContext};
 use bagel::config::Config;
@@ -10,16 +10,30 @@ mod common;
 
 fn test_compile(code: &str) -> String {
     let slice = Slice::new(Arc::new(code.to_string()));
-    match parse::module(slice) {
+    match parse::module(slice.clone()) {
         Err(err) => format!("{}\n---\nParse error: {:#?}", code.trim(), err),
         Ok((_, parsed)) => {
             let config = Config::default();
-            let modules = ModulesStore::new();
+            let mut modules = ModulesStore::new();
+
+            let path = ModulePath::Mock("Foo".into());
+            modules.insert(
+                path.clone(),
+                Module {
+                    path: path.clone(),
+                    source: slice,
+                    ast: parsed.clone(),
+                },
+            );
+
+            let current_module = modules.get(&path).unwrap();
             let mut compiled = String::new();
             let success = parsed.compile(
                 CompileContext {
                     config: &config,
                     modules: &modules,
+                    prefix_identifiers_with_module_ids: true,
+                    current_module: Some(current_module),
                 },
                 &mut compiled,
             );

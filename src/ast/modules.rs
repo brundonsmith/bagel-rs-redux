@@ -11,6 +11,7 @@ use crate::parse::module;
 pub enum ModulePath {
     File(PathBuf),
     Url(String),
+    Mock(String),
 }
 
 impl ModulePath {
@@ -48,6 +49,7 @@ impl ModulePath {
                     .unwrap_or(base_url);
                 ModulePath::Url(format!("{}{}", base_dir, import_path))
             }
+            ModulePath::Mock(_) => ModulePath::Mock(import_path.to_string()),
         }
     }
 }
@@ -168,6 +170,7 @@ impl ModulesStore {
             let loaded = match &path {
                 ModulePath::File(file_path) => Module::load_file(file_path.clone())?,
                 ModulePath::Url(url) => Module::load_url(url.clone()).await?,
+                ModulePath::Mock(_) => continue,
             };
 
             let imports = loaded.import_paths();
@@ -199,7 +202,7 @@ impl ModulesStore {
     }
 
     /// Insert a module into the store, assigning it a numeric ID.
-    fn insert(&mut self, path: ModulePath, module: Module) {
+    pub fn insert(&mut self, path: ModulePath, module: Module) {
         if !self.module_ids.contains_key(&path) {
             self.module_ids.insert(path.clone(), self.next_module_id);
             self.next_module_id += 1;
@@ -219,7 +222,7 @@ impl ModulesStore {
 
             let loaded = match &path {
                 ModulePath::File(fp) => Module::load_file(fp.clone())?,
-                ModulePath::Url(_) => continue, // skip URL imports in sync context
+                ModulePath::Url(_) | ModulePath::Mock(_) => continue,
             };
 
             let imports = loaded.import_paths();

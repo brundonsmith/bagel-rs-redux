@@ -3,16 +3,19 @@ use std::fmt::Write;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, ElseClause, IfElseExpression},
-        modules::ModulesStore,
+        grammar::{Any, ElseClause, Expression, IfElseExpression},
+        modules::{Module, ModulesStore},
     },
     config::Config,
+    types::normalize::{resolve_identifier, NormalizeContext, ResolvedIdentifier},
 };
 
 #[derive(Debug, Clone, Copy)]
 pub struct CompileContext<'a> {
     pub config: &'a Config,
     pub modules: &'a ModulesStore,
+    pub prefix_identifiers_with_module_ids: bool,
+    pub current_module: Option<&'a Module>,
 }
 
 pub trait Compilable {
@@ -32,6 +35,46 @@ where
         match self.details() {
             // Malformed nodes - emit original text as best effort
             None => Ok(()),
+
+            // Intercept LocalIdentifier when bundling to resolve prefixes with scope awareness
+            Some(Any::Expression(Expression::LocalIdentifier(local_id)))
+                if ctx.prefix_identifiers_with_module_ids =>
+            {
+                let name = local_id.slice.as_str();
+                let node: AST<Any> = match self {
+                    AST::Valid(inner, _) => {
+                        AST::<Any>::Valid(inner.clone(), std::marker::PhantomData)
+                    }
+                    AST::Malformed(slice, message) => {
+                        AST::<Any>::Malformed(slice.clone(), message.clone())
+                    }
+                };
+                let norm_ctx = NormalizeContext {
+                    modules: Some(ctx.modules),
+                    current_module: ctx.current_module,
+                };
+
+                match resolve_identifier(name, &node, norm_ctx) {
+                    Some(ResolvedIdentifier::FunctionParam { .. }) => {
+                        write!(f, "{}", name)
+                    }
+                    Some(ResolvedIdentifier::ConstDeclaration {
+                        module: Some(source_module),
+                        ..
+                    }) => {
+                        let source_id = ctx.modules.module_id(&source_module.path).unwrap_or(0);
+                        write!(f, "module_{}_{}", source_id, name)
+                    }
+                    Some(ResolvedIdentifier::ConstDeclaration { module: None, .. }) => {
+                        let module_id = ctx
+                            .current_module
+                            .and_then(|m| ctx.modules.module_id(&m.path))
+                            .unwrap_or(0);
+                        write!(f, "module_{}_{}", module_id, name)
+                    }
+                    None => write!(f, "{}", name),
+                }
+            }
 
             // Process valid nodes
             Some(details) => details.compile(ctx, f),
@@ -58,45 +101,110 @@ impl Compilable for Any {
 
             Any::Declaration(declaration) => match declaration {
                 Declaration::ConstDeclaration(decl) => {
-                    // export? const identifier = value  ->  export? const identifier = value
-                    if decl.export_keyword.is_some() {
-                        write!(f, "export ")?;
+                    if ctx.prefix_identifiers_with_module_ids {
+                        // In bundle mode: strip export, prefix identifier with module ID
+                        let module_id = ctx
+                            .current_module
+                            .and_then(|m| ctx.modules.module_id(&m.path))
+                            .unwrap_or(0);
+                        write!(f, "const module_{}_", module_id)?;
+                        decl.identifier.compile(ctx, f)?;
+                        write!(f, " = ")?;
+                        decl.value.compile(ctx, f)?;
+                    } else {
+                        // export? const identifier = value  ->  export? const identifier = value
+                        if decl.export_keyword.is_some() {
+                            write!(f, "export ")?;
+                        }
+                        write!(f, "const ")?;
+                        decl.identifier.compile(ctx, f)?;
+                        write!(f, " = ")?;
+                        decl.value.compile(ctx, f)?;
                     }
-                    write!(f, "const ")?;
-                    decl.identifier.compile(ctx, f)?;
-                    write!(f, " = ")?;
-                    decl.value.compile(ctx, f)?;
                     Ok(())
                 }
                 Declaration::ImportDeclaration(decl) => {
-                    // from 'path' import { foo, bar as other }
-                    //   -> import { foo, bar as other } from 'path'
-                    write!(f, "import {{ ")?;
-                    for (i, specifier) in decl.imports.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
+                    if ctx.prefix_identifiers_with_module_ids {
+                        // In bundle mode: resolve source module and emit aliased bindings
+                        let current_id = ctx
+                            .current_module
+                            .and_then(|m| ctx.modules.module_id(&m.path))
+                            .unwrap();
+                        let source_id = decl.path.unpack().and_then(|path_lit| {
+                            ctx.current_module.and_then(|current| {
+                                ctx.modules
+                                    .find_imported(current, path_lit.contents.as_str())
+                                    .and_then(|source| ctx.modules.module_id(&source.path))
+                            })
+                        });
+
+                        // Only emit bindings for aliased imports;``
+                        // non-aliased imports are handled at the LocalIdentifier level``
+                        let aliased_specs: Vec<_> = decl
+                            .imports
+                            .iter()
+                            .filter_map(|spec| {
+                                spec.alias
+                                    .as_ref()
+                                    .map(|(_, alias)| (spec.name.unpack(), alias.unpack()))
+                            })
+                            .collect();
+
+                        for (i, (original_name, alias_name)) in aliased_specs.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, "\n")?;
+                            }
+                            match (original_name, alias_name) {
+                                (Some(orig), Some(alias)) => {
+                                    write!(
+                                        f,
+                                        "const module_{}_{} = module_",
+                                        current_id,
+                                        alias.slice.as_str(),
+                                    )?;
+
+                                    if let Some(source_id) = source_id {
+                                        write!(f, "{}", source_id)?;
+                                    } else {
+                                        write!(f, "unknown")?;
+                                    }
+
+                                    write!(f, "_{}", orig.slice.as_str())?;
+                                }
+                                _ => {}
+                            }
                         }
-                        specifier.name.compile(ctx, f)?;
-                        if let Some((_, alias)) = &specifier.alias {
-                            write!(f, " as ")?;
-                            alias.compile(ctx, f)?;
+                        Ok(())
+                    } else {
+                        // from 'path' import { foo, bar as other }
+                        //   -> import { foo, bar as other } from 'path'
+                        write!(f, "import {{ ")?;
+                        for (i, specifier) in decl.imports.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            specifier.name.compile(ctx, f)?;
+                            if let Some((_, alias)) = &specifier.alias {
+                                write!(f, " as ")?;
+                                alias.compile(ctx, f)?;
+                            }
                         }
+                        write!(f, " }} from ")?;
+                        match decl.path.unpack() {
+                            Some(path_lit) => {
+                                let path_str = path_lit.contents.as_str();
+                                let compiled_path = path_str
+                                    .strip_suffix(".bgl")
+                                    .map(|stem| format!("{}.js", stem))
+                                    .unwrap_or_else(|| path_str.to_string());
+                                write!(f, "'{}'", compiled_path)?;
+                            }
+                            None => {
+                                write!(f, "{}", decl.path.slice().as_str())?;
+                            }
+                        }
+                        Ok(())
                     }
-                    write!(f, " }} from ")?;
-                    match decl.path.unpack() {
-                        Some(path_lit) => {
-                            let path_str = path_lit.contents.as_str();
-                            let compiled_path = path_str
-                                .strip_suffix(".bgl")
-                                .map(|stem| format!("{}.js", stem))
-                                .unwrap_or_else(|| path_str.to_string());
-                            write!(f, "'{}'", compiled_path)?;
-                        }
-                        None => {
-                            write!(f, "{}", decl.path.slice().as_str())?;
-                        }
-                    }
-                    Ok(())
                 }
             },
 

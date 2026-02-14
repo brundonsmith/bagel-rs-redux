@@ -10,10 +10,10 @@ const e: unknown = 42
 export const f: number = 1
 export const g = 'exported'
 ---
-const a = 42;
-const b = 'hello';
-const c = true;
-const d = undefined;
-const e = 42;
-export const f = 1;
-export const g = 'exported';
+const module_0_a = 42;
+const module_0_b = 'hello';
+const module_0_c = true;
+const module_0_d = undefined;
+const module_0_e = 42;
+const module_0_f = 1;
+const module_0_g = 'exported';

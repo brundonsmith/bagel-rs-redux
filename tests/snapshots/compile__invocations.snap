@@ -8,5 +8,5 @@ const main = () => {
     js.console.log(42)
 }
 ---
-const log = console.log;
-const main = () => { console.log('hello'); console.log(42); };
+const module_0_log = console.log;
+const module_0_main = () => { console.log('hello'); console.log(42); };

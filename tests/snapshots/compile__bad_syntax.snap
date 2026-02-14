@@ -12,7 +12,7 @@ const otherfunc = () => {
     objb.
 }
 ---
-const arr = [];
-const foo = () => { ; };
-const other = obj.;
-const otherfunc = () => { obja.(); objb.; };
+const module_0_arr = [];
+const module_0_foo = () => { ; };
+const module_0_other = obj.;
+const module_0_otherfunc = () => { obja.(); objb.; };

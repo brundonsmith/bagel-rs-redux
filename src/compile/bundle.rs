@@ -1,12 +1,7 @@
 use std::fmt::Write;
-use std::sync::{Arc, RwLock};
 
 use crate::{
-    ast::{
-        container::{ASTInner, AST},
-        grammar::{self, Any, Declaration},
-        modules::ModulesStore,
-    },
+    ast::modules::{Module, ModulesStore},
     compile::{Compilable, CompileContext},
     config::Config,
 };
@@ -15,45 +10,27 @@ use crate::{
 pub struct BundleContext<'a> {
     pub config: &'a Config,
     pub modules: &'a ModulesStore,
+    pub entry_module: &'a Module,
 }
 
 pub fn bundle<'a, W: Write>(ctx: BundleContext<'a>, f: &mut W) -> core::fmt::Result {
     for module in ctx.modules.topological_sort() {
-        module.ast.clone().without_imports().compile(
+        module.ast.clone().compile(
             CompileContext {
                 config: ctx.config,
                 modules: ctx.modules,
+                prefix_identifiers_with_module_ids: true,
+                current_module: Some(module),
             },
             f,
         )?;
     }
 
-    writeln!(f, "main();")?;
+    write!(
+        f,
+        "module_{}_main()",
+        ctx.modules.module_id(&ctx.entry_module.path).unwrap()
+    )?;
 
     Ok(())
-}
-
-impl AST<grammar::Module> {
-    pub fn without_imports(self) -> Self {
-        match self.unpack() {
-            None => self,
-            Some(module) => {
-                let filtered = module
-                    .declarations
-                    .into_iter()
-                    .filter(|decl| {
-                        !matches!(decl.unpack(), Some(Declaration::ImportDeclaration(_)))
-                    })
-                    .collect();
-
-                AST::new(Arc::new(ASTInner {
-                    parent: Arc::new(RwLock::new(None)),
-                    slice: self.slice().clone(),
-                    details: Any::Module(grammar::Module {
-                        declarations: filtered,
-                    }),
-                }))
-            }
-        }
-    }
 }

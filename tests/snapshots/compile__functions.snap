@@ -14,9 +14,9 @@ const f = (a: number, b: number) => {
     js.console.log(b)
 }
 ---
-const a = () => 42;
-const b = (x) => x + 1;
-const c = (x, y) => x + y;
-const d = x => x;
-const e = () => { console.log('hello'); };
-const f = (a, b) => { console.log(a); console.log(b); };
+const module_0_a = () => 42;
+const module_0_b = (x) => x + 1;
+const module_0_c = (x, y) => x + y;
+const module_0_d = x => x;
+const module_0_e = () => { console.log('hello'); };
+const module_0_f = (a, b) => { console.log(a); console.log(b); };

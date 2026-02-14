@@ -87,6 +87,7 @@ async fn bundle_entrypoint(config: &Config, targets: Vec<String>) -> (PathBuf, S
     let ctx = BundleContext {
         config,
         modules: &store,
+        entry_module,
     };
     if let Err(e) = bundle(ctx, &mut output) {
         eprintln!("Build failed: {}", e);
@@ -126,6 +127,7 @@ async fn main() {
                 let file_path = match path {
                     ModulePath::File(p) => p.clone(),
                     ModulePath::Url(url) => PathBuf::from(url),
+                    ModulePath::Mock(name) => PathBuf::from(name),
                 };
 
                 let mut errors = Vec::new();

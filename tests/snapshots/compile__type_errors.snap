@@ -19,19 +19,19 @@ const n = {name: 'alice'}.age
 const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
 ---
-const a = 42;
-const b = true;
-const c = 1 + true;
-const d = 'hello' - 1;
-const e = 1 && 2;
-const f = 1 < true;
-const g = !42;
-const h = undefined ?? 5;
-const i = 15;
-const j = ['hello', 42];
-const k = () => 42;
-const l = (x) => x;
-const m = (1 ? 'yes' : 'no');
-const n = {name: 'alice'}.age;
-const o = {name: 'alice', age: 42};
-const p = {x: 1};
+const module_0_a = 42;
+const module_0_b = true;
+const module_0_c = 1 + true;
+const module_0_d = 'hello' - 1;
+const module_0_e = 1 && 2;
+const module_0_f = 1 < true;
+const module_0_g = !42;
+const module_0_h = undefined ?? 5;
+const module_0_i = 15;
+const module_0_j = ['hello', 42];
+const module_0_k = () => 42;
+const module_0_l = (x) => x;
+const module_0_m = (1 ? 'yes' : 'no');
+const module_0_n = {name: 'alice'}.age;
+const module_0_o = {name: 'alice', age: 42};
+const module_0_p = {x: 1};

@@ -8,8 +8,8 @@ const c = {inner: {deep: 42}}
 const d = c.inner.deep
 const e = js.console.log
 ---
-const a = {x: 1, y: 2};
-const b = a.x;
-const c = {inner: {deep: 42}};
-const d = c.inner.deep;
-const e = console.log;
+const module_0_a = {x: 1, y: 2};
+const module_0_b = module_0_a.x;
+const module_0_c = {inner: {deep: 42}};
+const module_0_d = module_0_c.inner.deep;
+const module_0_e = console.log;

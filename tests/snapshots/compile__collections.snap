@@ -9,9 +9,9 @@ const d = {x: 1, y: 2, z: 3}
 const e = [{name: 'bob'}, {name: 'carol'}]
 const f = {inner: {deep: true}}
 ---
-const a = [1, 2, 3];
-const b = ['hello', 'world'];
-const c = {name: 'alice', age: 42};
-const d = {x: 1, y: 2, z: 3};
-const e = [{name: 'bob'}, {name: 'carol'}];
-const f = {inner: {deep: true}};
+const module_0_a = [1, 2, 3];
+const module_0_b = ['hello', 'world'];
+const module_0_c = {name: 'alice', age: 42};
+const module_0_d = {x: 1, y: 2, z: 3};
+const module_0_e = [{name: 'bob'}, {name: 'carol'}];
+const module_0_f = {inner: {deep: true}};

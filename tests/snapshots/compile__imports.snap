@@ -8,7 +8,7 @@ from './baz.bgl' import { delta as renamed }
 
 const alpha = 'stuff'
 ---
-import { alpha } from './foo.js';
-import { beta, gamma } from './bar.js';
-import { delta as renamed } from './baz.js';
-const alpha = 'stuff';
+;
+;
+const module_0_renamed = module_unknown_delta;
+const module_0_alpha = 'stuff';

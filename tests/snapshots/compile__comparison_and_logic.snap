@@ -13,13 +13,13 @@ const h = true || false
 const i = nil ?? 5
 const j = !true
 ---
-const a = 1 === 2;
-const b = 1 !== 2;
-const c = 1 < 2;
-const d = 1 <= 2;
-const e = 1 > 2;
-const f = 1 >= 2;
-const g = true && false;
-const h = true || false;
-const i = undefined ?? 5;
-const j = !true;
+const module_0_a = 1 === 2;
+const module_0_b = 1 !== 2;
+const module_0_c = 1 < 2;
+const module_0_d = 1 <= 2;
+const module_0_e = 1 > 2;
+const module_0_f = 1 >= 2;
+const module_0_g = true && false;
+const module_0_h = true || false;
+const module_0_i = undefined ?? 5;
+const module_0_j = !true;

@@ -7,7 +7,7 @@ const b: (number) => number = (x) => x + 1
 const c: (number, number) => number = (a, b) => a + b
 const d: (x: number, y: number) => number = (a, b) => a + b
 ---
-const a = () => 42;
-const b = (x) => x + 1;
-const c = (a, b) => a + b;
-const d = (a, b) => a + b;
+const module_0_a = () => 42;
+const module_0_b = (x) => x + 1;
+const module_0_c = (a, b) => a + b;
+const module_0_d = (a, b) => a + b;

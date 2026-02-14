@@ -9,9 +9,9 @@ const d = 8 / 2
 const e = (1 + 2) * 3
 const f = 1 + 2 * 3 - 4 / 2
 ---
-const a = 1 + 2;
-const b = 10 - 3;
-const c = 4 * 5;
-const d = 8 / 2;
-const e = (1 + 2) * 3;
-const f = 1 + 2 * 3 - 4 / 2;
+const module_0_a = 1 + 2;
+const module_0_b = 10 - 3;
+const module_0_c = 4 * 5;
+const module_0_d = 8 / 2;
+const module_0_e = (1 + 2) * 3;
+const module_0_f = 1 + 2 * 3 - 4 / 2;
