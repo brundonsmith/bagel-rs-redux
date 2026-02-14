@@ -59,7 +59,7 @@ impl HierarchyNode {
 
         // Generate enum
         let enum_def = quote! {
-            #[derive(Clone, PartialEq, Eq, Hash)]
+            #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
             pub enum #name {
                 #(#variant_names(#variant_names)),*
             }
