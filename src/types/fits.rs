@@ -278,7 +278,7 @@ impl Type {
                 },
                 Type::FuncType {
                     args: dest_args,
-                    args_spread: dest_spread,
+                    args_spread: _,
                     returns: dest_returns,
                 },
             ) => {

@@ -46,12 +46,12 @@ const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[91m";
 const YELLOW: &str = "\x1b[93m";
 const CYAN: &str = "\x1b[96m";
-const GREEN: &str = "\x1b[92m";
+// const GREEN: &str = "\x1b[92m";
 const BLUE: &str = "\x1b[94m";
 const GRAY: &str = "\x1b[90m";
 const WHITE_BG: &str = "\x1b[47m\x1b[30m"; // white background, black text
 
-const KEYWORDS: &[&str] = &["const"];
+// const KEYWORDS: &[&str] = &["const"];
 const LITERAL_KEYWORDS: &[&str] = &["nil", "true", "false"];
 const TYPE_KEYWORDS: &[&str] = &["unknown", "boolean", "number", "string"];
 

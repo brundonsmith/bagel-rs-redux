@@ -376,14 +376,14 @@ impl Compilable for Any {
             Any::Statement(statement) => match statement {
                 Statement::Expression(expr) => Any::Expression(expr.clone()).compile(ctx, f),
                 Statement::Block(block) => {
-                    write!(f, "{{ ");
+                    write!(f, "{{ ")?;
 
                     for s in block.statements.iter() {
                         s.compile(ctx, f)?;
                         write!(f, "; ")?;
                     }
 
-                    write!(f, "}}");
+                    write!(f, "}}")?;
 
                     Ok(())
                 }

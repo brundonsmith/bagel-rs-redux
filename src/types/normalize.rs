@@ -115,7 +115,7 @@ impl Type {
                 }
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
-            Invocation { function, args } => {
+            Invocation { function, args: _ } => {
                 let func_type = function.as_ref().clone().normalize(ctx);
                 match func_type {
                     FuncType { returns, .. } => returns.as_ref().clone(),
