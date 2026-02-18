@@ -8,7 +8,9 @@ use std::ops::{RangeFrom, RangeTo};
 use std::{fmt::Debug, sync::Arc};
 
 use memoize::memoize;
-use nom::{AsChar, Compare, InputIter, InputLength, InputTake, Offset, UnspecializedInput};
+use nom::{
+    AsChar, Compare, FindSubstring, InputIter, InputLength, InputTake, Offset, UnspecializedInput,
+};
 
 /// Zero-allocation substring reference into source code.
 ///
@@ -116,6 +118,23 @@ impl Slice {
             full_string: self.full_string,
             start: self.start + start,
             end: end.map(|end| self.start + end).unwrap_or(self.end),
+        }
+    }
+
+    pub fn gap_between(&self, other: &Slice) -> Slice {
+        if other.start > self.end && self.full_string.as_ptr() == other.full_string.as_ptr() {
+            Slice {
+                full_string: self.full_string.clone(),
+                start: self.end,
+                end: other.start,
+            }
+        } else {
+            // There's nothing sensical in-between; just produce an "empty" Slice
+            Slice {
+                full_string: self.full_string.clone(),
+                start: self.end,
+                end: self.end,
+            }
         }
     }
 }
@@ -252,6 +271,12 @@ impl nom::Slice<RangeFrom<usize>> for Slice {
 impl nom::Slice<RangeTo<usize>> for Slice {
     fn slice(&self, range: RangeTo<usize>) -> Self {
         self.clone().slice_range(0, Some(range.end))
+    }
+}
+
+impl<'a> FindSubstring<&'a str> for Slice {
+    fn find_substring(&self, substr: &'a str) -> Option<usize> {
+        self.as_str().find(substr)
     }
 }
 

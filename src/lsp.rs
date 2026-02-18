@@ -232,6 +232,7 @@ impl LanguageServer for BagelLanguageServer {
             let ctx = EmitContext {
                 config: &config,
                 modules: &*store,
+                current_indentation: 0,
             };
             if ast.emit(ctx, &mut formatted).is_err() {
                 return Ok(None);

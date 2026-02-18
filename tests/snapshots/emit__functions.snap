@@ -19,9 +19,9 @@ const b = (x: number) => x + 1
 const c = (x: number, y: number): number => x + y
 const d = x => x
 const e = () => {
-js.console.log('hello')
+    js.console.log('hello')
 }
 const f = (a: number, b: number) => {
-js.console.log(a)
-js.console.log(b)
+    js.console.log(a)
+    js.console.log(b)
 }

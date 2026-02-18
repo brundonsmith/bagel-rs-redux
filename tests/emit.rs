@@ -20,6 +20,7 @@ fn test_emit(code: &str) -> String {
                 EmitContext {
                     config: &config,
                     modules: &modules,
+                    current_indentation: 0,
                 },
                 &mut emitted,
             );
@@ -64,4 +65,6 @@ emit_test!(property_access, PROPERTY_ACCESS);
 emit_test!(invocations, INVOCATIONS);
 emit_test!(type_annotations, TYPE_ANNOTATIONS);
 emit_test!(type_errors, TYPE_ERRORS);
+emit_test!(comments, COMMENTS);
+emit_test!(blank_lines, BLANK_LINES);
 emit_test!(bad_syntax, BAD_SYNTAX);

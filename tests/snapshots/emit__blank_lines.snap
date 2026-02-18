@@ -1,0 +1,17 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: BLANK_LINES)"
+---
+const a = 1
+
+const b = 2
+
+
+
+const c = 3
+---
+const a = 1
+
+const b = 2
+
+const c = 3

@@ -4,8 +4,7 @@
 
 use nom::{
     bytes::complete::{tag, take_while},
-    sequence::preceded,
-    IResult, Parser,
+    IResult,
 };
 
 use crate::ast::slice::Slice;
@@ -68,24 +67,6 @@ impl<E> nom::error::FromExternalError<Slice, E> for BagelError {
 }
 
 // --- Util parsers ---
-
-/// Wraps a parser to consume optional preceding whitespace.
-///
-/// This is a convenience combinator that makes it easy to handle whitespace
-/// in the grammar without explicitly writing it everywhere. For example,
-/// `w(tag("="))` will match "=" with any amount of whitespace before it.
-///
-/// # Example
-/// ```ignore
-/// // Parse "const" keyword with optional preceding whitespace
-/// let (remaining, keyword) = w(tag("const"))(input)?;
-/// ```
-pub fn w<O, G>(parser: G) -> impl FnMut(Slice) -> ParseResult<O>
-where
-    G: Parser<Slice, O, BagelError>,
-{
-    preceded(whitespace, parser)
-}
 
 /// Consumes zero or more whitespace characters.
 ///

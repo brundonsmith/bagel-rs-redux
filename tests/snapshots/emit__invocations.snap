@@ -10,6 +10,6 @@ const main = () => {
 ---
 const log = js.console.log
 const main = () => {
-js.console.log('hello')
-js.console.log(42)
+    js.console.log('hello')
+    js.console.log(42)
 }

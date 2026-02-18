@@ -4,6 +4,9 @@
   "scopeName": "source.bagel",
   "patterns": [
     {
+      "include": "#comment"
+    },
+    {
       "include": "#declaration"
     },
     {
@@ -11,6 +14,19 @@
     }
   ],
   "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.bagel",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.bagel",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
     "declaration": {
       "patterns": [
         {
@@ -89,6 +105,9 @@
     },
     "expression": {
       "patterns": [
+        {
+          "include": "#comment"
+        },
         {
           "include": "#nil-literal"
         },

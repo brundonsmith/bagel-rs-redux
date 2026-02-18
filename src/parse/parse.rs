@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while1},
+    bytes::complete::{tag, take_till, take_until, take_while1},
     character::complete::char,
     combinator::{map, opt, recognize},
     multi::{many0, many1},
@@ -18,11 +18,11 @@ use crate::{
     config::RuleSeverity,
 };
 
-use super::utils::{backtrack, expect_tag, w, whitespace, ParseResult};
+use super::utils::{backtrack, expect_tag, ParseResult};
 
 macro_rules! seq {
     ($( $s:expr ),* $(,)?) => {
-        tuple(( $(preceded(whitespace, $s)),* ))
+        tuple(( $(preceded(whitespace_or_comments, $s)),* ))
     };
 }
 
@@ -147,6 +147,115 @@ fn identifier_slice(i: Slice) -> ParseResult<Slice> {
         take_while1(|c: char| c.is_ascii_lowercase()),
         |matched: &Slice| !is_keyword(matched.as_str()),
     )(i)
+}
+
+// Parser for a single comment: either a line comment (// ...) or a block comment (/* ... */)
+pub fn comment(i: Slice) -> ParseResult<Slice> {
+    alt((
+        // Line comment: // followed by everything until end of line
+        recognize(tuple((tag("//"), take_till(|c| c == '\n')))),
+        // Block comment: /* followed by everything until */
+        recognize(tuple((tag("/*"), take_until("*/"), tag("*/")))),
+    ))(i)
+}
+
+/// Stuff that can exist _between_ AST nodes and significant tokens
+#[derive(Debug, Clone)]
+pub enum Dressing {
+    /// Whitespace containing two or more newlines
+    BlankLine,
+
+    /// A // comment that starts at the end of a line containing real code
+    InlineComment(Slice),
+
+    /// A normal chunk of comment. Multiple consecutive // lines should be
+    /// grouped together as one block. /* */ comment blocks also fall under
+    /// this variant.
+    ///
+    /// It's a Vec<Slice> because, in the case where we have multiple
+    /// double-slash lines, we want to refer to the comment contents of each
+    /// of those lines as separate Slices (to exclude the slashes themselves).
+    BlockComment(Vec<Slice>),
+}
+
+/// A raw token parsed from whitespace/comment regions, before being
+/// folded into semantic `Dressing` items.
+enum DressingToken {
+    Whitespace(Slice),
+    LineComment(Slice),
+    BlockComment(Slice),
+}
+
+/// Parses a single dressing token: a chunk of whitespace, a line comment
+/// (returning just the content after `//`), or a block comment (returning
+/// just the content between `/*` and `*/`).
+fn dressing_token(i: Slice) -> ParseResult<DressingToken> {
+    alt((
+        map(
+            take_while1(|c: char| c == ' ' || c == '\n' || c == '\t' || c == '\r'),
+            DressingToken::Whitespace,
+        ),
+        map(
+            preceded(tag("//"), take_till(|c| c == '\n')),
+            DressingToken::LineComment,
+        ),
+        map(
+            preceded(tag("/*"), |i: Slice| {
+                let (rest, content) = take_until("*/")(i)?;
+                let (rest, _) = tag("*/")(rest)?;
+                Ok((rest, content))
+            }),
+            DressingToken::BlockComment,
+        ),
+    ))(i)
+}
+
+// Consumes zero or more whitespace characters and/or comments, returning
+// semantic `Dressing` items.
+pub fn whitespace_or_comments(i: Slice) -> ParseResult<Vec<Dressing>> {
+    map(many0(dressing_token), |tokens| {
+        let (dressing, _) =
+            tokens
+                .into_iter()
+                .fold(
+                    (Vec::new(), false),
+                    |(mut acc, prev_had_newline), token| match token {
+                        DressingToken::Whitespace(ws) => {
+                            let newline_count = ws.as_str().chars().filter(|&c| c == '\n').count();
+                            if newline_count >= 2 {
+                                acc.push(Dressing::BlankLine);
+                            }
+                            (acc, newline_count > 0)
+                        }
+                        DressingToken::LineComment(content) => {
+                            if prev_had_newline {
+                                // On its own line — try to extend the previous BlockComment
+                                match acc.last_mut() {
+                                    Some(Dressing::BlockComment(lines)) => {
+                                        lines.push(content);
+                                    }
+                                    _ => {
+                                        acc.push(Dressing::BlockComment(vec![content]));
+                                    }
+                                }
+                            } else {
+                                acc.push(Dressing::InlineComment(content));
+                            }
+                            (acc, false)
+                        }
+                        DressingToken::BlockComment(content) => {
+                            acc.push(Dressing::BlockComment(vec![content]));
+                            (acc, false)
+                        }
+                    },
+                );
+        dressing
+    })(i)
+}
+
+/// Wraps a parser to consume optional preceding whitespace and comments.
+fn w<O>(parser: impl FnMut(Slice) -> ParseResult<O>) -> impl FnMut(Slice) -> ParseResult<O> {
+    preceded(whitespace_or_comments, parser)
 }
 
 // Parser for PlainIdentifier: [a-z]+ (but not a keyword)
@@ -546,8 +655,8 @@ fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
             },
         ),
         |i: Slice| {
-            let (after_dot, dot) = preceded(whitespace, tag("."))(i)?;
-            let prop = match preceded(whitespace, plain_identifier)(after_dot.clone()) {
+            let (after_dot, dot) = preceded(whitespace_or_comments, tag("."))(i)?;
+            let prop = match preceded(whitespace_or_comments, plain_identifier)(after_dot.clone()) {
                 Ok((remaining, prop)) => (remaining, prop),
                 Err(nom::Err::Error(_)) => {
                     // Dot with no valid identifier: create a zero-width malformed node

@@ -148,6 +148,34 @@ const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
 ";
 
+/// Comments: line comments, block comments, inline comments, and blank lines
+pub const COMMENTS: &str = "
+// A line comment before a declaration
+const a = 1
+
+// A block of consecutive line comments
+// spanning multiple lines
+const b = 2
+
+const c = 3 // inline comment
+
+const d = 4
+
+/* a block comment */
+const e = 5
+";
+
+/// Blank lines between declarations
+pub const BLANK_LINES: &str = "
+const a = 1
+
+const b = 2
+
+
+
+const c = 3
+";
+
 pub const BAD_SYNTAX: &str = "
 const arr: number[] = [1,,.,3]
 const foo = () => {
