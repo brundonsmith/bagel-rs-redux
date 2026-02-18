@@ -11,10 +11,15 @@ const b = 2
 
 const c = 3 // inline comment
 
+/* oasifjdsdfgkhu
+    kjsdfghkdlsjfhg
+*/
 const d = 4
 
 /* a block comment */
 const e = 5
+// comment directly after code, no blank line
+const f = 6
 ---
 // A line comment before a declaration
 const a = 1
@@ -25,7 +30,12 @@ const b = 2
 
 const c = 3 // inline comment
 
+// oasifjdsdfgkhu
+// kjsdfghkdlsjfhg
 const d = 4
 
 // a block comment
 const e = 5
+
+// comment directly after code, no blank line
+const f = 6

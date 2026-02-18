@@ -77,8 +77,22 @@ fn emit_dressing<W: Write>(
                     ctx.current_indentation * ctx.config.rules.indentation.spaces as usize,
                 )
                 .saturating_sub(3);
-            lines.iter().try_for_each(|line| {
-                let text = line.as_str().trim();
+            let all_lines: Vec<&str> = lines
+                .iter()
+                .flat_map(|line| line.as_str().split('\n'))
+                .map(|l| l.trim())
+                .collect();
+            let trimmed_lines = all_lines
+                .iter()
+                .copied()
+                .skip_while(|l| l.is_empty())
+                .collect::<Vec<_>>();
+            let end = trimmed_lines
+                .iter()
+                .rposition(|l| !l.is_empty())
+                .map(|i| i + 1)
+                .unwrap_or(0);
+            trimmed_lines[..end].iter().try_for_each(|&text| {
                 if text.is_empty() {
                     writeln!(f, "{}//", indent_str)
                 } else if text.len() <= max_width {
@@ -110,6 +124,33 @@ fn emit_dressing<W: Write>(
             })
         }
     })
+}
+
+/// Emit the gap between two module-level declarations.
+///
+/// Block comments between declarations are always preceded by a blank line
+/// (to visually separate them from the code above).
+fn emit_declaration_gap<W: Write>(
+    prev: &Slice,
+    next: &Slice,
+    ctx: EmitContext,
+    f: &mut W,
+) -> core::fmt::Result {
+    let gap = prev.gap_between(next);
+    let dressing = (gap.len() > 0)
+        .then(|| whitespace_or_comments(gap).ok().map(|(_, d)| d))
+        .flatten()
+        .filter(|d| !d.is_empty());
+
+    match dressing {
+        Some(ref items) if matches!(items.first(), Some(Dressing::BlockComment(_))) => {
+            // Ensure blank line before a block comment
+            write!(f, "\n\n")?;
+            emit_dressing(items, ctx, f)
+        }
+        Some(ref items) => emit_dressing(items, ctx, f),
+        None => write!(f, "\n"),
+    }
 }
 
 fn emit_gap<W: Write>(
@@ -145,10 +186,14 @@ where
             // Malformed nodes - emit original text
             None => write!(f, "{}", self.slice().as_str()),
 
-            // For Module nodes, emit leading dressing before the first declaration
+            // For Module nodes, emit leading dressing before the first declaration,
+            // then emit all formatted declarations. If the module didn't parse to
+            // the end of the source, append the remaining unparsed source as-is.
             Some(Any::Module(module)) => {
+                let slice = self.slice();
+
                 if let Some(first_decl) = module.declarations.first() {
-                    let leading_edge = module_leading_edge(self.slice());
+                    let leading_edge = module_leading_edge(&slice);
                     let gap = leading_edge.gap_between(first_decl.slice());
                     if gap.len() > 0 {
                         if let Ok((_, dressing)) = whitespace_or_comments(gap) {
@@ -158,7 +203,14 @@ where
                         }
                     }
                 }
-                Any::Module(module.clone()).emit(ctx, f)
+                Any::Module(module.clone()).emit(ctx, f)?;
+
+                // Append any unparsed remainder of the source as-is
+                let remaining_source = &slice.full_string[slice.end..];
+                if !remaining_source.trim().is_empty() {
+                    write!(f, "\n{}", remaining_source.trim())?;
+                }
+                Ok(())
             }
 
             // Process valid nodes
@@ -184,10 +236,9 @@ impl Emittable for Any {
                     .enumerate()
                     .try_for_each(|(i, decl)| {
                         if i > 0 {
-                            emit_gap(
+                            emit_declaration_gap(
                                 module.declarations[i - 1].slice(),
                                 decl.slice(),
-                                "\n",
                                 ctx,
                                 f,
                             )?;
@@ -495,6 +546,55 @@ impl Emittable for Any {
                     prop_access.property.emit(ctx, f)
                 }
 
+                Expression::PipeCallExpression(pipe) => {
+                    pipe.subject.emit(ctx, f)?;
+                    emit_gap(pipe.subject.slice(), &pipe.double_dot, "", ctx, f)?;
+                    write!(f, "..")?;
+
+                    let mut prev_slice = &pipe.double_dot;
+
+                    if let Some(func) = &pipe.function {
+                        emit_gap(prev_slice, func.slice(), "", ctx, f)?;
+                        func.emit(ctx, f)?;
+                        prev_slice = func.slice();
+                    }
+
+                    if let Some(open_paren) = &pipe.open_paren {
+                        emit_gap(prev_slice, open_paren, "", ctx, f)?;
+                        write!(f, "(")?;
+
+                        for (i, arg) in pipe.arguments.iter().enumerate() {
+                            if i > 0 {
+                                let comma = &pipe.commas[i - 1];
+                                emit_gap(pipe.arguments[i - 1].slice(), comma, "", ctx, f)?;
+                                write!(f, ",")?;
+                                emit_gap(comma, arg.slice(), " ", ctx, f)?;
+                            } else {
+                                emit_gap(open_paren, arg.slice(), "", ctx, f)?;
+                            }
+                            arg.emit(ctx, f)?;
+                        }
+
+                        if let Some(trailing) = &pipe.trailing_comma {
+                            write!(f, ",")?;
+                            if let Some(close) = &pipe.close_paren {
+                                emit_gap(trailing, close, "", ctx, f)?;
+                            }
+                        } else if let Some(close) = &pipe.close_paren {
+                            let last_end = pipe
+                                .arguments
+                                .last()
+                                .map(|a| a.slice())
+                                .unwrap_or(open_paren);
+                            emit_gap(last_end, close, "", ctx, f)?;
+                        }
+
+                        write!(f, ")")?;
+                    }
+
+                    Ok(())
+                }
+
                 Expression::IfElseExpression(if_else) => {
                     write!(f, "if")?;
                     emit_gap(&if_else.if_keyword, if_else.condition.slice(), " ", ctx, f)?;
@@ -734,6 +834,7 @@ where
                             .map(|e| 1 + e + 1)
                     }
                     Expression::PropertyAccessExpression(property_access_expression) => None,
+                    Expression::PipeCallExpression(_) => None,
                 },
                 Any::TypeExpression(type_expression) => None,
                 Any::Statement(statement) => match statement {

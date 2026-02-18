@@ -1,0 +1,11 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: UNPARSEABLE_JUNK)"
+---
+const a =    1
+@#$%^&
+const b = 2
+---
+const a = 1
+@#$%^&
+const b = 2

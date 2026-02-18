@@ -136,6 +136,9 @@
           "include": "#invocation"
         },
         {
+          "include": "#pipe-call-operator"
+        },
+        {
           "include": "#unary-operator"
         },
         {
@@ -369,6 +372,37 @@
             }
           }
         },
+        {
+          "include": "#expression"
+        },
+        {
+          "name": "punctuation.separator.comma.bagel",
+          "match": ","
+        }
+      ]
+    },
+    "pipe-call-operator": {
+      "comment": "UFCS pipe call: subject..function(args)",
+      "name": "meta.pipe-call.bagel",
+      "begin": "(\\.\\.)([a-z]+)\\s*(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.pipe.bagel"
+        },
+        "2": {
+          "name": "entity.name.function.bagel"
+        },
+        "3": {
+          "name": "punctuation.definition.arguments.begin.bagel"
+        }
+      },
+      "end": "(\\))",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.arguments.end.bagel"
+        }
+      },
+      "patterns": [
         {
           "include": "#expression"
         },

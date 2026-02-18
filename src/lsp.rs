@@ -13,6 +13,7 @@ use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
 use crate::config::Config;
 use crate::emit::{EmitContext, Emittable};
+use crate::types::fits::FitsContext;
 use crate::types::infer::InferTypeContext;
 use crate::types::{
     identifiers_in_scope, resolve_identifier, NormalizeContext, ResolvedIdentifier, Type,
@@ -560,9 +561,99 @@ impl LanguageServer for BagelLanguageServer {
         eprintln!("[DEBUG] completion() - cursor offset: {}", cursor_offset);
 
         // Scan backwards from cursor past any partial identifier the user may
-        // have started typing, then check for a '.' character.
+        // have started typing, then check for a '.' or '..' sequence.
         let before_cursor = &text[..cursor_offset];
         let trimmed = before_cursor.trim_end_matches(|c: char| c.is_alphanumeric() || c == '_');
+
+        // Check for '..' (pipe call) before '.' (property access)
+        if trimmed.ends_with("..") {
+            eprintln!("[DEBUG] completion() - detected '..' pipe call");
+            let double_dot_offset = trimmed.len() - 2;
+
+            // Find the PipeCallExpression in the AST at this double-dot offset
+            let subject_expr = find_pipe_call_subject_at_double_dot(&ast, double_dot_offset)
+                .or_else(|| {
+                    // Fallback: find the expression just before the double dot
+                    let subject_offset = double_dot_offset.saturating_sub(1);
+                    find_node_at_offset(&ast, subject_offset).and_then(|n| {
+                        n.clone().try_downcast::<Expression>().or_else(|| {
+                            let mut current = n.parent();
+                            while let Some(ancestor) = current {
+                                if let Some(expr) = ancestor.clone().try_downcast::<Expression>() {
+                                    return Some(expr);
+                                }
+                                current = ancestor.parent();
+                            }
+                            None
+                        })
+                    })
+                });
+
+            let subject_expr = match subject_expr {
+                Some(e) => e,
+                None => {
+                    eprintln!("[DEBUG] completion() - no subject expression found for pipe call");
+                    return Ok(None);
+                }
+            };
+
+            eprintln!(
+                "[DEBUG] completion() - pipe call subject: {:?}",
+                subject_expr.slice().as_str()
+            );
+
+            let current_module = uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
+            let infer_ctx = InferTypeContext {
+                modules: Some(&*store),
+                current_module,
+            };
+            let norm_ctx = NormalizeContext {
+                modules: Some(&*store),
+                current_module,
+            };
+            let fits_ctx = FitsContext {
+                modules: Some(&*store),
+            };
+            let subject_type = subject_expr.infer_type(infer_ctx).normalize(norm_ctx);
+            eprintln!(
+                "[DEBUG] completion() - pipe call subject type: {}",
+                subject_type
+            );
+
+            // Find the PipeCallExpression node itself (or the subject) to use
+            // as scope anchor for identifiers_in_scope
+            let scope_node: AST<Any> = subject_expr.clone().upcast();
+
+            let items: Vec<CompletionItem> = identifiers_in_scope(&scope_node, norm_ctx)
+                .iter()
+                .filter(|resolved| {
+                    let ty = resolve_identifier_type(resolved, norm_ctx);
+                    match ty {
+                        Type::FuncType { ref args, .. } => args
+                            .first()
+                            .map(|first_arg| subject_type.clone().fits(first_arg.clone(), fits_ctx))
+                            .unwrap_or(false),
+                        _ => false,
+                    }
+                })
+                .map(|resolved| {
+                    let ty = resolve_identifier_type(resolved, norm_ctx);
+                    CompletionItem {
+                        label: resolved.name().to_string(),
+                        kind: Some(CompletionItemKind::FUNCTION),
+                        detail: Some(format!("{}", ty)),
+                        ..Default::default()
+                    }
+                })
+                .collect();
+
+            eprintln!(
+                "[DEBUG] completion() - returning {} pipe call completion items",
+                items.len()
+            );
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+
         if !trimmed.ends_with('.') {
             eprintln!("[DEBUG] completion() - no dot found, trying identifier completion");
 
@@ -965,6 +1056,27 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
 
         WalkAction::Continue
     });
+}
+
+/// Search the AST for a PipeCallExpression whose `..` is at `double_dot_offset`,
+/// and return its subject expression.
+fn find_pipe_call_subject_at_double_dot(
+    ast: &AST<Any>,
+    double_dot_offset: usize,
+) -> Option<AST<Expression>> {
+    let mut result: Option<AST<Expression>> = None;
+    walk_ast(ast, &mut |node| {
+        if let Some(expr) = node.clone().try_downcast::<Expression>() {
+            if let Some(Expression::PipeCallExpression(pipe)) = expr.unpack() {
+                if pipe.double_dot.start == double_dot_offset {
+                    result = Some(pipe.subject);
+                    return WalkAction::Stop;
+                }
+            }
+        }
+        WalkAction::Continue
+    });
+    result
 }
 
 /// Search the AST for a PropertyAccessExpression whose dot is at `dot_offset`,

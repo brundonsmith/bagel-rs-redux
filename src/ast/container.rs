@@ -454,6 +454,15 @@ impl Any {
                     f(prop_access.subject.clone().upcast());
                     f(prop_access.property.clone().upcast());
                 }
+                Expression::PipeCallExpression(pipe) => {
+                    f(pipe.subject.clone().upcast());
+                    if let Some(func) = &pipe.function {
+                        f(func.clone().upcast());
+                    }
+                    pipe.arguments
+                        .iter()
+                        .for_each(|arg| f(arg.clone().upcast()));
+                }
             },
             Any::TypeExpression(type_expr) => match type_expr {
                 TypeExpression::UnknownTypeExpression(_)

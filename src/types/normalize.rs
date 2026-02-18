@@ -255,6 +255,32 @@ impl AST<Expression> {
                     _ => None,
                 }
             }
+            Any::Expression(Expression::PipeCallExpression(pipe)) => {
+                // subject is arg0, explicit arguments start at index 1
+                let arg_index = if pipe.subject.ptr_eq(self) {
+                    Some(0)
+                } else {
+                    pipe.arguments
+                        .iter()
+                        .position(|arg| arg.ptr_eq(self))
+                        .map(|i| i + 1)
+                };
+
+                arg_index.and_then(|idx| {
+                    let func = pipe.function.as_ref()?;
+                    let func_expr: AST<Expression> = func.clone().upcast();
+                    let infer_ctx = InferTypeContext {
+                        modules: norm_ctx.modules,
+                        current_module: norm_ctx.current_module,
+                    };
+                    let func_type = func_expr.infer_type(infer_ctx).normalize(norm_ctx);
+
+                    match func_type {
+                        Type::FuncType { args, .. } => args.into_iter().nth(idx),
+                        _ => None,
+                    }
+                })
+            }
             Any::FunctionBody(FunctionBody::Expression(_)) => {
                 let func_body_node = parent;
                 let func_node = func_body_node.parent()?;

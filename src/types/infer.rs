@@ -180,6 +180,24 @@ impl AST<Expression> {
                 },
 
                 ParenthesizedExpression(paren) => paren.expression.infer_type(ctx),
+
+                PipeCallExpression(pipe) => {
+                    let function_type = pipe
+                        .function
+                        .as_ref()
+                        .map(|func| Type::LocalIdentifier {
+                            identifier: func.clone(),
+                        })
+                        .unwrap_or(Type::Poisoned);
+
+                    let mut all_args = vec![pipe.subject.infer_type(ctx)];
+                    all_args.extend(pipe.arguments.iter().map(|a| a.infer_type(ctx)));
+
+                    Type::Invocation {
+                        function: Arc::new(function_type),
+                        args: all_args,
+                    }
+                }
             },
         }
     }

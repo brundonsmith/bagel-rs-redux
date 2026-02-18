@@ -78,4 +78,5 @@ infer_test!(property_access, PROPERTY_ACCESS);
 infer_test!(invocations, INVOCATIONS);
 infer_test!(type_annotations, TYPE_ANNOTATIONS);
 infer_test!(type_errors, TYPE_ERRORS);
+infer_test!(pipe_call, PIPE_CALL);
 infer_test!(bad_syntax, BAD_SYNTAX);

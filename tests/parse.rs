@@ -33,4 +33,5 @@ parse_test!(property_access, PROPERTY_ACCESS);
 parse_test!(invocations, INVOCATIONS);
 parse_test!(type_annotations, TYPE_ANNOTATIONS);
 parse_test!(type_errors, TYPE_ERRORS);
+parse_test!(pipe_call, PIPE_CALL);
 parse_test!(bad_syntax, BAD_SYNTAX);

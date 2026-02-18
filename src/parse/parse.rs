@@ -633,7 +633,7 @@ fn parse_invocation_args(
     ))
 }
 
-/// Postfix suffix: either an invocation `(args)` or a property access `.property`
+/// Postfix suffix: an invocation `(args)`, a pipe call `..function(args)`, or a property access `.property`
 enum PostfixSuffix {
     Invocation(
         Slice,
@@ -641,6 +641,15 @@ enum PostfixSuffix {
         Vec<Slice>,
         Option<Slice>,
         Option<Slice>,
+    ),
+    PipeCall(
+        Slice,                        // ".."
+        Option<AST<LocalIdentifier>>, // function name (None when user only typed `..`)
+        Option<Slice>,                // "("
+        Vec<AST<Expression>>,         // arguments
+        Vec<Slice>,                   // commas
+        Option<Slice>,                // trailing comma
+        Option<Slice>,                // ")"
     ),
     PropertyAccess(Slice, AST<PlainIdentifier>),
 }
@@ -654,6 +663,35 @@ fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
                 PostfixSuffix::Invocation(open_paren, args, commas, trailing_comma, close_paren)
             },
         ),
+        |i: Slice| {
+            let (after_dots, double_dot) = preceded(whitespace_or_comments, tag(".."))(i)?;
+            // Try to parse the function name; if missing, yield a partial node
+            let (remaining, function, open_paren, args, commas, trailing_comma, close_paren) =
+                match preceded(whitespace_or_comments, local_identifier)(after_dots.clone()) {
+                    Ok((after_name, func)) => {
+                        // Try to parse invocation args; if missing, yield partial
+                        match parse_invocation_args(after_name.clone()) {
+                            Ok((rest, (op, a, c, tc, cp))) => {
+                                (rest, Some(func), Some(op), a, c, tc, cp)
+                            }
+                            Err(_) => (after_name, Some(func), None, vec![], vec![], None, None),
+                        }
+                    }
+                    Err(_) => (after_dots, None, None, vec![], vec![], None, None),
+                };
+            Ok((
+                remaining,
+                PostfixSuffix::PipeCall(
+                    double_dot,
+                    function,
+                    open_paren,
+                    args,
+                    commas,
+                    trailing_comma,
+                    close_paren,
+                ),
+            ))
+        },
         |i: Slice| {
             let (after_dot, dot) = preceded(whitespace_or_comments, tag("."))(i)?;
             let prop = match preceded(whitespace_or_comments, plain_identifier)(after_dot.clone()) {
@@ -697,6 +735,40 @@ fn postfix_expression(i: Slice) -> ParseResult<AST<Expression>> {
 
                         let node = make_ast(span, inv);
                         current_expr.set_parent(&node);
+                        arguments.set_parent(&node);
+
+                        node.upcast()
+                    }
+                    PostfixSuffix::PipeCall(
+                        double_dot,
+                        mut function,
+                        open_paren,
+                        mut arguments,
+                        commas,
+                        trailing_comma,
+                        close_paren,
+                    ) => {
+                        let end_slice = close_paren
+                            .as_ref()
+                            .or(open_paren.as_ref())
+                            .or(function.as_ref().map(|f| f.slice()))
+                            .unwrap_or(&double_dot);
+                        let span = current_expr.slice().spanning(end_slice);
+
+                        let pipe_call = PipeCallExpression {
+                            subject: current_expr.clone(),
+                            double_dot,
+                            function: function.clone(),
+                            open_paren,
+                            arguments: arguments.clone(),
+                            commas,
+                            trailing_comma,
+                            close_paren,
+                        };
+
+                        let node = make_ast(span, pipe_call);
+                        current_expr.set_parent(&node);
+                        function.set_parent(&node);
                         arguments.set_parent(&node);
 
                         node.upcast()

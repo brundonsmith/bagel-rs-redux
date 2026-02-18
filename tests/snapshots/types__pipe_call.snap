@@ -1,0 +1,23 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: PIPE_CALL)"
+---
+const double = (x: number): number => x * 2
+const add = (a: number, b: number): number => a + b
+const result = 5..double()
+const other = 5..add(3)
+---
+(a: number, b: number): number => a + b -> (arg0: number, arg1: number) => number
+(x: number): number => x * 2 -> (arg0: number) => number
+2 -> 2
+3 -> 3
+5 -> 5
+5..add(3) -> number
+5..double() -> number
+a -> number
+a + b -> number
+add -> (arg0: number, arg1: number) => number
+b -> number
+double -> (arg0: number) => number
+x -> number
+x * 2 -> number

@@ -640,7 +640,7 @@ where
                         }
                     }
                     Any::Statement(Statement::Expression(expr)) => match expr {
-                        Expression::Invocation(_) => {}
+                        Expression::Invocation(_) | Expression::PipeCallExpression(_) => {}
                         _ => {
                             report_error(BagelError {
                                 src: self.slice().clone(),

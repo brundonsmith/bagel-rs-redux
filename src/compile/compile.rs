@@ -329,6 +329,25 @@ impl Compilable for Any {
                     write!(f, ")")
                 }
 
+                Expression::PipeCallExpression(pipe) => {
+                    // Desugar: subject..function(args) -> function(subject, args)
+                    // Partial nodes (no function name) compile to nothing useful,
+                    // but we still emit the subject for best-effort output.
+                    match &pipe.function {
+                        Some(func) => {
+                            func.compile(ctx, f)?;
+                            write!(f, "(")?;
+                            pipe.subject.compile(ctx, f)?;
+                            for arg in &pipe.arguments {
+                                write!(f, ", ")?;
+                                arg.compile(ctx, f)?;
+                            }
+                            write!(f, ")")
+                        }
+                        None => pipe.subject.compile(ctx, f),
+                    }
+                }
+
                 Expression::PropertyAccessExpression(prop_access) => {
                     // Strip `js.` — its members are JS globals
                     let is_js_global = matches!(

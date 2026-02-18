@@ -67,4 +67,6 @@ emit_test!(type_annotations, TYPE_ANNOTATIONS);
 emit_test!(type_errors, TYPE_ERRORS);
 emit_test!(comments, COMMENTS);
 emit_test!(blank_lines, BLANK_LINES);
+emit_test!(pipe_call, PIPE_CALL);
 emit_test!(bad_syntax, BAD_SYNTAX);
+emit_test!(unparseable_junk, UNPARSEABLE_JUNK);

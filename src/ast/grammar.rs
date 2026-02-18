@@ -221,6 +221,24 @@ pub struct PropertyAccessExpression {
     pub property: AST<PlainIdentifier>,
 }
 
+/// PipeCallExpression: subject ".." function? ("(" args ")")?
+/// Desugars to: function(subject, ...args)
+///
+/// Once `..` is parsed we commit to this node. The function name and
+/// invocation args are optional so the LSP can still build a partial AST
+/// when the user has only typed `foo..` so far.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PipeCallExpression {
+    pub subject: AST<Expression>,
+    pub double_dot: Slice,
+    pub function: Option<AST<LocalIdentifier>>,
+    pub open_paren: Option<Slice>,
+    pub arguments: Vec<AST<Expression>>,
+    pub commas: Vec<Slice>,
+    pub trailing_comma: Option<Slice>,
+    pub close_paren: Option<Slice>,
+}
+
 // Type expression nodes
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnknownTypeExpression;
@@ -364,6 +382,7 @@ type_hierarchy! {
             IfElseExpression,
             ParenthesizedExpression,
             PropertyAccessExpression,
+            PipeCallExpression,
         },
         TypeExpression {
             UnknownTypeExpression,

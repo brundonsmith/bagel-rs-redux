@@ -1,0 +1,301 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: PIPE_CALL)"
+---
+const double = (x: number): number => x * 2
+const add = (a: number, b: number): number => a + b
+const result = 5..double()
+const other = 5..add(3)
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst double = (x: number): number => x * 2\nconst add = (a: number, b: number): number => a + b\nconst result = 5..double()\nconst other = 5..add(3)"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const double = (x: number): number => x * 2"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("double"),
+                                details: PlainIdentifier {
+                                    slice: Slice("double"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("(x: number): number => x * 2"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [
+                                        (
+                                            ASTInner {
+                                                slice: Slice("x"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("x"),
+                                                },
+                                            },
+                                            Some(
+                                                (
+                                                    Slice(":"),
+                                                    ASTInner {
+                                                        slice: Slice("number"),
+                                                        details: NumberTypeExpression,
+                                                    },
+                                                ),
+                                            ),
+                                        ),
+                                    ],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: Some(
+                                        (
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("number"),
+                                                details: NumberTypeExpression,
+                                            },
+                                        ),
+                                    ),
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("x * 2"),
+                                        details: Expression(
+                                            ASTInner {
+                                                slice: Slice("x * 2"),
+                                                details: BinaryOperation {
+                                                    left: ASTInner {
+                                                        slice: Slice("x"),
+                                                        details: LocalIdentifier {
+                                                            slice: Slice("x"),
+                                                        },
+                                                    },
+                                                    operator: ASTInner {
+                                                        slice: Slice("*"),
+                                                        details: Multiply,
+                                                    },
+                                                    right: ASTInner {
+                                                        slice: Slice("2"),
+                                                        details: NumberLiteral {
+                                                            slice: Slice("2"),
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const add = (a: number, b: number): number => a + b"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("add"),
+                                details: PlainIdentifier {
+                                    slice: Slice("add"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("(a: number, b: number): number => a + b"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [
+                                        (
+                                            ASTInner {
+                                                slice: Slice("a"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("a"),
+                                                },
+                                            },
+                                            Some(
+                                                (
+                                                    Slice(":"),
+                                                    ASTInner {
+                                                        slice: Slice("number"),
+                                                        details: NumberTypeExpression,
+                                                    },
+                                                ),
+                                            ),
+                                        ),
+                                        (
+                                            ASTInner {
+                                                slice: Slice("b"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("b"),
+                                                },
+                                            },
+                                            Some(
+                                                (
+                                                    Slice(":"),
+                                                    ASTInner {
+                                                        slice: Slice("number"),
+                                                        details: NumberTypeExpression,
+                                                    },
+                                                ),
+                                            ),
+                                        ),
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: Some(
+                                        (
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("number"),
+                                                details: NumberTypeExpression,
+                                            },
+                                        ),
+                                    ),
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("a + b"),
+                                        details: Expression(
+                                            ASTInner {
+                                                slice: Slice("a + b"),
+                                                details: BinaryOperation {
+                                                    left: ASTInner {
+                                                        slice: Slice("a"),
+                                                        details: LocalIdentifier {
+                                                            slice: Slice("a"),
+                                                        },
+                                                    },
+                                                    operator: ASTInner {
+                                                        slice: Slice("+"),
+                                                        details: Add,
+                                                    },
+                                                    right: ASTInner {
+                                                        slice: Slice("b"),
+                                                        details: LocalIdentifier {
+                                                            slice: Slice("b"),
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const result = 5..double()"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("result"),
+                                details: PlainIdentifier {
+                                    slice: Slice("result"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("5..double()"),
+                                details: PipeCallExpression {
+                                    subject: ASTInner {
+                                        slice: Slice("5"),
+                                        details: NumberLiteral {
+                                            slice: Slice("5"),
+                                        },
+                                    },
+                                    double_dot: Slice(".."),
+                                    function: Some(
+                                        ASTInner {
+                                            slice: Slice("double"),
+                                            details: LocalIdentifier {
+                                                slice: Slice("double"),
+                                            },
+                                        },
+                                    ),
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    arguments: [],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const other = 5..add(3)"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("other"),
+                                details: PlainIdentifier {
+                                    slice: Slice("other"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("5..add(3)"),
+                                details: PipeCallExpression {
+                                    subject: ASTInner {
+                                        slice: Slice("5"),
+                                        details: NumberLiteral {
+                                            slice: Slice("5"),
+                                        },
+                                    },
+                                    double_dot: Slice(".."),
+                                    function: Some(
+                                        ASTInner {
+                                            slice: Slice("add"),
+                                            details: LocalIdentifier {
+                                                slice: Slice("add"),
+                                            },
+                                        },
+                                    ),
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    arguments: [
+                                        ASTInner {
+                                            slice: Slice("3"),
+                                            details: NumberLiteral {
+                                                slice: Slice("3"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

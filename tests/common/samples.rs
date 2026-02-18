@@ -159,10 +159,15 @@ const b = 2
 
 const c = 3 // inline comment
 
+/* oasifjdsdfgkhu
+    kjsdfghkdlsjfhg
+*/
 const d = 4
 
 /* a block comment */
 const e = 5
+// comment directly after code, no blank line
+const f = 6
 ";
 
 /// Blank lines between declarations
@@ -176,6 +181,14 @@ const b = 2
 const c = 3
 ";
 
+/// Pipe call (UFCS): subject..function(args) desugars to function(subject, args)
+pub const PIPE_CALL: &str = "
+const double = (x: number): number => x * 2
+const add = (a: number, b: number): number => a + b
+const result = 5..double()
+const other = 5..add(3)
+";
+
 pub const BAD_SYNTAX: &str = "
 const arr: number[] = [1,,.,3]
 const foo = () => {
@@ -186,4 +199,11 @@ const otherfunc = () => {
     obja.()
     objb.
 }
+";
+
+/// Module with unparseable junk that prevents parsing to the end
+pub const UNPARSEABLE_JUNK: &str = "
+const a =    1
+@#$%^&
+const b = 2
 ";
