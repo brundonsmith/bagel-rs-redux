@@ -1,0 +1,9 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: UNPARSEABLE_JUNK)"
+---
+const a =    1
+@#$%^&
+const b = 2
+---
+[]

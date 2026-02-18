@@ -1,0 +1,9 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: UNPARSEABLE_JUNK)"
+---
+const a =    1
+@#$%^&
+const b = 2
+---
+1 -> 1

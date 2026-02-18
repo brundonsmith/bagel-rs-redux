@@ -1,0 +1,15 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: BLANK_LINES)"
+---
+const a = 1
+
+const b = 2
+
+
+
+const c = 3
+---
+const module_0_a = 1;
+const module_0_b = 2;
+const module_0_c = 3;

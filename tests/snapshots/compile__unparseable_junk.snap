@@ -1,0 +1,9 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: UNPARSEABLE_JUNK)"
+---
+const a =    1
+@#$%^&
+const b = 2
+---
+const module_0_a = 1;

@@ -1,0 +1,29 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: COMMENTS)"
+---
+// A line comment before a declaration
+const a = 1
+
+// A block of consecutive line comments
+// spanning multiple lines
+const b = 2
+
+const c = 3 // inline comment
+
+/* oasifjdsdfgkhu
+    kjsdfghkdlsjfhg
+*/
+const d = 4
+
+/* a block comment */
+const e = 5
+// comment directly after code, no blank line
+const f = 6
+---
+const module_0_a = 1;
+const module_0_b = 2;
+const module_0_c = 3;
+const module_0_d = 4;
+const module_0_e = 5;
+const module_0_f = 6;

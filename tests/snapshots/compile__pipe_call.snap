@@ -6,8 +6,10 @@ const double = (x: number): number => x * 2
 const add = (a: number, b: number): number => a + b
 const result = 5..double()
 const other = 5..add(3)
+const stuff = (3 + 'foo')..double()
 ---
 const module_0_double = (x) => x * 2;
 const module_0_add = (a, b) => a + b;
 const module_0_result = module_0_double(5);
 const module_0_other = module_0_add(5, 3);
+const module_0_stuff = module_0_double((3 + 'foo'));

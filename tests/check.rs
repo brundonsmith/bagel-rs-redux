@@ -53,4 +53,8 @@ check_test!(property_access, PROPERTY_ACCESS);
 check_test!(invocations, INVOCATIONS);
 check_test!(type_annotations, TYPE_ANNOTATIONS);
 check_test!(type_errors, TYPE_ERRORS);
+check_test!(comments, COMMENTS);
+check_test!(blank_lines, BLANK_LINES);
+check_test!(pipe_call, PIPE_CALL);
 check_test!(bad_syntax, BAD_SYNTAX);
+check_test!(unparseable_junk, UNPARSEABLE_JUNK);

@@ -68,5 +68,8 @@ compile_test!(property_access, PROPERTY_ACCESS);
 compile_test!(invocations, INVOCATIONS);
 compile_test!(type_annotations, TYPE_ANNOTATIONS);
 compile_test!(type_errors, TYPE_ERRORS);
+compile_test!(comments, COMMENTS);
+compile_test!(blank_lines, BLANK_LINES);
 compile_test!(pipe_call, PIPE_CALL);
 compile_test!(bad_syntax, BAD_SYNTAX);
+compile_test!(unparseable_junk, UNPARSEABLE_JUNK);

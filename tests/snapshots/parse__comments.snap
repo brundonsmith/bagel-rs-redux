@@ -1,0 +1,161 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: COMMENTS)"
+---
+// A line comment before a declaration
+const a = 1
+
+// A block of consecutive line comments
+// spanning multiple lines
+const b = 2
+
+const c = 3 // inline comment
+
+/* oasifjdsdfgkhu
+    kjsdfghkdlsjfhg
+*/
+const d = 4
+
+/* a block comment */
+const e = 5
+// comment directly after code, no blank line
+const f = 6
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\n// A line comment before a declaration\nconst a = 1\n\n// A block of consecutive line comments\n// spanning multiple lines\nconst b = 2\n\nconst c = 3 // inline comment\n\n/* oasifjdsdfgkhu\n    kjsdfghkdlsjfhg\n*/\nconst d = 4\n\n/* a block comment */\nconst e = 5\n// comment directly after code, no blank line\nconst f = 6"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a = 1"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("1"),
+                                details: NumberLiteral {
+                                    slice: Slice("1"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b = 2"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("2"),
+                                details: NumberLiteral {
+                                    slice: Slice("2"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c = 3"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("3"),
+                                details: NumberLiteral {
+                                    slice: Slice("3"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d = 4"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("4"),
+                                details: NumberLiteral {
+                                    slice: Slice("4"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e = 5"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier {
+                                    slice: Slice("e"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("5"),
+                                details: NumberLiteral {
+                                    slice: Slice("5"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const f = 6"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("f"),
+                                details: PlainIdentifier {
+                                    slice: Slice("f"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("6"),
+                                details: NumberLiteral {
+                                    slice: Slice("6"),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

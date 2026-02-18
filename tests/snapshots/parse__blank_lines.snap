@@ -1,0 +1,87 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: BLANK_LINES)"
+---
+const a = 1
+
+const b = 2
+
+
+
+const c = 3
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst a = 1\n\nconst b = 2\n\n\n\nconst c = 3"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a = 1"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("1"),
+                                details: NumberLiteral {
+                                    slice: Slice("1"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b = 2"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("2"),
+                                details: NumberLiteral {
+                                    slice: Slice("2"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c = 3"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("3"),
+                                details: NumberLiteral {
+                                    slice: Slice("3"),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

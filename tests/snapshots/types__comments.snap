@@ -1,0 +1,29 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: COMMENTS)"
+---
+// A line comment before a declaration
+const a = 1
+
+// A block of consecutive line comments
+// spanning multiple lines
+const b = 2
+
+const c = 3 // inline comment
+
+/* oasifjdsdfgkhu
+    kjsdfghkdlsjfhg
+*/
+const d = 4
+
+/* a block comment */
+const e = 5
+// comment directly after code, no blank line
+const f = 6
+---
+1 -> 1
+2 -> 2
+3 -> 3
+4 -> 4
+5 -> 5
+6 -> 6

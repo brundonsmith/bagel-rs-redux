@@ -187,6 +187,7 @@ const double = (x: number): number => x * 2
 const add = (a: number, b: number): number => a + b
 const result = 5..double()
 const other = 5..add(3)
+const stuff = (3 + 'foo')..double()
 ";
 
 pub const BAD_SYNTAX: &str = "

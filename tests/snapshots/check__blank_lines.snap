@@ -1,0 +1,13 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: BLANK_LINES)"
+---
+const a = 1
+
+const b = 2
+
+
+
+const c = 3
+---
+[]

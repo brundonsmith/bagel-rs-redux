@@ -6,12 +6,13 @@ const double = (x: number): number => x * 2
 const add = (a: number, b: number): number => a + b
 const result = 5..double()
 const other = 5..add(3)
+const stuff = (3 + 'foo')..double()
 ---
 Ok(
     (
         Slice("\n"),
         ASTInner {
-            slice: Slice("\nconst double = (x: number): number => x * 2\nconst add = (a: number, b: number): number => a + b\nconst result = 5..double()\nconst other = 5..add(3)"),
+            slice: Slice("\nconst double = (x: number): number => x * 2\nconst add = (a: number, b: number): number => a + b\nconst result = 5..double()\nconst other = 5..add(3)\nconst stuff = (3 + 'foo')..double()"),
             details: Module {
                 declarations: [
                     ASTInner {
@@ -285,6 +286,74 @@ Ok(
                                             },
                                         },
                                     ],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const stuff = (3 + 'foo')..double()"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("stuff"),
+                                details: PlainIdentifier {
+                                    slice: Slice("stuff"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("(3 + 'foo')..double()"),
+                                details: PipeCallExpression {
+                                    subject: ASTInner {
+                                        slice: Slice("(3 + 'foo')"),
+                                        details: ParenthesizedExpression {
+                                            open_paren: Slice("("),
+                                            expression: ASTInner {
+                                                slice: Slice("3 + 'foo'"),
+                                                details: BinaryOperation {
+                                                    left: ASTInner {
+                                                        slice: Slice("3"),
+                                                        details: NumberLiteral {
+                                                            slice: Slice("3"),
+                                                        },
+                                                    },
+                                                    operator: ASTInner {
+                                                        slice: Slice("+"),
+                                                        details: Add,
+                                                    },
+                                                    right: ASTInner {
+                                                        slice: Slice("'foo'"),
+                                                        details: StringLiteral {
+                                                            open_quote: Slice("'"),
+                                                            contents: Slice("foo"),
+                                                            close_quote: Slice("'"),
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                            close_paren: Slice(")"),
+                                        },
+                                    },
+                                    double_dot: Slice(".."),
+                                    function: Some(
+                                        ASTInner {
+                                            slice: Slice("double"),
+                                            details: LocalIdentifier {
+                                                slice: Slice("double"),
+                                            },
+                                        },
+                                    ),
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    arguments: [],
                                     commas: [],
                                     trailing_comma: None,
                                     close_paren: Some(
