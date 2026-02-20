@@ -657,6 +657,33 @@ impl LanguageServer for BagelLanguageServer {
         if !trimmed.ends_with('.') {
             eprintln!("[DEBUG] completion() - no dot found, trying identifier completion");
 
+            let partial = &before_cursor[trimmed.len()..];
+            let mut items: Vec<CompletionItem> = Vec::new();
+
+            // Keyword snippet completions
+            if !partial.is_empty() && "const".starts_with(partial) {
+                items.push(CompletionItem {
+                    label: "const <name> = <value>".to_string(),
+                    kind: Some(CompletionItemKind::SNIPPET),
+                    insert_text: Some("const ${1:name} = ${0:value}".to_string()),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some("const".to_string()),
+                    sort_text: Some("0const".to_string()),
+                    ..Default::default()
+                });
+            }
+            if !partial.is_empty() && "from".starts_with(partial) {
+                items.push(CompletionItem {
+                    label: "from '<path>' import { <names> }".to_string(),
+                    kind: Some(CompletionItemKind::SNIPPET),
+                    insert_text: Some("from '${1:path}' import { ${0:names} }".to_string()),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some("from".to_string()),
+                    sort_text: Some("0from".to_string()),
+                    ..Default::default()
+                });
+            }
+
             // Try identifier completion: find the node at the cursor and check
             // if it's a LocalIdentifier (or we're inside one)
             let node = find_node_at_offset(&ast, cursor_offset.saturating_sub(1));
@@ -681,28 +708,31 @@ impl LanguageServer for BagelLanguageServer {
                 }
             });
 
-            let ident_node = match ident_node {
-                Some(n) => n,
-                None => return Ok(None),
-            };
+            if let Some(ident_node) = ident_node {
+                let current_module =
+                    uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
+                let norm_ctx = NormalizeContext {
+                    modules: Some(&*store),
+                    current_module,
+                };
 
-            let current_module = uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
-            let norm_ctx = NormalizeContext {
-                modules: Some(&*store),
-                current_module,
-            };
+                items.extend(
+                    identifiers_in_scope(&ident_node, norm_ctx)
+                        .iter()
+                        .map(|resolved| completion_item_for_identifier(resolved, norm_ctx)),
+                );
 
-            let mut items: Vec<CompletionItem> = identifiers_in_scope(&ident_node, norm_ctx)
-                .iter()
-                .map(|resolved| completion_item_for_identifier(resolved, norm_ctx))
-                .collect();
+                // Add the built-in `js` global
+                items.push(CompletionItem {
+                    label: "js".to_string(),
+                    kind: Some(CompletionItemKind::MODULE),
+                    ..Default::default()
+                });
+            }
 
-            // Add the built-in `js` global
-            items.push(CompletionItem {
-                label: "js".to_string(),
-                kind: Some(CompletionItemKind::MODULE),
-                ..Default::default()
-            });
+            if items.is_empty() {
+                return Ok(None);
+            }
 
             eprintln!(
                 "[DEBUG] completion() - returning {} identifier completion items",
