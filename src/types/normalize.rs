@@ -25,6 +25,11 @@ pub enum ResolvedIdentifier<'a> {
         decl: grammar::ConstDeclaration,
         module: Option<&'a Module>,
     },
+    /// A type declaration, possibly in a different module
+    TypeDeclaration {
+        decl: grammar::TypeDeclaration,
+        module: Option<&'a Module>,
+    },
     /// A function parameter in the current module
     FunctionParam {
         name: AST<grammar::PlainIdentifier>,
@@ -37,6 +42,7 @@ impl ResolvedIdentifier<'_> {
     pub fn name(&self) -> &str {
         match self {
             ResolvedIdentifier::ConstDeclaration { decl, .. } => decl.identifier.slice().as_str(),
+            ResolvedIdentifier::TypeDeclaration { decl, .. } => decl.identifier.slice().as_str(),
             ResolvedIdentifier::FunctionParam { name, .. } => name.slice().as_str(),
         }
     }
@@ -115,6 +121,7 @@ impl Type {
                 }
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
+            NamedType { identifier, .. } => resolve_named_type(&identifier, ctx),
             Invocation { function, args: _ } => {
                 let func_type = function.as_ref().clone().normalize(ctx);
                 match func_type {
@@ -441,6 +448,10 @@ fn resolve_local_identifier(
             };
             resolve_declaration_type(&decl, decl_ctx)
         }
+        Some(ResolvedIdentifier::TypeDeclaration { .. }) => {
+            // Type declarations resolve in the type namespace, not the value namespace
+            Type::Poisoned
+        }
         Some(ResolvedIdentifier::FunctionParam {
             name: _,
             param_index,
@@ -499,11 +510,150 @@ fn resolve_imported_identifier<'a>(
         .filter(|decl| decl.details().is_some())
         .filter_map(|decl| match decl.unpack().unwrap() {
             grammar::Declaration::ConstDeclaration(const_decl) => Some(const_decl),
-            grammar::Declaration::ImportDeclaration(_) => None,
+            grammar::Declaration::TypeDeclaration(_)
+            | grammar::Declaration::ImportDeclaration(_) => None,
         })
         .find(|const_decl| const_decl.identifier.slice().as_str() == name)
         .map(|const_decl| ResolvedIdentifier::ConstDeclaration {
             decl: const_decl,
+            module: Some(imported_module),
+        })
+}
+
+/// Thin wrapper around `resolve_type_identifier` that extracts the type from
+/// the resolution result. Called by `normalize()` for `Type::NamedType`.
+fn resolve_named_type(
+    identifier: &AST<grammar::PlainIdentifier>,
+    ctx: NormalizeContext<'_>,
+) -> Type {
+    let name = identifier.slice().as_str();
+    let node: AST<Any> = identifier.clone().upcast();
+    match resolve_type_identifier(name, &node, ctx) {
+        Some(ResolvedIdentifier::TypeDeclaration { decl, module }) => {
+            let decl_ctx = match module {
+                Some(m) => NormalizeContext {
+                    modules: ctx.modules,
+                    current_module: Some(m),
+                },
+                None => ctx,
+            };
+            decl.value
+                .unpack()
+                .map(Type::from)
+                .unwrap_or(Type::Poisoned)
+                .normalize(decl_ctx)
+        }
+        _ => Type::Poisoned,
+    }
+}
+
+/// Resolve a type identifier name at the given AST node. Walks up the
+/// scope chain and returns the first type declaration matching `name`.
+pub fn resolve_type_identifier<'a>(
+    name: &str,
+    node: &AST<Any>,
+    ctx: NormalizeContext<'a>,
+) -> Option<ResolvedIdentifier<'a>> {
+    type_identifiers_in_scope(node, ctx)
+        .into_iter()
+        .find(|r| r.name() == name)
+}
+
+/// Walks up the AST scope chain from the given node and collects all
+/// type identifiers (type declarations and imported type declarations) that
+/// are visible at that point.
+pub fn type_identifiers_in_scope<'a>(
+    node: &AST<Any>,
+    ctx: NormalizeContext<'a>,
+) -> Vec<ResolvedIdentifier<'a>> {
+    let mut results = Vec::new();
+    let mut current = node.parent();
+
+    while let Some(ancestor) = current {
+        match ancestor.details() {
+            Some(Any::Module(module)) => {
+                // Collect module-level type declarations
+                results.extend(
+                    module
+                        .declarations
+                        .iter()
+                        .filter_map(|decl| match decl.unpack() {
+                            Some(Declaration::TypeDeclaration(type_decl)) => Some(type_decl),
+                            _ => None,
+                        })
+                        .map(|type_decl| ResolvedIdentifier::TypeDeclaration {
+                            decl: type_decl,
+                            module: None,
+                        }),
+                );
+
+                // Collect imported type identifiers
+                if let (Some(store), Some(current_module)) = (ctx.modules, ctx.current_module) {
+                    results.extend(
+                        module
+                            .declarations
+                            .iter()
+                            .filter_map(|decl| match decl.unpack() {
+                                Some(Declaration::ImportDeclaration(import_decl)) => {
+                                    Some(import_decl)
+                                }
+                                _ => None,
+                            })
+                            .flat_map(|import_decl| {
+                                let import_path = import_decl
+                                    .path
+                                    .unpack()
+                                    .map(|lit| lit.contents.as_str().to_string());
+                                import_decl
+                                    .imports
+                                    .iter()
+                                    .filter_map(move |spec| {
+                                        let original_name = spec.name.slice().as_str().to_string();
+                                        let path = import_path.as_ref()?;
+                                        resolve_imported_type_identifier(
+                                            &original_name,
+                                            path,
+                                            store,
+                                            current_module,
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                            }),
+                    );
+                }
+
+                break;
+            }
+            _ => {}
+        }
+
+        current = ancestor.parent();
+    }
+
+    results
+}
+
+/// Resolve an identifier imported from another module as a type declaration.
+fn resolve_imported_type_identifier<'a>(
+    name: &str,
+    import_path: &str,
+    store: &'a ModulesStore,
+    current_module: &Module,
+) -> Option<ResolvedIdentifier<'a>> {
+    let imported_module = store.find_imported(current_module, import_path)?;
+
+    let imported_module_data = imported_module.ast.unpack()?;
+    imported_module_data
+        .declarations
+        .iter()
+        .filter(|decl| decl.details().is_some())
+        .filter_map(|decl| match decl.unpack().unwrap() {
+            grammar::Declaration::TypeDeclaration(type_decl) => Some(type_decl),
+            _ => None,
+        })
+        .find(|type_decl| type_decl.identifier.slice().as_str() == name)
+        .map(|type_decl| ResolvedIdentifier::TypeDeclaration {
+            decl: type_decl,
             module: Some(imported_module),
         })
 }

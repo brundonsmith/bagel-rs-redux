@@ -1,0 +1,13 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: UNION_TYPE_ERRORS)"
+---
+const a: number | string = true
+const b: number | boolean = 'nope'
+const c: number | string = nil
+const d: [number | string] = [true]
+---
+const module_0_a = true;
+const module_0_b = 'nope';
+const module_0_c = undefined;
+const module_0_d = [true];

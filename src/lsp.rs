@@ -7,7 +7,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::ast::container::{find_deepest, walk_ast, WalkAction, AST};
-use crate::ast::grammar::{Any, Declaration, Expression};
+use crate::ast::grammar::{Any, Declaration, Expression, TypeExpression};
 use crate::ast::modules::{ModulePath, ModulesStore};
 use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
@@ -16,7 +16,8 @@ use crate::emit::{EmitContext, Emittable};
 use crate::types::fits::FitsContext;
 use crate::types::infer::InferTypeContext;
 use crate::types::{
-    identifiers_in_scope, resolve_identifier, NormalizeContext, ResolvedIdentifier, Type,
+    identifiers_in_scope, resolve_identifier, resolve_type_identifier, NormalizeContext,
+    ResolvedIdentifier, Type,
 };
 
 #[derive(Debug)]
@@ -454,27 +455,34 @@ impl LanguageServer for BagelLanguageServer {
                             let target_text = target_module.source.as_str();
                             let target_uri = path_to_uri(&target_module.path);
                             let module_data = target_module.ast.unpack()?;
-                            module_data
+                            // Find matching const or type declaration
+                            let target_identifier_slice = module_data
                                 .declarations
                                 .iter()
-                                .filter_map(|d| match d.unpack() {
-                                    Some(Declaration::ConstDeclaration(c)) => Some(c),
-                                    _ => None,
-                                })
-                                .find(|c| c.identifier.slice().as_str() == original_name)
-                                .map(|c| {
-                                    let target_range =
-                                        slice_to_lsp_range(&c.identifier.slice(), target_text);
-                                    LocationLink {
-                                        origin_selection_range: Some(slice_to_lsp_range(
-                                            &spec.name.slice(),
-                                            &text,
-                                        )),
-                                        target_uri: target_uri.parse().unwrap(),
-                                        target_range,
-                                        target_selection_range: target_range,
+                                .find_map(|d| match d.unpack() {
+                                    Some(Declaration::ConstDeclaration(c))
+                                        if c.identifier.slice().as_str() == original_name =>
+                                    {
+                                        Some(c.identifier.slice().clone())
                                     }
-                                })
+                                    Some(Declaration::TypeDeclaration(t))
+                                        if t.identifier.slice().as_str() == original_name =>
+                                    {
+                                        Some(t.identifier.slice().clone())
+                                    }
+                                    _ => None,
+                                })?;
+                            let target_range =
+                                slice_to_lsp_range(&target_identifier_slice, target_text);
+                            Some(LocationLink {
+                                origin_selection_range: Some(slice_to_lsp_range(
+                                    &spec.name.slice(),
+                                    &text,
+                                )),
+                                target_uri: target_uri.parse().unwrap(),
+                                target_range,
+                                target_selection_range: target_range,
+                            })
                         });
 
                     eprintln!(
@@ -483,6 +491,27 @@ impl LanguageServer for BagelLanguageServer {
                     );
                     return Ok(link.map(|l| GotoDefinitionResponse::Link(vec![l])));
                 }
+            }
+        }
+
+        let ctx = NormalizeContext {
+            modules: Some(&*store),
+            current_module,
+        };
+
+        // Handle NamedTypeExpression identifiers (go-to-def for type names)
+        if let Some(type_expr) = node.clone().try_downcast::<TypeExpression>() {
+            if let Some(TypeExpression::NamedTypeExpression(named)) = type_expr.unpack() {
+                let name = named.identifier.slice().as_str();
+                let resolved = resolve_type_identifier(name, &node, ctx);
+                let location =
+                    resolved.and_then(|r| resolved_identifier_to_location(&r, &uri, &text));
+
+                eprintln!(
+                    "[DEBUG] goto_definition() - named type resolved to {:?}",
+                    location
+                );
+                return Ok(location.map(GotoDefinitionResponse::Scalar));
             }
         }
 
@@ -497,43 +526,16 @@ impl LanguageServer for BagelLanguageServer {
         };
 
         // Resolve the identifier using the shared resolution logic
-        let ctx = NormalizeContext {
-            modules: Some(&*store),
-            current_module,
-        };
-
         let resolved = match resolve_identifier(local_id.slice.as_str(), &node, ctx) {
             Some(r) => r,
             None => return Ok(None),
         };
 
-        // Convert the resolved identifier to an LSP Location
-        let location = match resolved {
-            ResolvedIdentifier::ConstDeclaration { decl, module } => {
-                let target_slice = decl.identifier.slice();
-                match module {
-                    Some(target_module) => {
-                        let target_text = target_module.source.as_str();
-                        let target_uri = path_to_uri(&target_module.path);
-                        Location {
-                            uri: target_uri.parse().unwrap(),
-                            range: slice_to_lsp_range(&target_slice, target_text),
-                        }
-                    }
-                    None => Location {
-                        uri: uri.parse().unwrap(),
-                        range: slice_to_lsp_range(&target_slice, &text),
-                    },
-                }
-            }
-            ResolvedIdentifier::FunctionParam { name, .. } => {
-                let target_slice = name.slice();
-                Location {
-                    uri: uri.parse().unwrap(),
-                    range: slice_to_lsp_range(&target_slice, &text),
-                }
-            }
-        };
+        let location =
+            resolved_identifier_to_location(&resolved, &uri, &text).unwrap_or(Location {
+                uri: uri.parse().unwrap(),
+                range: Range::default(),
+            });
 
         eprintln!("[DEBUG] goto_definition() - resolved to {:?}", location);
 
@@ -669,6 +671,17 @@ impl LanguageServer for BagelLanguageServer {
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     filter_text: Some("const".to_string()),
                     sort_text: Some("0const".to_string()),
+                    ..Default::default()
+                });
+            }
+            if !partial.is_empty() && "type".starts_with(partial) {
+                items.push(CompletionItem {
+                    label: "type <name> = <type>".to_string(),
+                    kind: Some(CompletionItemKind::SNIPPET),
+                    insert_text: Some("type ${1:name} = ${0:type}".to_string()),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some("type".to_string()),
+                    sort_text: Some("0type".to_string()),
                     ..Default::default()
                 });
             }
@@ -891,6 +904,9 @@ impl LanguageServer for BagelLanguageServer {
 
                         // Collect parameter hints from function expressions in the value
                         collect_parameter_hints(&decl_data.value, &text, &mut hints);
+                    }
+                    Declaration::TypeDeclaration(_) => {
+                        // No inlay hints for type declarations
                     }
                     Declaration::ImportDeclaration(_) => {
                         // No inlay hints for imports
@@ -1196,6 +1212,20 @@ fn completion_item_for_identifier(
 /// used when normalizing a `Type::LocalIdentifier`.
 fn resolve_identifier_type(resolved: &ResolvedIdentifier<'_>, ctx: NormalizeContext<'_>) -> Type {
     match resolved {
+        ResolvedIdentifier::TypeDeclaration { decl, module } => {
+            let decl_ctx = match module {
+                Some(m) => NormalizeContext {
+                    modules: ctx.modules,
+                    current_module: Some(m),
+                },
+                None => ctx,
+            };
+            decl.value
+                .unpack()
+                .map(Type::from)
+                .unwrap_or(Type::Poisoned)
+                .normalize(decl_ctx)
+        }
         ResolvedIdentifier::ConstDeclaration { decl, module } => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {
@@ -1254,6 +1284,57 @@ fn completion_item_kind_for_type(ty: &Type) -> CompletionItemKind {
         }
         Type::Union { .. } => CompletionItemKind::ENUM,
         _ => CompletionItemKind::VARIABLE,
+    }
+}
+
+/// Convert a resolved identifier to an LSP Location.
+fn resolved_identifier_to_location(
+    resolved: &ResolvedIdentifier<'_>,
+    current_uri: &str,
+    current_text: &str,
+) -> Option<Location> {
+    match resolved {
+        ResolvedIdentifier::ConstDeclaration { decl, module } => {
+            let target_slice = decl.identifier.slice();
+            Some(match module {
+                Some(target_module) => {
+                    let target_text = target_module.source.as_str();
+                    let target_uri = path_to_uri(&target_module.path);
+                    Location {
+                        uri: target_uri.parse().unwrap(),
+                        range: slice_to_lsp_range(target_slice, target_text),
+                    }
+                }
+                None => Location {
+                    uri: current_uri.parse().unwrap(),
+                    range: slice_to_lsp_range(target_slice, current_text),
+                },
+            })
+        }
+        ResolvedIdentifier::TypeDeclaration { decl, module } => {
+            let target_slice = decl.identifier.slice();
+            Some(match module {
+                Some(target_module) => {
+                    let target_text = target_module.source.as_str();
+                    let target_uri = path_to_uri(&target_module.path);
+                    Location {
+                        uri: target_uri.parse().unwrap(),
+                        range: slice_to_lsp_range(target_slice, target_text),
+                    }
+                }
+                None => Location {
+                    uri: current_uri.parse().unwrap(),
+                    range: slice_to_lsp_range(target_slice, current_text),
+                },
+            })
+        }
+        ResolvedIdentifier::FunctionParam { name, .. } => {
+            let target_slice = name.slice();
+            Some(Location {
+                uri: current_uri.parse().unwrap(),
+                range: slice_to_lsp_range(target_slice, current_text),
+            })
+        }
     }
 }
 

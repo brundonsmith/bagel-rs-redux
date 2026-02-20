@@ -71,6 +71,7 @@ macro_rules! binary_operation {
 // Reserved keywords that cannot be used as identifiers
 const KEYWORDS: &[&str] = &[
     "nil", "true", "false", "const", "export", "from", "import", "as", "if", "else", "typeof",
+    "type",
 ];
 
 fn is_keyword(s: &str) -> bool {
@@ -1402,6 +1403,73 @@ fn object_type_expression(i: Slice) -> ParseResult<AST<ObjectTypeExpression>> {
     Ok((remaining, node))
 }
 
+fn tuple_type_expression(i: Slice) -> ParseResult<AST<TupleTypeExpression>> {
+    let (remaining, open_bracket) = tag("[")(i)?;
+
+    let mut elements = Vec::new();
+    let mut commas = Vec::new();
+    let mut current = remaining;
+    let mut trailing_comma = None;
+
+    // Parse first element if present
+    if let Ok((after_elem, elem)) = w(type_expression)(current.clone()) {
+        elements.push(elem);
+        current = after_elem;
+
+        // Parse subsequent ", elem" pairs
+        loop {
+            match w(tag(","))(current.clone()) {
+                Ok((after_comma, comma)) => match w(type_expression)(after_comma.clone()) {
+                    Ok((after_elem, elem)) => {
+                        commas.push(comma);
+                        elements.push(elem);
+                        current = after_elem;
+                    }
+                    Err(_) => {
+                        trailing_comma = Some(comma);
+                        current = after_comma;
+                        break;
+                    }
+                },
+                Err(_) => break,
+            }
+        }
+    }
+
+    let (remaining, close_bracket) = w(expect_tag("]"))(current)?;
+
+    let span = open_bracket.spanning(&close_bracket);
+    let node = make_ast(
+        span,
+        TupleTypeExpression {
+            open_bracket,
+            elements: elements.clone(),
+            commas,
+            trailing_comma,
+            close_bracket,
+        },
+    );
+    for mut elem in elements {
+        elem.set_parent(&node);
+    }
+
+    Ok((remaining, node))
+}
+
+fn named_type_expression(i: Slice) -> ParseResult<AST<NamedTypeExpression>> {
+    map(plain_identifier, |mut id| {
+        let span = id.slice().clone();
+        let node = make_ast(
+            span,
+            NamedTypeExpression {
+                identifier: id.clone(),
+            },
+        );
+        id.set_parent(&node);
+        node
+    })(i)
+}
+
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(unknown_type_expression, |n| n.upcast()),
@@ -1412,8 +1480,10 @@ fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
         map(string_type_expression, |n| n.upcast()),
         map(typeof_type_expression, |n| n.upcast()),
         map(object_type_expression, |n| n.upcast()),
+        map(tuple_type_expression, |n| n.upcast()),
         map(function_type_expression, |n| n.upcast()),
         map(parenthesized_type_expression, |n| n.upcast()),
+        map(named_type_expression, |n| n.upcast()),
     ))(i)
 }
 
@@ -1441,8 +1511,44 @@ fn postfix_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     ))(i)
 }
 
+fn union_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
+    map(
+        tuple((
+            postfix_type_expression,
+            many1(seq!(tag("|"), postfix_type_expression)),
+        )),
+        |(first, rest)| {
+            let mut variants = vec![first.clone()];
+            let mut pipes = Vec::new();
+
+            for (pipe, variant) in rest {
+                pipes.push(pipe);
+                variants.push(variant);
+            }
+
+            let span = variants
+                .first()
+                .unwrap()
+                .slice()
+                .spanning(variants.last().unwrap().slice());
+
+            let node = make_ast(
+                span,
+                UnionTypeExpression {
+                    variants: variants.clone(),
+                    pipes,
+                },
+            );
+            for mut variant in variants {
+                variant.set_parent(&node);
+            }
+            node.upcast()
+        },
+    )(i)
+}
+
 pub fn type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
-    postfix_type_expression(i)
+    alt((union_type_expression, postfix_type_expression))(i)
 }
 
 // Parser for ConstDeclaration: "export"? "const" PlainIdentifier (":" TypeExpression)? "=" Expression
@@ -1478,6 +1584,36 @@ fn const_declaration(i: Slice) -> ParseResult<AST<ConstDeclaration>> {
             }
             value.set_parent(&node);
 
+            node
+        },
+    )(i)
+}
+
+// Parser for TypeDeclaration: "export"? "type" PlainIdentifier "=" TypeExpression
+fn type_declaration(i: Slice) -> ParseResult<AST<TypeDeclaration>> {
+    map(
+        seq!(
+            opt(tag("export")),
+            tag("type"),
+            plain_identifier,
+            expect_tag("="),
+            type_expression
+        ),
+        |(export_keyword, type_keyword, mut identifier, equals, mut value)| {
+            let span = export_keyword
+                .as_ref()
+                .unwrap_or(&type_keyword)
+                .spanning(value.slice());
+            let decl = TypeDeclaration {
+                export_keyword,
+                type_keyword,
+                identifier: identifier.clone(),
+                equals,
+                value: value.clone(),
+            };
+            let node = make_ast(span, decl);
+            identifier.set_parent(&node);
+            value.set_parent(&node);
             node
         },
     )(i)
@@ -1553,10 +1689,11 @@ fn import_specifier(i: Slice) -> ParseResult<ImportSpecifier> {
     )(i)
 }
 
-// Parser for Declaration: ConstDeclaration | ImportDeclaration
+// Parser for Declaration: ConstDeclaration | TypeDeclaration | ImportDeclaration
 pub fn declaration(i: Slice) -> ParseResult<AST<Declaration>> {
     alt((
         map(const_declaration, |d| d.upcast()),
+        map(type_declaration, |d| d.upcast()),
         map(import_declaration, |d| d.upcast()),
     ))(i)
 }

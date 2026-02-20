@@ -34,6 +34,9 @@
         },
         {
           "include": "#const-declaration"
+        },
+        {
+          "include": "#type-declaration"
         }
       ]
     },
@@ -62,6 +65,37 @@
         },
         {
           "include": "#expression"
+        }
+      ]
+    },
+    "type-declaration": {
+      "name": "meta.type.declaration.bagel",
+      "begin": "(?:\\b(export)\\s+)?\\b(type)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.export.bagel"
+        },
+        "2": {
+          "name": "storage.type.bagel"
+        }
+      },
+      "end": "(?=\\n|;)",
+      "patterns": [
+        {
+          "comment": "Type name identifier",
+          "match": "(?<=type\\s)\\s*([a-z]+)",
+          "captures": {
+            "1": {
+              "name": "entity.name.type.bagel"
+            }
+          }
+        },
+        {
+          "name": "keyword.operator.assignment.bagel",
+          "match": "="
+        },
+        {
+          "include": "#type-expression"
         }
       ]
     },
@@ -438,7 +472,7 @@
     },
     "plain-identifier": {
       "name": "variable.other.bagel",
-      "match": "\\b(?!true\\b|false\\b|nil\\b|const\\b|export\\b|from\\b|import\\b|as\\b|if\\b|else\\b|typeof\\b|js\\b)[a-z]+\\b"
+      "match": "\\b(?!true\\b|false\\b|nil\\b|const\\b|export\\b|from\\b|import\\b|as\\b|if\\b|else\\b|typeof\\b|type\\b|js\\b)[a-z]+\\b"
     },
     "type-annotation": {
       "name": "meta.type.annotation.bagel",
@@ -508,6 +542,16 @@
           "comment": "Union type separator",
           "name": "keyword.operator.type.union.bagel",
           "match": "\\|"
+        },
+        {
+          "comment": "Nillable type suffix",
+          "name": "keyword.operator.type.nillable.bagel",
+          "match": "\\?"
+        },
+        {
+          "comment": "Named type reference",
+          "name": "entity.name.type.bagel",
+          "match": "\\b(?!unknown\\b|nil\\b|boolean\\b|number\\b|string\\b|typeof\\b)[a-z]+\\b"
         }
       ]
     },

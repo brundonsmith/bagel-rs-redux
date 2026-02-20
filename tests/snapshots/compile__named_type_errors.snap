@@ -1,0 +1,22 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: NAMED_TYPE_ERRORS)"
+---
+type mynum = number
+const a: mynum = 'not a number'
+
+type pair = [number, string]
+const b: pair = [1, 2]
+const c: pair = ['oops', 'bad']
+
+type result = number | string
+const d: result = true
+
+type strict = [boolean, number]
+const e: strict = [1, true]
+---
+const module_0_a = 'not a number';
+const module_0_b = [1, 2];
+const module_0_c = ['oops', 'bad'];
+const module_0_d = true;
+const module_0_e = [1, true];

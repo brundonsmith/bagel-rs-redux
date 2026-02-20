@@ -382,6 +382,10 @@ impl Any {
                     }
                     f(c.value.clone().upcast());
                 }
+                Declaration::TypeDeclaration(decl) => {
+                    f(decl.identifier.clone().upcast());
+                    f(decl.value.clone().upcast());
+                }
                 Declaration::ImportDeclaration(imp) => {
                     f(imp.path.clone().upcast());
                     imp.imports.iter().for_each(|spec| {
@@ -503,6 +507,9 @@ impl Any {
                 }
                 TypeExpression::NillableTypeExpression(nillable) => {
                     f(nillable.subject.clone().upcast());
+                }
+                TypeExpression::NamedTypeExpression(named) => {
+                    f(named.identifier.clone().upcast());
                 }
             },
             Any::FunctionBody(body) => match body {

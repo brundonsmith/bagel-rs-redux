@@ -1,0 +1,13 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: UNION_TYPE_ERRORS)"
+---
+const a: number | string = true
+const b: number | boolean = 'nope'
+const c: number | string = nil
+const d: [number | string] = [true]
+---
+const a: number | string = true
+const b: number | boolean = 'nope'
+const c: number | string = nil
+const d: [number | string] = [true]

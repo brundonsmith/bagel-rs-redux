@@ -1,0 +1,398 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: NAMED_TYPE_ERRORS)"
+---
+type mynum = number
+const a: mynum = 'not a number'
+
+type pair = [number, string]
+const b: pair = [1, 2]
+const c: pair = ['oops', 'bad']
+
+type result = number | string
+const d: result = true
+
+type strict = [boolean, number]
+const e: strict = [1, true]
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\ntype mynum = number\nconst a: mynum = 'not a number'\n\ntype pair = [number, string]\nconst b: pair = [1, 2]\nconst c: pair = ['oops', 'bad']\n\ntype result = number | string\nconst d: result = true\n\ntype strict = [boolean, number]\nconst e: strict = [1, true]"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("type mynum = number"),
+                        details: TypeDeclaration {
+                            export_keyword: None,
+                            type_keyword: Slice("type"),
+                            identifier: ASTInner {
+                                slice: Slice("mynum"),
+                                details: PlainIdentifier {
+                                    slice: Slice("mynum"),
+                                },
+                            },
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("number"),
+                                details: NumberTypeExpression,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const a: mynum = 'not a number'"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("mynum"),
+                                        details: NamedTypeExpression {
+                                            identifier: ASTInner {
+                                                slice: Slice("mynum"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("mynum"),
+                                                },
+                                            },
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("'not a number'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("not a number"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("type pair = [number, string]"),
+                        details: TypeDeclaration {
+                            export_keyword: None,
+                            type_keyword: Slice("type"),
+                            identifier: ASTInner {
+                                slice: Slice("pair"),
+                                details: PlainIdentifier {
+                                    slice: Slice("pair"),
+                                },
+                            },
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[number, string]"),
+                                details: TupleTypeExpression {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("number"),
+                                            details: NumberTypeExpression,
+                                        },
+                                        ASTInner {
+                                            slice: Slice("string"),
+                                            details: StringTypeExpression,
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Slice("]"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b: pair = [1, 2]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("pair"),
+                                        details: NamedTypeExpression {
+                                            identifier: ASTInner {
+                                                slice: Slice("pair"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("pair"),
+                                                },
+                                            },
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[1, 2]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("1"),
+                                            details: NumberLiteral {
+                                                slice: Slice("1"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("2"),
+                                            details: NumberLiteral {
+                                                slice: Slice("2"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c: pair = ['oops', 'bad']"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("pair"),
+                                        details: NamedTypeExpression {
+                                            identifier: ASTInner {
+                                                slice: Slice("pair"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("pair"),
+                                                },
+                                            },
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("['oops', 'bad']"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("'oops'"),
+                                            details: StringLiteral {
+                                                open_quote: Slice("'"),
+                                                contents: Slice("oops"),
+                                                close_quote: Slice("'"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("'bad'"),
+                                            details: StringLiteral {
+                                                open_quote: Slice("'"),
+                                                contents: Slice("bad"),
+                                                close_quote: Slice("'"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("type result = number | string"),
+                        details: TypeDeclaration {
+                            export_keyword: None,
+                            type_keyword: Slice("type"),
+                            identifier: ASTInner {
+                                slice: Slice("result"),
+                                details: PlainIdentifier {
+                                    slice: Slice("result"),
+                                },
+                            },
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("number | string"),
+                                details: UnionTypeExpression {
+                                    variants: [
+                                        ASTInner {
+                                            slice: Slice("number"),
+                                            details: NumberTypeExpression,
+                                        },
+                                        ASTInner {
+                                            slice: Slice("string"),
+                                            details: StringTypeExpression,
+                                        },
+                                    ],
+                                    pipes: [
+                                        Slice("|"),
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d: result = true"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("result"),
+                                        details: NamedTypeExpression {
+                                            identifier: ASTInner {
+                                                slice: Slice("result"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("result"),
+                                                },
+                                            },
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("true"),
+                                details: BooleanLiteral {
+                                    value: true,
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("type strict = [boolean, number]"),
+                        details: TypeDeclaration {
+                            export_keyword: None,
+                            type_keyword: Slice("type"),
+                            identifier: ASTInner {
+                                slice: Slice("strict"),
+                                details: PlainIdentifier {
+                                    slice: Slice("strict"),
+                                },
+                            },
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[boolean, number]"),
+                                details: TupleTypeExpression {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("boolean"),
+                                            details: BooleanTypeExpression,
+                                        },
+                                        ASTInner {
+                                            slice: Slice("number"),
+                                            details: NumberTypeExpression,
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Slice("]"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e: strict = [1, true]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier {
+                                    slice: Slice("e"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("strict"),
+                                        details: NamedTypeExpression {
+                                            identifier: ASTInner {
+                                                slice: Slice("strict"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("strict"),
+                                                },
+                                            },
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[1, true]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("1"),
+                                            details: NumberLiteral {
+                                                slice: Slice("1"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("true"),
+                                            details: BooleanLiteral {
+                                                value: true,
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

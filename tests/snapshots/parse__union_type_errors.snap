@@ -1,0 +1,217 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: UNION_TYPE_ERRORS)"
+---
+const a: number | string = true
+const b: number | boolean = 'nope'
+const c: number | string = nil
+const d: [number | string] = [true]
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst a: number | string = true\nconst b: number | boolean = 'nope'\nconst c: number | string = nil\nconst d: [number | string] = [true]"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a: number | string = true"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("number | string"),
+                                        details: UnionTypeExpression {
+                                            variants: [
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("string"),
+                                                    details: StringTypeExpression,
+                                                },
+                                            ],
+                                            pipes: [
+                                                Slice("|"),
+                                            ],
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("true"),
+                                details: BooleanLiteral {
+                                    value: true,
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b: number | boolean = 'nope'"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("number | boolean"),
+                                        details: UnionTypeExpression {
+                                            variants: [
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("boolean"),
+                                                    details: BooleanTypeExpression,
+                                                },
+                                            ],
+                                            pipes: [
+                                                Slice("|"),
+                                            ],
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("'nope'"),
+                                details: StringLiteral {
+                                    open_quote: Slice("'"),
+                                    contents: Slice("nope"),
+                                    close_quote: Slice("'"),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c: number | string = nil"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("number | string"),
+                                        details: UnionTypeExpression {
+                                            variants: [
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("string"),
+                                                    details: StringTypeExpression,
+                                                },
+                                            ],
+                                            pipes: [
+                                                Slice("|"),
+                                            ],
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("nil"),
+                                details: NilLiteral,
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d: [number | string] = [true]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("[number | string]"),
+                                        details: TupleTypeExpression {
+                                            open_bracket: Slice("["),
+                                            elements: [
+                                                ASTInner {
+                                                    slice: Slice("number | string"),
+                                                    details: UnionTypeExpression {
+                                                        variants: [
+                                                            ASTInner {
+                                                                slice: Slice("number"),
+                                                                details: NumberTypeExpression,
+                                                            },
+                                                            ASTInner {
+                                                                slice: Slice("string"),
+                                                                details: StringTypeExpression,
+                                                            },
+                                                        ],
+                                                        pipes: [
+                                                            Slice("|"),
+                                                        ],
+                                                    },
+                                                },
+                                            ],
+                                            commas: [],
+                                            trailing_comma: None,
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[true]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("true"),
+                                            details: BooleanLiteral {
+                                                value: true,
+                                            },
+                                        },
+                                    ],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

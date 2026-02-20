@@ -1,0 +1,59 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: NAMED_TYPE_ERRORS)"
+---
+type mynum = number
+const a: mynum = 'not a number'
+
+type pair = [number, string]
+const b: pair = [1, 2]
+const c: pair = ['oops', 'bad']
+
+type result = number | string
+const d: result = true
+
+type strict = [boolean, number]
+const e: strict = [1, true]
+---
+[
+    BagelError {
+        src: Slice("'not a number'"),
+        severity: Error,
+        details: MiscError {
+            message: "Type ''not a number'' is not assignable to type 'number'",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("[1, 2]"),
+        severity: Error,
+        details: MiscError {
+            message: "Element at index 1 is not compatible: Type '2' is not assignable to type 'string'",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("['oops', 'bad']"),
+        severity: Error,
+        details: MiscError {
+            message: "Element at index 0 is not compatible: Type ''oops'' is not assignable to type 'number'",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("true"),
+        severity: Error,
+        details: MiscError {
+            message: "Type 'true' is not assignable to type 'number | string'",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("[1, true]"),
+        severity: Error,
+        details: MiscError {
+            message: "Element at index 0 is not compatible: Type '1' is not assignable to type 'boolean'",
+        },
+        related: [],
+    },
+]

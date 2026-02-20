@@ -273,6 +273,19 @@ impl Emittable for Any {
                     emit_gap(&decl.equals, decl.value.slice(), " ", ctx, f)?;
                     decl.value.emit(ctx, f)
                 }
+                Declaration::TypeDeclaration(decl) => {
+                    if let Some(export_kw) = &decl.export_keyword {
+                        write!(f, "export")?;
+                        emit_gap(export_kw, &decl.type_keyword, " ", ctx, f)?;
+                    }
+                    write!(f, "type")?;
+                    emit_gap(&decl.type_keyword, decl.identifier.slice(), " ", ctx, f)?;
+                    decl.identifier.emit(ctx, f)?;
+                    emit_gap(decl.identifier.slice(), &decl.equals, " ", ctx, f)?;
+                    write!(f, "=")?;
+                    emit_gap(&decl.equals, decl.value.slice(), " ", ctx, f)?;
+                    decl.value.emit(ctx, f)
+                }
                 Declaration::ImportDeclaration(decl) => {
                     write!(f, "from")?;
                     emit_gap(&decl.from_keyword, decl.path.slice(), " ", ctx, f)?;
@@ -739,6 +752,8 @@ impl Emittable for Any {
                     nillable.subject.emit(ctx, f)?;
                     write!(f, "?")
                 }
+
+                TypeExpression::NamedTypeExpression(named) => named.identifier.emit(ctx, f),
             },
 
             Any::PlainIdentifier(id) => {
@@ -790,8 +805,9 @@ where
                     .map(|d| d.estimated_length().unwrap_or(0))
                     .max(),
                 Any::Declaration(declaration) => match declaration {
-                    Declaration::ConstDeclaration(const_declaration) => None,
-                    Declaration::ImportDeclaration(import_declaration) => None,
+                    Declaration::ConstDeclaration(_) => None,
+                    Declaration::TypeDeclaration(_) => None,
+                    Declaration::ImportDeclaration(_) => None,
                 },
                 Any::Expression(expression) => match expression {
                     Expression::NilLiteral(nil_literal) => Some("nil".len()),

@@ -1,0 +1,37 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: NAMED_TYPES)"
+---
+type mynum = number
+const a: mynum = 42
+
+type mystr = string
+const b: mystr = 'hello'
+
+type pair = [number, string]
+const c: pair = [1, 'hi']
+
+type result = number | string
+const d: result = 42
+const e: result = 'error'
+
+type callback = (number) => string
+const f: callback = (x) => 'done'
+
+type nested = [result, boolean]
+const g: nested = [42, true]
+const h: nested = ['err', false]
+---
+'done' -> 'done'
+'err' -> 'err'
+'error' -> 'error'
+'hello' -> 'hello'
+'hi' -> 'hi'
+(x) => 'done' -> (arg0: number) => 'done'
+1 -> 1
+42 -> 42
+['err', false] -> ['err', false]
+[1, 'hi'] -> [1, 'hi']
+[42, true] -> [42, true]
+false -> false
+true -> true

@@ -300,6 +300,34 @@ where
                                         }
                                     }
                                 }
+                                Some(Declaration::TypeDeclaration(t)) => {
+                                    let name = t.identifier.slice().as_str().to_string();
+
+                                    match seen_names.get(&name) {
+                                        Some(first_src) => {
+                                            report_error(BagelError {
+                                                src: t.identifier.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
+                                                        "Duplicate declaration '{}'",
+                                                        name
+                                                    ),
+                                                },
+                                                related: vec![RelatedInfo {
+                                                    src: first_src.clone(),
+                                                    message: format!(
+                                                        "'{}' first declared here",
+                                                        name
+                                                    ),
+                                                }],
+                                            });
+                                        }
+                                        None => {
+                                            seen_names.insert(name, t.identifier.slice().clone());
+                                        }
+                                    }
+                                }
                                 Some(Declaration::ImportDeclaration(import)) => {
                                     let path_str = import
                                         .path
@@ -336,21 +364,26 @@ where
                                                 let name =
                                                     specifier.name.slice().as_str().to_string();
 
-                                                let found_decl =
-                                                    target_decls.iter().find_map(|d| {
-                                                        match d.unpack() {
-                                                            Some(
-                                                                Declaration::ConstDeclaration(c),
-                                                            ) if c.identifier.slice().as_str()
+                                                // Check for a matching const or type declaration
+                                                let found_export_keyword = target_decls
+                                                    .iter()
+                                                    .find_map(|d| match d.unpack() {
+                                                        Some(Declaration::ConstDeclaration(c))
+                                                            if c.identifier.slice().as_str()
                                                                 == name =>
-                                                            {
-                                                                Some(c)
-                                                            }
-                                                            _ => None,
+                                                        {
+                                                            Some(c.export_keyword.clone())
                                                         }
+                                                        Some(Declaration::TypeDeclaration(t))
+                                                            if t.identifier.slice().as_str()
+                                                                == name =>
+                                                        {
+                                                            Some(t.export_keyword.clone())
+                                                        }
+                                                        _ => None,
                                                     });
 
-                                                match found_decl {
+                                                match found_export_keyword {
                                                     None => {
                                                         report_error(BagelError {
                                                             src: specifier.name.slice().clone(),
@@ -367,7 +400,7 @@ where
                                                             related: vec![],
                                                         });
                                                     }
-                                                    Some(c) if c.export_keyword.is_none() => {
+                                                    Some(None) => {
                                                         report_error(BagelError {
                                                             src: specifier
                                                                 .name
@@ -387,7 +420,7 @@ where
                                                             related: vec![],
                                                         });
                                                     }
-                                                    Some(_) => {}
+                                                    Some(Some(_)) => {}
                                                 }
                                             }
                                         }

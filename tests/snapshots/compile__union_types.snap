@@ -1,0 +1,23 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: UNION_TYPES)"
+---
+const a: number | string = 42
+const b: number | string = 'hello'
+const c: number | string | boolean = true
+const d: number | nil = nil
+const e: number | nil = 5
+const f: string | number = if true { 'hi' } else { 42 }
+const g: (number | string)[] = [1, 'two', 3]
+const h: [number, string | boolean] = [1, true]
+const i: [number, string | boolean] = [1, 'hello']
+---
+const module_0_a = 42;
+const module_0_b = 'hello';
+const module_0_c = true;
+const module_0_d = undefined;
+const module_0_e = 5;
+const module_0_f = (true ? 'hi' : 42);
+const module_0_g = [1, 'two', 3];
+const module_0_h = [1, true];
+const module_0_i = [1, 'hello'];

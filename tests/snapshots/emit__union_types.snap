@@ -1,0 +1,23 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: UNION_TYPES)"
+---
+const a: number | string = 42
+const b: number | string = 'hello'
+const c: number | string | boolean = true
+const d: number | nil = nil
+const e: number | nil = 5
+const f: string | number = if true { 'hi' } else { 42 }
+const g: (number | string)[] = [1, 'two', 3]
+const h: [number, string | boolean] = [1, true]
+const i: [number, string | boolean] = [1, 'hello']
+---
+const a: number | string = 42
+const b: number | string = 'hello'
+const c: number | string | boolean = true
+const d: number | nil = nil
+const e: number | nil = 5
+const f: string | number = if true { 'hi' } else { 42 }
+const g: (number | string)[] = [1, 'two', 3]
+const h: [number, string | boolean] = [1, true]
+const i: [number, string | boolean] = [1, 'hello']

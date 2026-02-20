@@ -1,0 +1,43 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: NAMED_TYPES)"
+---
+type mynum = number
+const a: mynum = 42
+
+type mystr = string
+const b: mystr = 'hello'
+
+type pair = [number, string]
+const c: pair = [1, 'hi']
+
+type result = number | string
+const d: result = 42
+const e: result = 'error'
+
+type callback = (number) => string
+const f: callback = (x) => 'done'
+
+type nested = [result, boolean]
+const g: nested = [42, true]
+const h: nested = ['err', false]
+---
+type mynum = number
+const a: mynum = 42
+
+type mystr = string
+const b: mystr = 'hello'
+
+type pair = [number, string]
+const c: pair = [1, 'hi']
+
+type result = number | string
+const d: result = 42
+const e: result = 'error'
+
+type callback = (number) => string
+const f: callback = (x) => 'done'
+
+type nested = [result, boolean]
+const g: nested = [42, true]
+const h: nested = ['err', false]

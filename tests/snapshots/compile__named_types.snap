@@ -1,0 +1,32 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: NAMED_TYPES)"
+---
+type mynum = number
+const a: mynum = 42
+
+type mystr = string
+const b: mystr = 'hello'
+
+type pair = [number, string]
+const c: pair = [1, 'hi']
+
+type result = number | string
+const d: result = 42
+const e: result = 'error'
+
+type callback = (number) => string
+const f: callback = (x) => 'done'
+
+type nested = [result, boolean]
+const g: nested = [42, true]
+const h: nested = ['err', false]
+---
+const module_0_a = 42;
+const module_0_b = 'hello';
+const module_0_c = [1, 'hi'];
+const module_0_d = 42;
+const module_0_e = 'error';
+const module_0_f = (x) => 'done';
+const module_0_g = [42, true];
+const module_0_h = ['err', false];

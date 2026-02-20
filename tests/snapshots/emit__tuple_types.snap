@@ -1,0 +1,17 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: TUPLE_TYPES)"
+---
+const a: [number, string] = [1, 'hello']
+const b: [boolean, number, string] = [true, 42, 'hi']
+const c: [number, number] = [1, 2]
+const d: [] = []
+const e: [number] = [42]
+const f: [string, nil] = ['hello', nil]
+---
+const a: [number, string] = [1, 'hello']
+const b: [boolean, number, string] = [true, 42, 'hi']
+const c: [number, number] = [1, 2]
+const d: [] = []
+const e: [number] = [42]
+const f: [string, nil] = ['hello', nil]

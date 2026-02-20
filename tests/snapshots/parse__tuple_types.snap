@@ -1,0 +1,401 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: TUPLE_TYPES)"
+---
+const a: [number, string] = [1, 'hello']
+const b: [boolean, number, string] = [true, 42, 'hi']
+const c: [number, number] = [1, 2]
+const d: [] = []
+const e: [number] = [42]
+const f: [string, nil] = ['hello', nil]
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst a: [number, string] = [1, 'hello']\nconst b: [boolean, number, string] = [true, 42, 'hi']\nconst c: [number, number] = [1, 2]\nconst d: [] = []\nconst e: [number] = [42]\nconst f: [string, nil] = ['hello', nil]"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a: [number, string] = [1, 'hello']"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("[number, string]"),
+                                        details: TupleTypeExpression {
+                                            open_bracket: Slice("["),
+                                            elements: [
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("string"),
+                                                    details: StringTypeExpression,
+                                                },
+                                            ],
+                                            commas: [
+                                                Slice(","),
+                                            ],
+                                            trailing_comma: None,
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[1, 'hello']"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("1"),
+                                            details: NumberLiteral {
+                                                slice: Slice("1"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("'hello'"),
+                                            details: StringLiteral {
+                                                open_quote: Slice("'"),
+                                                contents: Slice("hello"),
+                                                close_quote: Slice("'"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b: [boolean, number, string] = [true, 42, 'hi']"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("[boolean, number, string]"),
+                                        details: TupleTypeExpression {
+                                            open_bracket: Slice("["),
+                                            elements: [
+                                                ASTInner {
+                                                    slice: Slice("boolean"),
+                                                    details: BooleanTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("string"),
+                                                    details: StringTypeExpression,
+                                                },
+                                            ],
+                                            commas: [
+                                                Slice(","),
+                                                Slice(","),
+                                            ],
+                                            trailing_comma: None,
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[true, 42, 'hi']"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("true"),
+                                            details: BooleanLiteral {
+                                                value: true,
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("42"),
+                                            details: NumberLiteral {
+                                                slice: Slice("42"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("'hi'"),
+                                            details: StringLiteral {
+                                                open_quote: Slice("'"),
+                                                contents: Slice("hi"),
+                                                close_quote: Slice("'"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c: [number, number] = [1, 2]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("[number, number]"),
+                                        details: TupleTypeExpression {
+                                            open_bracket: Slice("["),
+                                            elements: [
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                            ],
+                                            commas: [
+                                                Slice(","),
+                                            ],
+                                            trailing_comma: None,
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[1, 2]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("1"),
+                                            details: NumberLiteral {
+                                                slice: Slice("1"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("2"),
+                                            details: NumberLiteral {
+                                                slice: Slice("2"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d: [] = []"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("[]"),
+                                        details: TupleTypeExpression {
+                                            open_bracket: Slice("["),
+                                            elements: [],
+                                            commas: [],
+                                            trailing_comma: None,
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e: [number] = [42]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier {
+                                    slice: Slice("e"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("[number]"),
+                                        details: TupleTypeExpression {
+                                            open_bracket: Slice("["),
+                                            elements: [
+                                                ASTInner {
+                                                    slice: Slice("number"),
+                                                    details: NumberTypeExpression,
+                                                },
+                                            ],
+                                            commas: [],
+                                            trailing_comma: None,
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("[42]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("42"),
+                                            details: NumberLiteral {
+                                                slice: Slice("42"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const f: [string, nil] = ['hello', nil]"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("f"),
+                                details: PlainIdentifier {
+                                    slice: Slice("f"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("[string, nil]"),
+                                        details: TupleTypeExpression {
+                                            open_bracket: Slice("["),
+                                            elements: [
+                                                ASTInner {
+                                                    slice: Slice("string"),
+                                                    details: StringTypeExpression,
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("nil"),
+                                                    details: NilTypeExpression,
+                                                },
+                                            ],
+                                            commas: [
+                                                Slice(","),
+                                            ],
+                                            trailing_comma: None,
+                                            close_bracket: Slice("]"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("['hello', nil]"),
+                                details: ArrayLiteral {
+                                    open_bracket: Slice("["),
+                                    elements: [
+                                        ASTInner {
+                                            slice: Slice("'hello'"),
+                                            details: StringLiteral {
+                                                open_quote: Slice("'"),
+                                                contents: Slice("hello"),
+                                                close_quote: Slice("'"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("nil"),
+                                            details: NilLiteral,
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_bracket: Some(
+                                        Slice("]"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

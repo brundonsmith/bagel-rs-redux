@@ -1,0 +1,43 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: UNION_TYPE_ERRORS)"
+---
+const a: number | string = true
+const b: number | boolean = 'nope'
+const c: number | string = nil
+const d: [number | string] = [true]
+---
+[
+    BagelError {
+        src: Slice("true"),
+        severity: Error,
+        details: MiscError {
+            message: "Type 'true' is not assignable to type 'number | string'",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("'nope'"),
+        severity: Error,
+        details: MiscError {
+            message: "Type ''nope'' is not assignable to type 'boolean | number'",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("nil"),
+        severity: Error,
+        details: MiscError {
+            message: "Type 'nil' is not assignable to type 'number | string'",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("[true]"),
+        severity: Error,
+        details: MiscError {
+            message: "Element at index 0 is not compatible: Type 'true' is not assignable to type 'number | string'",
+        },
+        related: [],
+    },
+]

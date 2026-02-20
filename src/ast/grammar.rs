@@ -326,6 +326,22 @@ pub struct NillableTypeExpression {
     pub question_mark: Slice,
 }
 
+/// TypeDeclaration node: "export"? "type" PlainIdentifier "=" TypeExpression
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TypeDeclaration {
+    pub export_keyword: Option<Slice>,
+    pub type_keyword: Slice,
+    pub identifier: AST<PlainIdentifier>,
+    pub equals: Slice,
+    pub value: AST<TypeExpression>,
+}
+
+/// NamedTypeExpression: a PlainIdentifier used in type-expression position
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NamedTypeExpression {
+    pub identifier: AST<PlainIdentifier>,
+}
+
 /// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConstDeclaration {
@@ -371,6 +387,7 @@ type_hierarchy! {
         Module,
         Declaration {
             ConstDeclaration,
+            TypeDeclaration,
             ImportDeclaration
         }
         Expression {
@@ -405,6 +422,7 @@ type_hierarchy! {
             ParenthesizedTypeExpression,
             TypeOfTypeExpression,
             NillableTypeExpression,
+            NamedTypeExpression,
         },
         Statement {
             Expression,

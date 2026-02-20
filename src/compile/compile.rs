@@ -72,6 +72,10 @@ where
                             .unwrap_or(0);
                         write!(f, "module_{}_{}", module_id, name)
                     }
+                    Some(ResolvedIdentifier::TypeDeclaration { .. }) => {
+                        // Type declarations are erased; emit the name as-is
+                        write!(f, "{}", name)
+                    }
                     None => write!(f, "{}", name),
                 }
             }
@@ -89,10 +93,18 @@ impl Compilable for Any {
         match self {
             Any::Module(module) => {
                 // Compile all declarations separated by semicolons and newlines
-                for (i, decl) in module.declarations.iter().enumerate() {
-                    if i > 0 {
+                // (skip type declarations since they're erased at runtime)
+                let mut first = true;
+                for decl in &module.declarations {
+                    let is_type_decl =
+                        matches!(decl.unpack(), Some(Declaration::TypeDeclaration(_)));
+                    if is_type_decl {
+                        continue;
+                    }
+                    if !first {
                         writeln!(f)?;
                     }
+                    first = false;
                     decl.compile(ctx, f)?;
                     write!(f, ";")?;
                 }
@@ -121,6 +133,10 @@ impl Compilable for Any {
                         write!(f, " = ")?;
                         decl.value.compile(ctx, f)?;
                     }
+                    Ok(())
+                }
+                Declaration::TypeDeclaration(_) => {
+                    // Type declarations are erased at runtime
                     Ok(())
                 }
                 Declaration::ImportDeclaration(decl) => {

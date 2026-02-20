@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use crate::ast::container::AST;
-use crate::ast::grammar::{BinaryOperator, LocalIdentifier, TypeExpression, UnaryOperator};
+use crate::ast::grammar::{self, BinaryOperator, LocalIdentifier, TypeExpression, UnaryOperator};
 use crate::ast::slice::Slice;
 
 use super::infer::InferTypeContext;
@@ -78,6 +78,10 @@ pub enum Type {
     },
     LocalIdentifier {
         identifier: AST<LocalIdentifier>,
+    },
+    NamedType {
+        name: String,
+        identifier: AST<grammar::PlainIdentifier>,
     },
 }
 
@@ -261,6 +265,7 @@ impl fmt::Display for Type {
                 Some(id) => write!(f, "{}", id.slice.as_str()),
                 None => write!(f, "<unknown>"),
             },
+            Type::NamedType { name, .. } => write!(f, "{}", name),
         }
     }
 }
@@ -365,6 +370,13 @@ impl From<TypeExpression> for Type {
                     current_module: None,
                 };
                 type_of.expression.infer_type(ctx)
+            }
+            NamedTypeExpression(named) => {
+                let name = named.identifier.slice().as_str().to_string();
+                Type::NamedType {
+                    name,
+                    identifier: named.identifier,
+                }
             }
         }
     }

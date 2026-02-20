@@ -1,0 +1,29 @@
+---
+source: tests/emit.rs
+expression: "test_emit(common :: samples :: NAMED_TYPE_ERRORS)"
+---
+type mynum = number
+const a: mynum = 'not a number'
+
+type pair = [number, string]
+const b: pair = [1, 2]
+const c: pair = ['oops', 'bad']
+
+type result = number | string
+const d: result = true
+
+type strict = [boolean, number]
+const e: strict = [1, true]
+---
+type mynum = number
+const a: mynum = 'not a number'
+
+type pair = [number, string]
+const b: pair = [1, 2]
+const c: pair = ['oops', 'bad']
+
+type result = number | string
+const d: result = true
+
+type strict = [boolean, number]
+const e: strict = [1, true]

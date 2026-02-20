@@ -1,0 +1,17 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: TUPLE_TYPES)"
+---
+const a: [number, string] = [1, 'hello']
+const b: [boolean, number, string] = [true, 42, 'hi']
+const c: [number, number] = [1, 2]
+const d: [] = []
+const e: [number] = [42]
+const f: [string, nil] = ['hello', nil]
+---
+const module_0_a = [1, 'hello'];
+const module_0_b = [true, 42, 'hi'];
+const module_0_c = [1, 2];
+const module_0_d = [];
+const module_0_e = [42];
+const module_0_f = ['hello', undefined];

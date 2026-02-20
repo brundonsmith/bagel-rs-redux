@@ -1,0 +1,21 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: TUPLE_TYPE_ERRORS)"
+---
+const a: [number, string] = [1, 2]
+const b: [number, number] = [1, 2, 3]
+const c: [number, number, number] = [1, 2]
+const d: [string] = [42]
+const e: [boolean] = ['oops']
+const f: [number, string] = 'not a tuple'
+---
+'not a tuple' -> 'not a tuple'
+'oops' -> 'oops'
+1 -> 1
+2 -> 2
+3 -> 3
+42 -> 42
+['oops'] -> ['oops']
+[1, 2, 3] -> [1, 2, 3]
+[1, 2] -> [1, 2]
+[42] -> [42]

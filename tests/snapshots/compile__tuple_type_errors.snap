@@ -1,0 +1,17 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: TUPLE_TYPE_ERRORS)"
+---
+const a: [number, string] = [1, 2]
+const b: [number, number] = [1, 2, 3]
+const c: [number, number, number] = [1, 2]
+const d: [string] = [42]
+const e: [boolean] = ['oops']
+const f: [number, string] = 'not a tuple'
+---
+const module_0_a = [1, 2];
+const module_0_b = [1, 2, 3];
+const module_0_c = [1, 2];
+const module_0_d = [42];
+const module_0_e = ['oops'];
+const module_0_f = 'not a tuple';

@@ -209,3 +209,83 @@ const a =    1
 @#$%^&
 const b = 2
 ";
+
+/// Tuple types: fixed-length typed arrays
+pub const TUPLE_TYPES: &str = "
+const a: [number, string] = [1, 'hello']
+const b: [boolean, number, string] = [true, 42, 'hi']
+const c: [number, number] = [1, 2]
+const d: [] = []
+const e: [number] = [42]
+const f: [string, nil] = ['hello', nil]
+";
+
+/// Tuple type errors: mismatched element types, wrong length, non-tuple assignment
+pub const TUPLE_TYPE_ERRORS: &str = "
+const a: [number, string] = [1, 2]
+const b: [number, number] = [1, 2, 3]
+const c: [number, number, number] = [1, 2]
+const d: [string] = [42]
+const e: [boolean] = ['oops']
+const f: [number, string] = 'not a tuple'
+";
+
+/// Union types: values that can be one of several types
+pub const UNION_TYPES: &str = "
+const a: number | string = 42
+const b: number | string = 'hello'
+const c: number | string | boolean = true
+const d: number | nil = nil
+const e: number | nil = 5
+const f: string | number = if true { 'hi' } else { 42 }
+const g: (number | string)[] = [1, 'two', 3]
+const h: [number, string | boolean] = [1, true]
+const i: [number, string | boolean] = [1, 'hello']
+";
+
+/// Union type errors: values not matching any variant
+pub const UNION_TYPE_ERRORS: &str = "
+const a: number | string = true
+const b: number | boolean = 'nope'
+const c: number | string = nil
+const d: [number | string] = [true]
+";
+
+/// Named type declarations (type aliases) and their usage
+pub const NAMED_TYPES: &str = "
+type mynum = number
+const a: mynum = 42
+
+type mystr = string
+const b: mystr = 'hello'
+
+type pair = [number, string]
+const c: pair = [1, 'hi']
+
+type result = number | string
+const d: result = 42
+const e: result = 'error'
+
+type callback = (number) => string
+const f: callback = (x) => 'done'
+
+type nested = [result, boolean]
+const g: nested = [42, true]
+const h: nested = ['err', false]
+";
+
+/// Named type errors: mismatches through aliases, undefined types
+pub const NAMED_TYPE_ERRORS: &str = "
+type mynum = number
+const a: mynum = 'not a number'
+
+type pair = [number, string]
+const b: pair = [1, 2]
+const c: pair = ['oops', 'bad']
+
+type result = number | string
+const d: result = true
+
+type strict = [boolean, number]
+const e: strict = [1, true]
+";

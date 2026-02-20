@@ -1,0 +1,24 @@
+---
+source: tests/types.rs
+expression: "test_infer(common :: samples :: TUPLE_TYPES)"
+---
+const a: [number, string] = [1, 'hello']
+const b: [boolean, number, string] = [true, 42, 'hi']
+const c: [number, number] = [1, 2]
+const d: [] = []
+const e: [number] = [42]
+const f: [string, nil] = ['hello', nil]
+---
+'hello' -> 'hello'
+'hi' -> 'hi'
+1 -> 1
+2 -> 2
+42 -> 42
+['hello', nil] -> ['hello', nil]
+[1, 'hello'] -> [1, 'hello']
+[1, 2] -> [1, 2]
+[42] -> [42]
+[] -> []
+[true, 42, 'hi'] -> [true, 42, 'hi']
+nil -> nil
+true -> true
