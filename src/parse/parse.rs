@@ -1417,9 +1417,26 @@ fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     ))(i)
 }
 
+fn nillable_type_expression(i: Slice) -> ParseResult<AST<NillableTypeExpression>> {
+    let (remaining, mut subject) = primary_type_expression(i)?;
+    let (remaining, question_mark) = tag("?")(remaining)?;
+
+    let span = subject.slice().spanning(&question_mark);
+    let node = make_ast(
+        span,
+        NillableTypeExpression {
+            subject: subject.clone(),
+            question_mark,
+        },
+    );
+    subject.set_parent(&node);
+    Ok((remaining, node))
+}
+
 fn postfix_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(array_type_expression, |n| n.upcast()),
+        map(nillable_type_expression, |n| n.upcast()),
         primary_type_expression,
     ))(i)
 }

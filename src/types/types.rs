@@ -344,6 +344,16 @@ impl From<TypeExpression> for Type {
                     .collect();
                 Type::Union { variants }
             }
+            NillableTypeExpression(nillable) => {
+                let subject = nillable
+                    .subject
+                    .unpack()
+                    .map(Type::from)
+                    .unwrap_or(Type::Poisoned);
+                Type::Union {
+                    variants: vec![subject, Type::Nil],
+                }
+            }
             ParenthesizedTypeExpression(paren) => paren
                 .expression
                 .unpack()

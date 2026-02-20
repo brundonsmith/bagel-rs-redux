@@ -734,6 +734,11 @@ impl Emittable for Any {
                     write!(f, "typeof ")?;
                     type_of.expression.emit(ctx, f)
                 }
+
+                TypeExpression::NillableTypeExpression(nillable) => {
+                    nillable.subject.emit(ctx, f)?;
+                    write!(f, "?")
+                }
             },
 
             Any::PlainIdentifier(id) => {

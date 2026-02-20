@@ -501,6 +501,9 @@ impl Any {
                 TypeExpression::TypeOfTypeExpression(type_of) => {
                     f(type_of.expression.clone().upcast());
                 }
+                TypeExpression::NillableTypeExpression(nillable) => {
+                    f(nillable.subject.clone().upcast());
+                }
             },
             Any::FunctionBody(body) => match body {
                 FunctionBody::Expression(expr) => f(expr.clone().upcast()),

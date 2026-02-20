@@ -320,6 +320,12 @@ pub struct TypeOfTypeExpression {
     pub expression: AST<Expression>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NillableTypeExpression {
+    pub subject: AST<TypeExpression>,
+    pub question_mark: Slice,
+}
+
 /// Declaration node
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConstDeclaration {
@@ -398,6 +404,7 @@ type_hierarchy! {
             UnionTypeExpression,
             ParenthesizedTypeExpression,
             TypeOfTypeExpression,
+            NillableTypeExpression,
         },
         Statement {
             Expression,
