@@ -474,6 +474,9 @@ impl Any {
                 | TypeExpression::BooleanTypeExpression(_)
                 | TypeExpression::NumberTypeExpression(_)
                 | TypeExpression::StringTypeExpression(_)
+                | TypeExpression::BooleanLiteralTypeExpression(_)
+                | TypeExpression::NumberLiteralTypeExpression(_)
+                | TypeExpression::StringLiteralTypeExpression(_)
                 | TypeExpression::RangeTypeExpression(_) => {}
                 TypeExpression::TupleTypeExpression(tuple) => {
                     tuple.elements.iter().for_each(|e| f(e.clone().upcast()));

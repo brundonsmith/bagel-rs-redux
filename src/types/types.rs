@@ -280,6 +280,19 @@ impl From<TypeExpression> for Type {
             BooleanTypeExpression(_) => Type::ANY_BOOLEAN,
             NumberTypeExpression(_) => Type::ANY_NUMBER,
             StringTypeExpression(_) => Type::ANY_STRING,
+            BooleanLiteralTypeExpression(lit) => Type::Boolean {
+                value: Some(lit.value),
+            },
+            NumberLiteralTypeExpression(lit) => {
+                let n = lit.slice.as_str().parse::<i64>().unwrap_or(0);
+                Type::Number {
+                    min_value: Some(n),
+                    max_value: Some(n),
+                }
+            }
+            StringLiteralTypeExpression(lit) => Type::String {
+                value: Some(lit.contents),
+            },
             TupleTypeExpression(tuple) => {
                 let elements = tuple
                     .elements

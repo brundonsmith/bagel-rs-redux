@@ -147,6 +147,9 @@ const m = if 1 { 'yes' } else { 'no' }
 const n = {name: 'alice'}.age
 const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
+
+const fn = (a: number, b: number) => a + b
+const result: 4 = fn(2, 2)
 ";
 
 /// Comments: line comments, block comments, inline comments, and blank lines

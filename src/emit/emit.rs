@@ -662,6 +662,16 @@ impl Emittable for Any {
                 TypeExpression::NumberTypeExpression(_) => write!(f, "number"),
                 TypeExpression::StringTypeExpression(_) => write!(f, "string"),
 
+                TypeExpression::BooleanLiteralTypeExpression(lit) => {
+                    write!(f, "{}", if lit.value { "true" } else { "false" })
+                }
+                TypeExpression::NumberLiteralTypeExpression(lit) => {
+                    write!(f, "{}", lit.slice.as_str())
+                }
+                TypeExpression::StringLiteralTypeExpression(lit) => {
+                    write!(f, "'{}'", lit.contents.as_str())
+                }
+
                 TypeExpression::TupleTypeExpression(tuple) => {
                     write!(f, "[")?;
                     for (i, elem) in tuple.elements.iter().enumerate() {

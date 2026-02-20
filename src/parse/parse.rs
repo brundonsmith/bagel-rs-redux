@@ -271,30 +271,30 @@ pub fn nil_literal(i: Slice) -> ParseResult<AST<NilLiteral>> {
     map(tag("nil"), |matched: Slice| make_ast(matched, NilLiteral))(i)
 }
 
-// Parser for BooleanLiteral: "true" | "false"
-pub fn boolean_literal(i: Slice) -> ParseResult<AST<BooleanLiteral>> {
+// Shared literal parsing primitives
+
+/// Parses "true" | "false", returning the matched slice and boolean value.
+fn parse_boolean_literal(i: Slice) -> ParseResult<(Slice, bool)> {
     map(alt((tag("true"), tag("false"))), |matched: Slice| {
         let value = matched.as_str() == "true";
-        make_ast(matched, BooleanLiteral { value })
+        (matched, value)
     })(i)
 }
 
-// Parser for NumberLiteral: [0-9]+(?:\.[0-9]+)?
-pub fn number_literal(i: Slice) -> ParseResult<AST<NumberLiteral>> {
-    map(
-        recognize(tuple((
+/// Parses [0-9]+(?:\.[0-9]+)?, returning the matched slice.
+fn parse_number_literal(i: Slice) -> ParseResult<Slice> {
+    recognize(tuple((
+        take_while1(|c: char| c.is_ascii_digit()),
+        opt(tuple((
+            char('.'),
             take_while1(|c: char| c.is_ascii_digit()),
-            opt(tuple((
-                char('.'),
-                take_while1(|c: char| c.is_ascii_digit()),
-            ))),
         ))),
-        |matched: Slice| make_ast(matched.clone(), NumberLiteral { slice: matched }),
-    )(i)
+    )))(i)
 }
 
-// Parser for StringLiteral: single-quoted string with escape sequences
-pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
+/// Parses a single-quoted string with escape sequences, returning
+/// (remaining, open_quote, contents, close_quote).
+fn parse_string_literal(i: Slice) -> ParseResult<(Slice, Slice, Slice)> {
     let (remaining, open_quote) = tag("'")(i)?;
 
     // Parse string contents until we hit a closing quote or end of input
@@ -304,15 +304,12 @@ pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
 
     for ch in chars {
         if escaped {
-            // Any character after backslash is consumed
             escaped = false;
             len += ch.len_utf8();
         } else if ch == '\\' {
-            // Start escape sequence
             escaped = true;
             len += 1;
         } else if ch == '\'' {
-            // Found closing quote
             break;
         } else {
             len += ch.len_utf8();
@@ -322,25 +319,42 @@ pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
     let contents = remaining.clone().slice_range(0, Some(len));
     let after_contents = remaining.slice_range(len, None);
 
-    // Try to parse closing quote with backtracking
     let (remaining, close_quote_opt) = backtrack(tag("'"), "'", "'")(after_contents)?;
 
-    let close_quote = close_quote_opt.unwrap_or_else(|| {
-        // If no closing quote, use zero-width slice at end
-        remaining.clone().slice_range(0, Some(0))
-    });
+    let close_quote = close_quote_opt.unwrap_or_else(|| remaining.clone().slice_range(0, Some(0)));
 
-    let span = open_quote.spanning(&close_quote);
-    let node = make_ast(
-        span,
-        StringLiteral {
-            open_quote,
-            contents,
-            close_quote,
+    Ok((remaining, (open_quote, contents, close_quote)))
+}
+
+// Expression literal parsers (use shared primitives)
+
+pub fn boolean_literal(i: Slice) -> ParseResult<AST<BooleanLiteral>> {
+    map(parse_boolean_literal, |(matched, value)| {
+        make_ast(matched, BooleanLiteral { value })
+    })(i)
+}
+
+pub fn number_literal(i: Slice) -> ParseResult<AST<NumberLiteral>> {
+    map(parse_number_literal, |matched: Slice| {
+        make_ast(matched.clone(), NumberLiteral { slice: matched })
+    })(i)
+}
+
+pub fn string_literal(i: Slice) -> ParseResult<AST<StringLiteral>> {
+    map(
+        parse_string_literal,
+        |(open_quote, contents, close_quote)| {
+            let span = open_quote.spanning(&close_quote);
+            make_ast(
+                span,
+                StringLiteral {
+                    open_quote,
+                    contents,
+                    close_quote,
+                },
+            )
         },
-    );
-
-    Ok((remaining, node))
+    )(i)
 }
 
 // Parser for LocalIdentifier: PlainIdentifier (used as an expression)
@@ -1470,14 +1484,49 @@ fn named_type_expression(i: Slice) -> ParseResult<AST<NamedTypeExpression>> {
     })(i)
 }
 
+fn number_literal_type_expression(i: Slice) -> ParseResult<AST<NumberLiteralTypeExpression>> {
+    map(parse_number_literal, |matched: Slice| {
+        make_ast(
+            matched.clone(),
+            NumberLiteralTypeExpression { slice: matched },
+        )
+    })(i)
+}
+
+fn string_literal_type_expression(i: Slice) -> ParseResult<AST<StringLiteralTypeExpression>> {
+    map(
+        parse_string_literal,
+        |(open_quote, contents, close_quote)| {
+            let span = open_quote.spanning(&close_quote);
+            make_ast(
+                span,
+                StringLiteralTypeExpression {
+                    open_quote,
+                    contents,
+                    close_quote,
+                },
+            )
+        },
+    )(i)
+}
+
+fn boolean_literal_type_expression(i: Slice) -> ParseResult<AST<BooleanLiteralTypeExpression>> {
+    map(parse_boolean_literal, |(matched, value)| {
+        make_ast(matched, BooleanLiteralTypeExpression { value })
+    })(i)
+}
+
 fn primary_type_expression(i: Slice) -> ParseResult<AST<TypeExpression>> {
     alt((
         map(unknown_type_expression, |n| n.upcast()),
         map(nil_type_expression, |n| n.upcast()),
         map(boolean_type_expression, |n| n.upcast()),
+        map(boolean_literal_type_expression, |n| n.upcast()),
         map(range_type_expression, |n| n.upcast()),
         map(number_type_expression, |n| n.upcast()),
+        map(number_literal_type_expression, |n| n.upcast()),
         map(string_type_expression, |n| n.upcast()),
+        map(string_literal_type_expression, |n| n.upcast()),
         map(typeof_type_expression, |n| n.upcast()),
         map(object_type_expression, |n| n.upcast()),
         map(tuple_type_expression, |n| n.upcast()),

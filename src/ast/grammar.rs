@@ -311,6 +311,23 @@ pub struct ParenthesizedTypeExpression {
     pub close_paren: Slice,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NumberLiteralTypeExpression {
+    pub slice: Slice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct StringLiteralTypeExpression {
+    pub open_quote: Slice,
+    pub contents: Slice,
+    pub close_quote: Slice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BooleanLiteralTypeExpression {
+    pub value: bool,
+}
+
 /// Written `typeof foo` where `foo` is some Expression. This is a
 /// TypeExpression that infers the type of the Expression it's applied to,
 /// and evaluates to that.
@@ -413,6 +430,9 @@ type_hierarchy! {
             BooleanTypeExpression,
             NumberTypeExpression,
             StringTypeExpression,
+            NumberLiteralTypeExpression,
+            StringLiteralTypeExpression,
+            BooleanLiteralTypeExpression,
             TupleTypeExpression,
             ArrayTypeExpression,
             ObjectTypeExpression,

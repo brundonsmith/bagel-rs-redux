@@ -18,6 +18,9 @@ const m = if 1 { 'yes' } else { 'no' }
 const n = {name: 'alice'}.age
 const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
+
+const fn = (a: number, b: number) => a + b
+const result: 4 = fn(2, 2)
 ---
 !42 -> unknown
 'alice' -> 'alice'
@@ -26,6 +29,7 @@ const p: {x: number, y: number} = {x: 1}
 'no' -> 'no'
 'yes' -> 'yes'
 () => 42 -> () => 42
+(a: number, b: number) => a + b -> (arg0: number, arg1: number) => number
 (x: number) => x -> (arg0: number) => number
 1 -> 1
 1 && 2 -> unknown
@@ -36,6 +40,11 @@ const p: {x: number, y: number} = {x: 1}
 42 -> 42
 5 -> 5
 ['hello', 42] -> ['hello', 42]
+a -> number
+a + b -> number
+b -> number
+fn -> (arg0: number, arg1: number) => number
+fn(2, 2) -> number
 if 1 { 'yes' } else { 'no' } -> 'no' | 'yes'
 nil -> nil
 nil ?? 5 -> 5

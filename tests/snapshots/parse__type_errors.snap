@@ -18,12 +18,15 @@ const m = if 1 { 'yes' } else { 'no' }
 const n = {name: 'alice'}.age
 const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
+
+const fn = (a: number, b: number) => a + b
+const result: 4 = fn(2, 2)
 ---
 Ok(
     (
         Slice("\n"),
         ASTInner {
-            slice: Slice("\nconst a: string = 42\nconst b: number = true\nconst c = 1 + true\nconst d = 'hello' - 1\nconst e = 1 && 2\nconst f = 1 < true\nconst g = !42\nconst h: boolean = nil ?? 5\nconst i: 0..10 = 15\nconst j: string[] = ['hello', 42]\nconst k: () => string = () => 42\nconst l: (string) => number = (x: number) => x\nconst m = if 1 { 'yes' } else { 'no' }\nconst n = {name: 'alice'}.age\nconst o: {name: string} = {name: 'alice', age: 42}\nconst p: {x: number, y: number} = {x: 1}"),
+            slice: Slice("\nconst a: string = 42\nconst b: number = true\nconst c = 1 + true\nconst d = 'hello' - 1\nconst e = 1 && 2\nconst f = 1 < true\nconst g = !42\nconst h: boolean = nil ?? 5\nconst i: 0..10 = 15\nconst j: string[] = ['hello', 42]\nconst k: () => string = () => 42\nconst l: (string) => number = (x: number) => x\nconst m = if 1 { 'yes' } else { 'no' }\nconst n = {name: 'alice'}.age\nconst o: {name: string} = {name: 'alice', age: 42}\nconst p: {x: number, y: number} = {x: 1}\n\nconst fn = (a: number, b: number) => a + b\nconst result: 4 = fn(2, 2)"),
             details: Module {
                 declarations: [
                     ASTInner {
@@ -826,6 +829,158 @@ Ok(
                                     trailing_comma: None,
                                     close_brace: Some(
                                         Slice("}"),
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const fn = (a: number, b: number) => a + b"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("fn"),
+                                details: PlainIdentifier {
+                                    slice: Slice("fn"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("(a: number, b: number) => a + b"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [
+                                        (
+                                            ASTInner {
+                                                slice: Slice("a"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("a"),
+                                                },
+                                            },
+                                            Some(
+                                                (
+                                                    Slice(":"),
+                                                    ASTInner {
+                                                        slice: Slice("number"),
+                                                        details: NumberTypeExpression,
+                                                    },
+                                                ),
+                                            ),
+                                        ),
+                                        (
+                                            ASTInner {
+                                                slice: Slice("b"),
+                                                details: PlainIdentifier {
+                                                    slice: Slice("b"),
+                                                },
+                                            },
+                                            Some(
+                                                (
+                                                    Slice(":"),
+                                                    ASTInner {
+                                                        slice: Slice("number"),
+                                                        details: NumberTypeExpression,
+                                                    },
+                                                ),
+                                            ),
+                                        ),
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: None,
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("a + b"),
+                                        details: Expression(
+                                            ASTInner {
+                                                slice: Slice("a + b"),
+                                                details: BinaryOperation {
+                                                    left: ASTInner {
+                                                        slice: Slice("a"),
+                                                        details: LocalIdentifier {
+                                                            slice: Slice("a"),
+                                                        },
+                                                    },
+                                                    operator: ASTInner {
+                                                        slice: Slice("+"),
+                                                        details: Add,
+                                                    },
+                                                    right: ASTInner {
+                                                        slice: Slice("b"),
+                                                        details: LocalIdentifier {
+                                                            slice: Slice("b"),
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const result: 4 = fn(2, 2)"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("result"),
+                                details: PlainIdentifier {
+                                    slice: Slice("result"),
+                                },
+                            },
+                            type_annotation: Some(
+                                (
+                                    Slice(":"),
+                                    ASTInner {
+                                        slice: Slice("4"),
+                                        details: NumberLiteralTypeExpression {
+                                            slice: Slice("4"),
+                                        },
+                                    },
+                                ),
+                            ),
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("fn(2, 2)"),
+                                details: Invocation {
+                                    function: ASTInner {
+                                        slice: Slice("fn"),
+                                        details: LocalIdentifier {
+                                            slice: Slice("fn"),
+                                        },
+                                    },
+                                    open_paren: Slice("("),
+                                    arguments: [
+                                        ASTInner {
+                                            slice: Slice("2"),
+                                            details: NumberLiteral {
+                                                slice: Slice("2"),
+                                            },
+                                        },
+                                        ASTInner {
+                                            slice: Slice("2"),
+                                            details: NumberLiteral {
+                                                slice: Slice("2"),
+                                            },
+                                        },
+                                    ],
+                                    commas: [
+                                        Slice(","),
+                                    ],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
                                     ),
                                 },
                             },

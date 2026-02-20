@@ -18,6 +18,9 @@ const m = if 1 { 'yes' } else { 'no' }
 const n = {name: 'alice'}.age
 const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
+
+const fn = (a: number, b: number) => a + b
+const result: 4 = fn(2, 2)
 ---
 [
     BagelError {
@@ -153,6 +156,14 @@ const p: {x: number, y: number} = {x: 1}
         severity: Error,
         details: MiscError {
             message: "Property 'y' is missing in type '{ x: 1 }'.",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("fn(2, 2)"),
+        severity: Error,
+        details: MiscError {
+            message: "Type 'number' is not assignable to type '4'",
         },
         related: [],
     },
