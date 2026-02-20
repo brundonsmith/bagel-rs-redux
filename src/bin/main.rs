@@ -4,6 +4,7 @@ use bagel::ast::modules::{ModulePath, ModulesStore};
 use bagel::check::{CheckContext, Checkable};
 use bagel::compile::bundle::{bundle, BundleContext};
 use bagel::config::Config;
+use bagel::emit::{EmitContext, Emittable};
 use bagel::utils::{resolve_entrypoint, resolve_targets};
 use clap::{Parser, Subcommand};
 
@@ -164,7 +165,32 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-            eprintln!("TODO: fix {} modules", store.len());
+
+            let ctx = EmitContext {
+                config: &config,
+                modules: &store,
+                current_indentation: 0,
+            };
+
+            for (path, module) in store.iter() {
+                let file_path = match path {
+                    ModulePath::File(p) => p,
+                    _ => continue,
+                };
+
+                let mut output = String::new();
+                if let Err(e) = module.ast.emit(ctx, &mut output) {
+                    eprintln!("Failed to emit {}: {}", file_path.display(), e);
+                    std::process::exit(1);
+                }
+
+                if let Err(e) = std::fs::write(file_path, &output) {
+                    eprintln!("Failed to write {}: {}", file_path.display(), e);
+                    std::process::exit(1);
+                }
+
+                eprintln!("Fixed {}", file_path.display());
+            }
         }
         Command::Test { watch, targets } => {
             let files = resolve_targets(targets);
