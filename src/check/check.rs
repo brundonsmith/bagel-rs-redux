@@ -230,6 +230,12 @@ where
     Any: From<TKind>,
 {
     fn check<'a, F: FnMut(BagelError)>(&self, ctx: &CheckContext<'a>, report_error: &mut F) {
+        let norm_ctx = NormalizeContext {
+            modules: Some(ctx.modules),
+            current_module: ctx.current_module,
+            param_type_overrides: None,
+        };
+
         match self.details() {
             // Malformed nodes should be reported as errors
             None => {
@@ -495,10 +501,7 @@ where
                                                     message: format!(
                                                     "Operator '{}' cannot be applied to type '{}'",
                                                     op_str,
-                                                    left_type.normalize(NormalizeContext {
-                                                        modules: Some(ctx.modules),
-                                                        current_module: ctx.current_module
-                                                    })
+                                                    left_type.normalize(norm_ctx)
                                                 ),
                                                 },
                                                 related: vec![],
@@ -512,10 +515,7 @@ where
                                                     message: format!(
                                                     "Operator '{}' cannot be applied to type '{}'",
                                                     op_str,
-                                                    right_type.normalize(NormalizeContext {
-                                                        modules: Some(ctx.modules),
-                                                        current_module: ctx.current_module
-                                                    })
+                                                    right_type.normalize(norm_ctx)
                                                 ),
                                                 },
                                                 related: vec![],
@@ -545,10 +545,7 @@ where
                                                 message: format!(
                                                     "Operator '{}' cannot be applied to type '{}'",
                                                     operator.as_str(),
-                                                    operand_type.normalize(NormalizeContext {
-                                                        modules: Some(ctx.modules),
-                                                        current_module: ctx.current_module
-                                                    })
+                                                    operand_type.normalize(norm_ctx)
                                                 ),
                                             },
                                             related: vec![],
@@ -558,10 +555,6 @@ where
                             }
                             Expression::IfElseExpression(if_else) => {
                                 // Type-check: condition must be boolean or nil
-                                let norm_ctx = NormalizeContext {
-                                    modules: Some(ctx.modules),
-                                    current_module: ctx.current_module,
-                                };
                                 let infer_ctx = InferTypeContext {
                                     modules: Some(ctx.modules),
                                     current_module: ctx.current_module,
@@ -590,10 +583,6 @@ where
                             }
                             Expression::PropertyAccessExpression(prop_access) => {
                                 // Check that the property exists on the subject type
-                                let norm_ctx = NormalizeContext {
-                                    modules: Some(ctx.modules),
-                                    current_module: ctx.current_module,
-                                };
                                 let infer_ctx = InferTypeContext {
                                     modules: Some(ctx.modules),
                                     current_module: ctx.current_module,

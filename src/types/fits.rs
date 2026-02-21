@@ -25,10 +25,11 @@ impl Type {
     /// and the value type fits into the destination if the destination's set
     /// of values includes *at least* all the ones in the value's set of
     /// values.
-    pub fn fit_issues(self, destination: Type, _ctx: FitsContext<'_>) -> Vec<String> {
+    pub fn fit_issues(self, destination: Type, ctx: FitsContext<'_>) -> Vec<String> {
         let norm_ctx = NormalizeContext {
-            modules: _ctx.modules,
+            modules: ctx.modules,
             current_module: None,
+            param_type_overrides: None,
         };
         let value = self.normalize(norm_ctx);
         let destination = destination.normalize(norm_ctx);
@@ -106,7 +107,7 @@ impl Type {
                 if val_elem
                     .as_ref()
                     .clone()
-                    .fits(dest_elem.as_ref().clone(), _ctx)
+                    .fits(dest_elem.as_ref().clone(), ctx)
                 {
                     vec![]
                 } else {
@@ -137,7 +138,7 @@ impl Type {
                 for (i, (val_elem, dest_elem)) in
                     val_elems.iter().zip(dest_elems.iter()).enumerate()
                 {
-                    let elem_issues = val_elem.clone().fit_issues(dest_elem.clone(), _ctx);
+                    let elem_issues = val_elem.clone().fit_issues(dest_elem.clone(), ctx);
                     if !elem_issues.is_empty() {
                         return vec![format!(
                             "Element at index {} is not compatible: {}",
@@ -158,9 +159,7 @@ impl Type {
                 .iter()
                 .enumerate()
                 .find_map(|(i, val_elem)| {
-                    let elem_issues = val_elem
-                        .clone()
-                        .fit_issues(dest_elem.as_ref().clone(), _ctx);
+                    let elem_issues = val_elem.clone().fit_issues(dest_elem.as_ref().clone(), ctx);
                     (!elem_issues.is_empty()).then(|| {
                         format!(
                             "Element at index {} is not compatible: {}",
@@ -180,7 +179,7 @@ impl Type {
                 // Check that all required destination fields exist in value and are compatible
                 for (key, dest_type) in dest_fields {
                     if let Some(val_type) = val_fields.get(key) {
-                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), _ctx);
+                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), ctx);
                         if !field_issues.is_empty() {
                             return vec![format!(
                                 "Property '{}' is not compatible: {}",
@@ -218,7 +217,7 @@ impl Type {
             ) => {
                 for (key, dest_type) in dest_fields {
                     if let Some(val_type) = val_fields.get(key) {
-                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), _ctx);
+                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), ctx);
                         if !field_issues.is_empty() {
                             return vec![format!(
                                 "Property '{}' is not compatible: {}",
@@ -252,7 +251,7 @@ impl Type {
 
                 for (key, dest_type) in dest_fields {
                     if let Some(val_type) = val_fields.get(key) {
-                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), _ctx);
+                        let field_issues = val_type.clone().fit_issues(dest_type.clone(), ctx);
                         if !field_issues.is_empty() {
                             return vec![format!(
                                 "Property '{}' is not compatible: {}",
@@ -275,11 +274,13 @@ impl Type {
                     args: val_args,
                     args_spread: val_spread,
                     returns: val_returns,
+                    original_expression: _,
                 },
                 Type::FuncType {
                     args: dest_args,
                     args_spread: _,
                     returns: dest_returns,
+                    original_expression: _,
                 },
             ) => {
                 // For functions, parameters are contravariant and return type is covariant
@@ -299,7 +300,7 @@ impl Type {
                 for (i, (val_param, dest_param)) in
                     val_args.iter().zip(dest_args.iter()).enumerate()
                 {
-                    let param_issues = dest_param.clone().fit_issues(val_param.clone(), _ctx);
+                    let param_issues = dest_param.clone().fit_issues(val_param.clone(), ctx);
                     if !param_issues.is_empty() {
                         return vec![format!(
                             "Parameter {} is not compatible: {}",
@@ -312,7 +313,7 @@ impl Type {
                 let return_issues = val_returns
                     .as_ref()
                     .clone()
-                    .fit_issues(dest_returns.as_ref().clone(), _ctx);
+                    .fit_issues(dest_returns.as_ref().clone(), ctx);
                 if !return_issues.is_empty() {
                     return vec![format!(
                         "Return type is not compatible: {}",
@@ -331,7 +332,7 @@ impl Type {
                 },
             ) => {
                 for variant in dest_variants {
-                    if value.clone().fits(variant.clone(), _ctx) {
+                    if value.clone().fits(variant.clone(), ctx) {
                         return vec![];
                     }
                 }
@@ -346,7 +347,7 @@ impl Type {
                 _,
             ) => {
                 for variant in val_variants {
-                    if !variant.clone().fits(destination.clone(), _ctx) {
+                    if !variant.clone().fits(destination.clone(), ctx) {
                         return vec![not_assignable_message()];
                     }
                 }

@@ -50,6 +50,7 @@ pub enum Type {
         args: Vec<Type>,
         args_spread: Option<Arc<Type>>,
         returns: Arc<Type>,
+        original_expression: Option<AST<grammar::FunctionExpression>>,
     },
     Union {
         variants: Vec<Type>,
@@ -206,6 +207,7 @@ impl fmt::Display for Type {
                 args,
                 args_spread,
                 returns,
+                original_expression: _,
             } => {
                 write!(f, "(")?;
                 for (i, arg) in args.iter().enumerate() {
@@ -342,6 +344,7 @@ impl From<TypeExpression> for Type {
                     args,
                     args_spread: None,
                     returns,
+                    original_expression: None,
                 }
             }
             RangeTypeExpression(range) => Type::Number {

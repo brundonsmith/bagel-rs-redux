@@ -52,6 +52,7 @@ where
                 let norm_ctx = NormalizeContext {
                     modules: Some(ctx.modules),
                     current_module: ctx.current_module,
+                    param_type_overrides: None,
                 };
 
                 match resolve_identifier(name, &node, norm_ctx) {

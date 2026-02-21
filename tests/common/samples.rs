@@ -149,7 +149,8 @@ const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
 
 const fn = (a: number, b: number) => a + b
-const result: 4 = fn(2, 2)
+const resulta: 4 = fn(2, 2)
+const resultb: 4 = (2)..fn(2)
 ";
 
 /// Comments: line comments, block comments, inline comments, and blank lines

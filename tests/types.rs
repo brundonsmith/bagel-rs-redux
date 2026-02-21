@@ -22,6 +22,7 @@ fn collect_expression_types(ast: &AST<Any>, results: &mut BTreeMap<String, Strin
                 let norm_ctx = NormalizeContext {
                     modules: None,
                     current_module: None,
+                    param_type_overrides: None,
                 };
                 let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
                 let code = expr.slice().as_str().to_string();

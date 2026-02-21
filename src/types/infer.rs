@@ -76,6 +76,7 @@ impl AST<Expression> {
                     let norm_ctx = NormalizeContext {
                         modules: ctx.modules,
                         current_module: ctx.current_module,
+                        param_type_overrides: None,
                     };
                     let expected_args =
                         self.expected_type()
@@ -113,6 +114,7 @@ impl AST<Expression> {
                         args,
                         args_spread: None,
                         returns,
+                        original_expression: Some(self.clone().try_downcast().unwrap()),
                     }
                 }
 

@@ -20,7 +20,8 @@ const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
 
 const fn = (a: number, b: number) => a + b
-const result: 4 = fn(2, 2)
+const resulta: 4 = fn(2, 2)
+const resultb: 4 = (2)..fn(2)
 ---
 !42 -> unknown
 'alice' -> 'alice'
@@ -29,6 +30,8 @@ const result: 4 = fn(2, 2)
 'no' -> 'no'
 'yes' -> 'yes'
 () => 42 -> () => 42
+(2) -> 2
+(2)..fn(2) -> 4
 (a: number, b: number) => a + b -> (arg0: number, arg1: number) => number
 (x: number) => x -> (arg0: number) => number
 1 -> 1
@@ -44,7 +47,7 @@ a -> number
 a + b -> number
 b -> number
 fn -> (arg0: number, arg1: number) => number
-fn(2, 2) -> number
+fn(2, 2) -> 4
 if 1 { 'yes' } else { 'no' } -> 'no' | 'yes'
 nil -> nil
 nil ?? 5 -> 5

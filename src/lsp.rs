@@ -342,6 +342,7 @@ impl LanguageServer for BagelLanguageServer {
                 let norm_ctx = NormalizeContext {
                     modules: Some(&*store),
                     current_module,
+                    param_type_overrides: None,
                 };
                 let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
                 eprintln!("[DEBUG] hover() - inferred type: {}", inferred_type);
@@ -497,6 +498,7 @@ impl LanguageServer for BagelLanguageServer {
         let ctx = NormalizeContext {
             modules: Some(&*store),
             current_module,
+            param_type_overrides: None,
         };
 
         // Handle NamedTypeExpression identifiers (go-to-def for type names)
@@ -612,6 +614,7 @@ impl LanguageServer for BagelLanguageServer {
             let norm_ctx = NormalizeContext {
                 modules: Some(&*store),
                 current_module,
+                param_type_overrides: None,
             };
             let fits_ctx = FitsContext {
                 modules: Some(&*store),
@@ -727,6 +730,7 @@ impl LanguageServer for BagelLanguageServer {
                 let norm_ctx = NormalizeContext {
                     modules: Some(&*store),
                     current_module,
+                    param_type_overrides: None,
                 };
 
                 items.extend(
@@ -813,6 +817,7 @@ impl LanguageServer for BagelLanguageServer {
         let norm_ctx = NormalizeContext {
             modules: Some(&*store),
             current_module,
+            param_type_overrides: None,
         };
         let subject_type = subject_expr.infer_type(ctx).normalize(norm_ctx);
         eprintln!("[DEBUG] completion() - subject type: {}", subject_type);
@@ -849,6 +854,7 @@ impl LanguageServer for BagelLanguageServer {
         let norm_ctx = NormalizeContext {
             modules: Some(&*store),
             current_module,
+            param_type_overrides: None,
         };
 
         // Traverse the module's declarations
@@ -1066,6 +1072,7 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
             let norm_ctx = NormalizeContext {
                 modules: None,
                 current_module: None,
+                param_type_overrides: None,
             };
             let expected_args =
                 func_expr
@@ -1215,8 +1222,8 @@ fn resolve_identifier_type(resolved: &ResolvedIdentifier<'_>, ctx: NormalizeCont
         ResolvedIdentifier::TypeDeclaration { decl, module } => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {
-                    modules: ctx.modules,
                     current_module: Some(m),
+                    ..ctx
                 },
                 None => ctx,
             };
@@ -1229,8 +1236,8 @@ fn resolve_identifier_type(resolved: &ResolvedIdentifier<'_>, ctx: NormalizeCont
         ResolvedIdentifier::ConstDeclaration { decl, module } => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {
-                    modules: ctx.modules,
                     current_module: Some(m),
+                    ..ctx
                 },
                 None => ctx,
             };

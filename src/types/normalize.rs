@@ -15,6 +15,13 @@ use crate::types::Type;
 pub struct NormalizeContext<'a> {
     pub modules: Option<&'a ModulesStore>,
     pub current_module: Option<&'a Module>,
+    pub param_type_overrides: Option<&'a ParamTypeOverrides>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParamTypeOverrides {
+    pub func_node: AST<grammar::FunctionExpression>,
+    pub arg_types: Vec<Type>,
 }
 
 /// The result of resolving a local identifier to its declaration site.
@@ -122,10 +129,51 @@ impl Type {
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
             NamedType { identifier, .. } => resolve_named_type(&identifier, ctx),
-            Invocation { function, args: _ } => {
+            Invocation { function, args } => {
+                let normalized_args: Vec<Type> =
+                    args.into_iter().map(|a| a.normalize(ctx)).collect();
                 let func_type = function.as_ref().clone().normalize(ctx);
+
                 match func_type {
-                    FuncType { returns, .. } => returns.as_ref().clone(),
+                    FuncType {
+                        original_expression: Some(func_expr_node),
+                        ..
+                    } => {
+                        // Re-infer the body's return type from the AST so we get
+                        // the lazy type tree (with LocalIdentifier references to
+                        // parameters still intact), then normalize it with
+                        // parameter type overrides from the call-site arguments.
+                        let infer_ctx = InferTypeContext {
+                            modules: ctx.modules,
+                            current_module: ctx.current_module,
+                        };
+                        let body_type = func_expr_node
+                            .unpack()
+                            .map(|func| match &func.return_type {
+                                Some((_colon, ret_type)) => {
+                                    ret_type.unpack().map(Type::from).unwrap_or(Poisoned)
+                                }
+                                None => match func.body.unpack() {
+                                    Some(FunctionBody::Expression(expr)) => {
+                                        expr.infer_type(infer_ctx)
+                                    }
+                                    Some(FunctionBody::Block(_)) => Type::Never,
+                                    None => Poisoned,
+                                },
+                            })
+                            .unwrap_or(Poisoned);
+
+                        let overrides = ParamTypeOverrides {
+                            func_node: func_expr_node,
+                            arg_types: normalized_args,
+                        };
+                        let override_ctx = NormalizeContext {
+                            param_type_overrides: Some(&overrides),
+                            ..ctx
+                        };
+                        body_type.normalize(override_ctx)
+                    }
+                    FuncType { returns, .. } => returns.as_ref().clone().normalize(ctx),
                     _ => Unknown,
                 }
             }
@@ -193,10 +241,12 @@ impl Type {
                 args,
                 args_spread,
                 returns,
+                original_expression,
             } => FuncType {
                 args: args.into_iter().map(|a| a.normalize(ctx)).collect(),
                 args_spread: args_spread.map(|s| Arc::new(s.as_ref().clone().normalize(ctx))),
                 returns: Arc::new(returns.as_ref().clone().normalize(ctx)),
+                original_expression,
             },
             _ => self,
         }
@@ -241,6 +291,7 @@ impl AST<Expression> {
         let norm_ctx = NormalizeContext {
             modules: None,
             current_module: None,
+            param_type_overrides: None,
         };
 
         match parent.details()? {
@@ -416,6 +467,7 @@ pub fn js_global_type() -> Type {
                         args: vec![],
                         args_spread: Some(Arc::new(Type::Unknown)),
                         returns: Arc::new(Type::Never),
+                        original_expression: None,
                     },
                 )]),
             },
@@ -441,8 +493,8 @@ fn resolve_local_identifier(
         Some(ResolvedIdentifier::ConstDeclaration { decl, module }) => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {
-                    modules: ctx.modules,
                     current_module: Some(m),
+                    ..ctx
                 },
                 None => ctx,
             };
@@ -457,6 +509,15 @@ fn resolve_local_identifier(
             param_index,
             func_node,
         }) => {
+            // Check for call-site argument type overrides
+            if let Some(overrides) = ctx.param_type_overrides {
+                if overrides.func_node.ptr_eq(&func_node) {
+                    if let Some(arg_type) = overrides.arg_types.get(param_index) {
+                        return arg_type.clone();
+                    }
+                }
+            }
+
             // Check if the parameter has a type annotation
             match func_node.details() {
                 Some(Any::Expression(Expression::FunctionExpression(func))) => {
@@ -532,8 +593,8 @@ fn resolve_named_type(
         Some(ResolvedIdentifier::TypeDeclaration { decl, module }) => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {
-                    modules: ctx.modules,
                     current_module: Some(m),
+                    ..ctx
                 },
                 None => ctx,
             };

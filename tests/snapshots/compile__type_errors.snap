@@ -20,7 +20,8 @@ const o: {name: string} = {name: 'alice', age: 42}
 const p: {x: number, y: number} = {x: 1}
 
 const fn = (a: number, b: number) => a + b
-const result: 4 = fn(2, 2)
+const resulta: 4 = fn(2, 2)
+const resultb: 4 = (2)..fn(2)
 ---
 const module_0_a = 42;
 const module_0_b = true;
@@ -39,4 +40,5 @@ const module_0_n = {name: 'alice'}.age;
 const module_0_o = {name: 'alice', age: 42};
 const module_0_p = {x: 1};
 const module_0_fn = (a, b) => a + b;
-const module_0_result = module_0_fn(2, 2);
+const module_0_resulta = module_0_fn(2, 2);
+const module_0_resultb = module_0_fn((2), 2);
