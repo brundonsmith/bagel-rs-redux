@@ -22,6 +22,9 @@ const p: {x: number, y: number} = {x: 1}
 const fn = (a: number, b: number) => a + b
 const resulta: 4 = fn(2, 2)
 const resultb: 4 = (2)..fn(2)
+
+const aaaaaa = fn()
+const bbbbbb = fn(1, 2, 3)
 ---
 !42 -> unknown
 'alice' -> 'alice'
@@ -40,6 +43,7 @@ const resultb: 4 = (2)..fn(2)
 1 < true -> unknown
 15 -> 15
 2 -> 2
+3 -> 3
 42 -> 42
 5 -> 5
 ['hello', 42] -> ['hello', 42]
@@ -47,6 +51,8 @@ a -> number
 a + b -> number
 b -> number
 fn -> (arg0: number, arg1: number) => number
+fn() -> number
+fn(1, 2, 3) -> 3
 fn(2, 2) -> 4
 if 1 { 'yes' } else { 'no' } -> 'no' | 'yes'
 nil -> nil

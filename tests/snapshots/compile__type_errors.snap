@@ -22,6 +22,9 @@ const p: {x: number, y: number} = {x: 1}
 const fn = (a: number, b: number) => a + b
 const resulta: 4 = fn(2, 2)
 const resultb: 4 = (2)..fn(2)
+
+const aaaaaa = fn()
+const bbbbbb = fn(1, 2, 3)
 ---
 const module_0_a = 42;
 const module_0_b = true;
@@ -42,3 +45,5 @@ const module_0_p = {x: 1};
 const module_0_fn = (a, b) => a + b;
 const module_0_resulta = module_0_fn(2, 2);
 const module_0_resultb = module_0_fn((2), 2);
+const module_0_aaaaaa = module_0_fn();
+const module_0_bbbbbb = module_0_fn(1, 2, 3);

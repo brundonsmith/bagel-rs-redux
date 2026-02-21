@@ -151,6 +151,9 @@ const p: {x: number, y: number} = {x: 1}
 const fn = (a: number, b: number) => a + b
 const resulta: 4 = fn(2, 2)
 const resultb: 4 = (2)..fn(2)
+
+const aaaaaa = fn()
+const bbbbbb = fn(1, 2, 3)
 ";
 
 /// Comments: line comments, block comments, inline comments, and blank lines

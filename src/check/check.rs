@@ -627,6 +627,103 @@ where
                                     }
                                 }
                             }
+                            Expression::Invocation(inv) => {
+                                let infer_ctx = InferTypeContext {
+                                    modules: Some(ctx.modules),
+                                    current_module: ctx.current_module,
+                                };
+                                let func_type =
+                                    inv.function.infer_type(infer_ctx).normalize(norm_ctx);
+
+                                if let Type::FuncType {
+                                    args, args_spread, ..
+                                } = func_type
+                                {
+                                    let num_provided = inv.arguments.len();
+                                    let num_required = args.len();
+
+                                    if args_spread.is_none() && num_provided != num_required {
+                                        report_error(BagelError {
+                                            src: self.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Expected {} argument{}, but got {}",
+                                                    num_required,
+                                                    if num_required == 1 { "" } else { "s" },
+                                                    num_provided,
+                                                ),
+                                            },
+                                            related: vec![],
+                                        });
+                                    } else if args_spread.is_some() && num_provided < num_required {
+                                        report_error(BagelError {
+                                            src: self.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Expected at least {} argument{}, but got {}",
+                                                    num_required,
+                                                    if num_required == 1 { "" } else { "s" },
+                                                    num_provided,
+                                                ),
+                                            },
+                                            related: vec![],
+                                        });
+                                    }
+                                }
+                            }
+                            Expression::PipeCallExpression(pipe) => {
+                                let func_type = pipe
+                                    .function
+                                    .as_ref()
+                                    .map(|func| {
+                                        Type::LocalIdentifier {
+                                            identifier: func.clone(),
+                                        }
+                                        .normalize(norm_ctx)
+                                    })
+                                    .unwrap_or(Type::Poisoned);
+
+                                if let Type::FuncType {
+                                    args, args_spread, ..
+                                } = func_type
+                                {
+                                    // pipe subject counts as arg 0
+                                    let num_provided = pipe.arguments.len() + 1;
+                                    let num_required = args.len();
+
+                                    if args_spread.is_none() && num_provided != num_required {
+                                        report_error(BagelError {
+                                            src: self.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Expected {} argument{}, but got {}",
+                                                    num_required,
+                                                    if num_required == 1 { "" } else { "s" },
+                                                    num_provided,
+                                                ),
+                                            },
+                                            related: vec![],
+                                        });
+                                    } else if args_spread.is_some() && num_provided < num_required {
+                                        report_error(BagelError {
+                                            src: self.slice().clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!(
+                                                    "Expected at least {} argument{}, but got {}",
+                                                    num_required,
+                                                    if num_required == 1 { "" } else { "s" },
+                                                    num_provided,
+                                                ),
+                                            },
+                                            related: vec![],
+                                        });
+                                    }
+                                }
+                            }
                             _ => {}
                         }
 
