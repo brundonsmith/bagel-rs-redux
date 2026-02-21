@@ -128,7 +128,7 @@ impl Type {
                 }
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
-            NamedType { identifier, .. } => resolve_named_type(&identifier, ctx),
+            NamedType { identifier } => resolve_named_type(&identifier, ctx),
             Invocation { function, args } => {
                 let normalized_args: Vec<Type> =
                     args.into_iter().map(|a| a.normalize(ctx)).collect();

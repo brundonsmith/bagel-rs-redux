@@ -3,7 +3,10 @@ use std::fmt;
 use std::sync::Arc;
 
 use crate::ast::container::AST;
-use crate::ast::grammar::{self, BinaryOperator, LocalIdentifier, TypeExpression, UnaryOperator};
+use crate::ast::grammar::{
+    self, BinaryOperator, FunctionExpression, LocalIdentifier, PlainIdentifier, TypeExpression,
+    UnaryOperator,
+};
 use crate::ast::slice::Slice;
 
 use super::infer::InferTypeContext;
@@ -50,7 +53,7 @@ pub enum Type {
         args: Vec<Type>,
         args_spread: Option<Arc<Type>>,
         returns: Arc<Type>,
-        original_expression: Option<AST<grammar::FunctionExpression>>,
+        original_expression: Option<AST<FunctionExpression>>,
     },
     Union {
         variants: Vec<Type>,
@@ -81,8 +84,7 @@ pub enum Type {
         identifier: AST<LocalIdentifier>,
     },
     NamedType {
-        name: String,
-        identifier: AST<grammar::PlainIdentifier>,
+        identifier: AST<PlainIdentifier>,
     },
 }
 
@@ -267,7 +269,10 @@ impl fmt::Display for Type {
                 Some(id) => write!(f, "{}", id.slice.as_str()),
                 None => write!(f, "<unknown>"),
             },
-            Type::NamedType { name, .. } => write!(f, "{}", name),
+            Type::NamedType { identifier } => match identifier.unpack() {
+                Some(id) => write!(f, "{}", id.slice.as_str()),
+                None => write!(f, "<unknown>"),
+            },
         }
     }
 }
@@ -387,13 +392,9 @@ impl From<TypeExpression> for Type {
                 };
                 type_of.expression.infer_type(ctx)
             }
-            NamedTypeExpression(named) => {
-                let name = named.identifier.slice().as_str().to_string();
-                Type::NamedType {
-                    name,
-                    identifier: named.identifier,
-                }
-            }
+            NamedTypeExpression(named) => Type::NamedType {
+                identifier: named.identifier,
+            },
         }
     }
 }
