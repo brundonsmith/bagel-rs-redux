@@ -296,29 +296,65 @@
       ]
     },
     "invocation": {
-      "name": "meta.function-call.bagel",
-      "begin": "([a-z]+)\\s*(\\()",
-      "beginCaptures": {
-        "1": {
-          "name": "entity.name.function.bagel"
-        },
-        "2": {
-          "name": "punctuation.definition.arguments.begin.bagel"
-        }
-      },
-      "end": "(\\))",
-      "endCaptures": {
-        "1": {
-          "name": "punctuation.definition.arguments.end.bagel"
-        }
-      },
       "patterns": [
         {
-          "include": "#expression"
+          "comment": "Method call: .name(",
+          "name": "meta.function-call.bagel",
+          "begin": "(\\.)([a-z]+)\\s*(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.accessor.bagel"
+            },
+            "2": {
+              "name": "entity.name.function.bagel"
+            },
+            "3": {
+              "name": "punctuation.definition.arguments.begin.bagel"
+            }
+          },
+          "end": "(\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.arguments.end.bagel"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#expression"
+            },
+            {
+              "name": "punctuation.separator.comma.bagel",
+              "match": ","
+            }
+          ]
         },
         {
-          "name": "punctuation.separator.comma.bagel",
-          "match": ","
+          "comment": "Free function call: name(",
+          "name": "meta.function-call.bagel",
+          "begin": "([a-z]+)\\s*(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.function.bagel"
+            },
+            "2": {
+              "name": "punctuation.definition.arguments.begin.bagel"
+            }
+          },
+          "end": "(\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.arguments.end.bagel"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#expression"
+            },
+            {
+              "name": "punctuation.separator.comma.bagel",
+              "match": ","
+            }
+          ]
         }
       ]
     },
