@@ -30,6 +30,7 @@ impl Type {
             modules: ctx.modules,
             current_module: None,
             param_type_overrides: None,
+            type_bindings: None,
         };
         let value = self.normalize(norm_ctx);
         let destination = destination.normalize(norm_ctx);

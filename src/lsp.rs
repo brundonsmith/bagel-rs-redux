@@ -343,6 +343,7 @@ impl LanguageServer for BagelLanguageServer {
                     modules: Some(&*store),
                     current_module,
                     param_type_overrides: None,
+                    type_bindings: None,
                 };
                 let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
                 eprintln!("[DEBUG] hover() - inferred type: {}", inferred_type);
@@ -499,6 +500,7 @@ impl LanguageServer for BagelLanguageServer {
             modules: Some(&*store),
             current_module,
             param_type_overrides: None,
+            type_bindings: None,
         };
 
         // Handle NamedTypeExpression identifiers (go-to-def for type names)
@@ -615,6 +617,7 @@ impl LanguageServer for BagelLanguageServer {
                 modules: Some(&*store),
                 current_module,
                 param_type_overrides: None,
+                type_bindings: None,
             };
             let fits_ctx = FitsContext {
                 modules: Some(&*store),
@@ -731,6 +734,7 @@ impl LanguageServer for BagelLanguageServer {
                     modules: Some(&*store),
                     current_module,
                     param_type_overrides: None,
+                    type_bindings: None,
                 };
 
                 items.extend(
@@ -818,6 +822,7 @@ impl LanguageServer for BagelLanguageServer {
             modules: Some(&*store),
             current_module,
             param_type_overrides: None,
+            type_bindings: None,
         };
         let subject_type = subject_expr.infer_type(ctx).normalize(norm_ctx);
         eprintln!("[DEBUG] completion() - subject type: {}", subject_type);
@@ -855,6 +860,7 @@ impl LanguageServer for BagelLanguageServer {
             modules: Some(&*store),
             current_module,
             param_type_overrides: None,
+            type_bindings: None,
         };
 
         // Traverse the module's declarations
@@ -1073,6 +1079,7 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
                 modules: None,
                 current_module: None,
                 param_type_overrides: None,
+                type_bindings: None,
             };
             let expected_args =
                 func_expr
@@ -1158,45 +1165,42 @@ fn find_property_access_subject_at_dot(
 /// Given a normalized type, produce completion items for its fields.
 fn completion_items_for_type(ty: &Type) -> Vec<CompletionItem> {
     match ty {
-        Type::Object { fields } | Type::Interface { fields, .. } => fields
-            .iter()
-            .map(|(name, field_type)| CompletionItem {
-                label: name.clone(),
-                kind: Some(completion_item_kind_for_type(field_type)),
-                ..Default::default()
-            })
-            .collect(),
         Type::Union { variants } => {
-            // Collect the fields from every variant; only include names present
-            // in all variants (intersection), using the first variant's type
-            // for the CompletionItemKind.
-            let field_maps: Vec<_> = variants
+            // Collect the properties from every variant; only include names
+            // present in all variants (intersection), using the first
+            // variant's type for the CompletionItemKind.
+            let prop_maps: Vec<_> = variants
                 .iter()
-                .filter_map(|v| match v {
-                    Type::Object { fields } | Type::Interface { fields, .. } => Some(fields),
-                    _ => None,
-                })
+                .filter_map(|v| v.known_properties())
                 .collect();
 
-            if field_maps.is_empty() || field_maps.len() != variants.len() {
-                return Vec::new();
+            if prop_maps.is_empty() || prop_maps.len() != variants.len() {
+                Vec::new()
+            } else {
+                prop_maps[0]
+                    .keys()
+                    .filter(|k| prop_maps[1..].iter().all(|m| m.contains_key(*k)))
+                    .map(|name| CompletionItem {
+                        label: name.clone(),
+                        kind: Some(completion_item_kind_for_type(&prop_maps[0][name])),
+                        ..Default::default()
+                    })
+                    .collect()
             }
-
-            let common_keys: std::collections::BTreeSet<_> = field_maps[0]
-                .keys()
-                .filter(|k| field_maps[1..].iter().all(|m| m.contains_key(*k)))
-                .collect();
-
-            common_keys
-                .into_iter()
-                .map(|name| CompletionItem {
-                    label: name.clone(),
-                    kind: Some(completion_item_kind_for_type(&field_maps[0][name])),
-                    ..Default::default()
-                })
-                .collect()
         }
-        _ => Vec::new(),
+        other => other
+            .known_properties()
+            .map(|fields| {
+                fields
+                    .iter()
+                    .map(|(name, field_type)| CompletionItem {
+                        label: name.clone(),
+                        kind: Some(completion_item_kind_for_type(field_type)),
+                        ..Default::default()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
 }
 

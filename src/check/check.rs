@@ -234,6 +234,7 @@ where
             modules: Some(ctx.modules),
             current_module: ctx.current_module,
             param_type_overrides: None,
+            type_bindings: None,
         };
 
         match self.details() {
@@ -595,36 +596,23 @@ where
                                     prop_access.property.slice().as_str().to_string();
 
                                 match &subject_type {
-                                    Type::Object { fields } | Type::Interface { fields, .. }
-                                        if !fields.contains_key(&property_name) =>
-                                    {
-                                        report_error(BagelError {
-                                            src: prop_access.property.slice().clone(),
-                                            severity: RuleSeverity::Error,
-                                            details: BagelErrorDetails::MiscError {
-                                                message: format!(
-                                                    "Property '{}' does not exist on type '{}'",
-                                                    property_name, subject_type
-                                                ),
-                                            },
-                                            related: vec![],
-                                        });
-                                    }
                                     Type::Unknown | Type::Any | Type::Poisoned => {}
-                                    Type::Object { .. } | Type::Interface { .. } => {}
-                                    _ => {
-                                        report_error(BagelError {
-                                            src: prop_access.property.slice().clone(),
-                                            severity: RuleSeverity::Error,
-                                            details: BagelErrorDetails::MiscError {
-                                                message: format!(
-                                                    "Property '{}' does not exist on type '{}'",
-                                                    property_name, subject_type
-                                                ),
-                                            },
-                                            related: vec![],
-                                        });
-                                    }
+                                    other => match other.known_properties() {
+                                        Some(fields) if fields.contains_key(&property_name) => {}
+                                        _ => {
+                                            report_error(BagelError {
+                                                src: prop_access.property.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
+                                                        "Property '{}' does not exist on type '{}'",
+                                                        property_name, subject_type
+                                                    ),
+                                                },
+                                                related: vec![],
+                                            });
+                                        }
+                                    },
                                 }
                             }
                             Expression::Invocation(inv) => {

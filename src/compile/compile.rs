@@ -53,6 +53,7 @@ where
                     modules: Some(ctx.modules),
                     current_module: ctx.current_module,
                     param_type_overrides: None,
+                    type_bindings: None,
                 };
 
                 match resolve_identifier(name, &node, norm_ctx) {

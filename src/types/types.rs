@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::ast::container::AST;
 use crate::ast::grammar::{
-    self, BinaryOperator, FunctionExpression, LocalIdentifier, PlainIdentifier, TypeExpression,
+    BinaryOperator, FunctionExpression, LocalIdentifier, PlainIdentifier, TypeExpression,
     UnaryOperator,
 };
 use crate::ast::slice::Slice;
@@ -84,7 +84,16 @@ pub enum Type {
         identifier: AST<LocalIdentifier>,
     },
     NamedType {
-        identifier: AST<PlainIdentifier>,
+        name: String,
+        identifier: Option<AST<PlainIdentifier>>,
+    },
+    Generic {
+        parameters: Vec<String>,
+        subject: Arc<Type>,
+    },
+    Parameterized {
+        subject: Arc<Type>,
+        arguments: Vec<Type>,
     },
 }
 
@@ -97,11 +106,73 @@ impl Type {
     pub const ANY_BOOLEAN: Type = Type::Boolean { value: None };
     pub const TRUE: Type = Type::Boolean { value: Some(true) };
     pub const FALSE: Type = Type::Boolean { value: Some(false) };
+
+    /// Returns the known properties of this type, if any. Used for property
+    /// access resolution, completions, and validation.
+    pub fn known_properties(&self) -> Option<BTreeMap<String, Type>> {
+        match self {
+            Type::Object { fields } | Type::Interface { fields, .. } => Some(fields.clone()),
+            Type::Array { element } => Some(BTreeMap::from([
+                ("length".to_string(), Type::ANY_NUMBER),
+                ("map".to_string(), map_method_type(element.as_ref().clone())),
+            ])),
+            Type::Tuple { elements } => {
+                let element_type = Type::Union {
+                    variants: elements.clone(),
+                };
+                Some(BTreeMap::from([
+                    ("length".to_string(), elements.len().into()),
+                    ("map".to_string(), map_method_type(element_type)),
+                ]))
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Construct the type of the `map` method for an array-like type with the
+/// given element type: `<R>(callback: (element) => R) => R[]`
+fn map_method_type(element_type: Type) -> Type {
+    let r = Type::NamedType {
+        name: "R".to_string(),
+        identifier: None,
+    };
+    Type::Generic {
+        parameters: vec!["R".to_string()],
+        subject: Arc::new(Type::FuncType {
+            args: vec![Type::FuncType {
+                args: vec![element_type],
+                args_spread: None,
+                returns: Arc::new(r.clone()),
+                original_expression: None,
+            }],
+            args_spread: None,
+            returns: Arc::new(Type::Array {
+                element: Arc::new(r),
+            }),
+            original_expression: None,
+        }),
+    }
 }
 
 impl From<bool> for Type {
     fn from(value: bool) -> Self {
         Self::Boolean { value: Some(value) }
+    }
+}
+
+impl From<usize> for Type {
+    fn from(value: usize) -> Self {
+        (value as i64).into()
+    }
+}
+
+impl From<i64> for Type {
+    fn from(value: i64) -> Self {
+        Self::Number {
+            min_value: Some(value),
+            max_value: Some(value),
+        }
     }
 }
 
@@ -269,10 +340,30 @@ impl fmt::Display for Type {
                 Some(id) => write!(f, "{}", id.slice.as_str()),
                 None => write!(f, "<unknown>"),
             },
-            Type::NamedType { identifier } => match identifier.unpack() {
-                Some(id) => write!(f, "{}", id.slice.as_str()),
-                None => write!(f, "<unknown>"),
-            },
+            Type::NamedType { name, .. } => write!(f, "{}", name),
+            Type::Generic {
+                parameters,
+                subject,
+            } => {
+                write!(f, "<")?;
+                for (i, param) in parameters.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", param)?;
+                }
+                write!(f, ">{}", subject)
+            }
+            Type::Parameterized { subject, arguments } => {
+                write!(f, "{}<", subject)?;
+                for (i, arg) in arguments.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ">")
+            }
         }
     }
 }
@@ -393,7 +484,8 @@ impl From<TypeExpression> for Type {
                 type_of.expression.infer_type(ctx)
             }
             NamedTypeExpression(named) => Type::NamedType {
-                identifier: named.identifier,
+                name: named.identifier.slice().as_str().to_string(),
+                identifier: Some(named.identifier),
             },
         }
     }

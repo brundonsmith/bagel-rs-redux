@@ -77,6 +77,7 @@ impl AST<Expression> {
                         modules: ctx.modules,
                         current_module: ctx.current_module,
                         param_type_overrides: None,
+                        type_bindings: None,
                     };
                     let expected_args =
                         self.expected_type()

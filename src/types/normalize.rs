@@ -16,12 +16,18 @@ pub struct NormalizeContext<'a> {
     pub modules: Option<&'a ModulesStore>,
     pub current_module: Option<&'a Module>,
     pub param_type_overrides: Option<&'a ParamTypeOverrides>,
+    pub type_bindings: Option<&'a TypeBindings>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ParamTypeOverrides {
     pub func_node: AST<grammar::FunctionExpression>,
     pub arg_types: Vec<Type>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeBindings {
+    pub bindings: Vec<(String, Type)>,
 }
 
 /// The result of resolving a local identifier to its declaration site.
@@ -128,7 +134,7 @@ impl Type {
                 }
             }
             LocalIdentifier { identifier } => resolve_local_identifier(&identifier, ctx),
-            NamedType { identifier } => resolve_named_type(&identifier, ctx),
+            NamedType { name, identifier } => resolve_named_type(&name, identifier.as_ref(), ctx),
             Invocation { function, args } => {
                 let normalized_args: Vec<Type> =
                     args.into_iter().map(|a| a.normalize(ctx)).collect();
@@ -179,11 +185,9 @@ impl Type {
             }
             PropertyAccess { subject, property } => {
                 let subject_normalized = subject.as_ref().clone().normalize(ctx);
-                match &subject_normalized {
-                    Object { fields } | Interface { fields, .. } => {
-                        fields.get(&property).cloned().unwrap_or(Poisoned)
-                    }
-                    _ => PropertyAccess {
+                match subject_normalized.known_properties() {
+                    Some(fields) => fields.get(&property).cloned().unwrap_or(Poisoned),
+                    None => PropertyAccess {
                         subject: Arc::new(subject_normalized),
                         property,
                     },
@@ -248,6 +252,38 @@ impl Type {
                 returns: Arc::new(returns.as_ref().clone().normalize(ctx)),
                 original_expression,
             },
+            Generic {
+                parameters,
+                subject,
+            } => Generic {
+                parameters,
+                subject: Arc::new(subject.as_ref().clone().normalize(ctx)),
+            },
+            Parameterized { subject, arguments } => {
+                let normalized_subject = subject.as_ref().clone().normalize(ctx);
+                let normalized_arguments: Vec<Type> =
+                    arguments.into_iter().map(|a| a.normalize(ctx)).collect();
+
+                match normalized_subject {
+                    Generic {
+                        parameters,
+                        subject: generic_body,
+                    } => {
+                        let bindings = TypeBindings {
+                            bindings: parameters.into_iter().zip(normalized_arguments).collect(),
+                        };
+                        let binding_ctx = NormalizeContext {
+                            type_bindings: Some(&bindings),
+                            ..ctx
+                        };
+                        generic_body.as_ref().clone().normalize(binding_ctx)
+                    }
+                    other => Parameterized {
+                        subject: Arc::new(other),
+                        arguments: normalized_arguments,
+                    },
+                }
+            }
             _ => self,
         }
     }
@@ -292,6 +328,7 @@ impl AST<Expression> {
             modules: None,
             current_module: None,
             param_type_overrides: None,
+            type_bindings: None,
         };
 
         match parent.details()? {
@@ -584,27 +621,40 @@ fn resolve_imported_identifier<'a>(
 /// Thin wrapper around `resolve_type_identifier` that extracts the type from
 /// the resolution result. Called by `normalize()` for `Type::NamedType`.
 fn resolve_named_type(
-    identifier: &AST<grammar::PlainIdentifier>,
+    name: &str,
+    identifier: Option<&AST<grammar::PlainIdentifier>>,
     ctx: NormalizeContext<'_>,
 ) -> Type {
-    let name = identifier.slice().as_str();
-    let node: AST<Any> = identifier.clone().upcast();
-    match resolve_type_identifier(name, &node, ctx) {
-        Some(ResolvedIdentifier::TypeDeclaration { decl, module }) => {
-            let decl_ctx = match module {
-                Some(m) => NormalizeContext {
-                    current_module: Some(m),
-                    ..ctx
-                },
-                None => ctx,
-            };
-            decl.value
-                .unpack()
-                .map(Type::from)
-                .unwrap_or(Type::Poisoned)
-                .normalize(decl_ctx)
+    // Check type parameter bindings first
+    if let Some(bindings) = ctx.type_bindings {
+        if let Some((_, bound_type)) = bindings.bindings.iter().find(|(p, _)| p == name) {
+            return bound_type.clone();
         }
-        _ => Type::Poisoned,
+    }
+
+    // AST lookup requires the identifier node
+    match identifier {
+        Some(identifier) => {
+            let node: AST<Any> = identifier.clone().upcast();
+            match resolve_type_identifier(name, &node, ctx) {
+                Some(ResolvedIdentifier::TypeDeclaration { decl, module }) => {
+                    let decl_ctx = match module {
+                        Some(m) => NormalizeContext {
+                            current_module: Some(m),
+                            ..ctx
+                        },
+                        None => ctx,
+                    };
+                    decl.value
+                        .unpack()
+                        .map(Type::from)
+                        .unwrap_or(Type::Poisoned)
+                        .normalize(decl_ctx)
+                }
+                _ => Type::Poisoned,
+            }
+        }
+        None => Type::Poisoned,
     }
 }
 
