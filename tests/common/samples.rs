@@ -281,6 +281,11 @@ const g: nested = [42, true]
 const h: nested = ['err', false]
 ";
 
+/// Generic method calls: .map() on arrays
+pub const GENERICS: &str = "
+const a = [1, 2, 3, 4].map((el) => el + 2)
+";
+
 /// Named type errors: mismatches through aliases, undefined types
 pub const NAMED_TYPE_ERRORS: &str = "
 type mynum = number

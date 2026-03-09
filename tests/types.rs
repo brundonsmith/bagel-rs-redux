@@ -91,3 +91,4 @@ infer_test!(union_types, UNION_TYPES);
 infer_test!(union_type_errors, UNION_TYPE_ERRORS);
 infer_test!(named_types, NAMED_TYPES);
 infer_test!(named_type_errors, NAMED_TYPE_ERRORS);
+infer_test!(generics, GENERICS);

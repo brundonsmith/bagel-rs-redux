@@ -820,7 +820,7 @@ where
                     Declaration::ImportDeclaration(_) => None,
                 },
                 Any::Expression(expression) => match expression {
-                    Expression::NilLiteral(nil_literal) => Some("nil".len()),
+                    Expression::NilLiteral(_) => Some("nil".len()),
                     Expression::BooleanLiteral(boolean_literal) => match boolean_literal.value {
                         true => Some("true".len()),
                         false => Some("false".len()),

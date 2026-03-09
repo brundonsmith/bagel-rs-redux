@@ -79,3 +79,4 @@ compile_test!(union_types, UNION_TYPES);
 compile_test!(union_type_errors, UNION_TYPE_ERRORS);
 compile_test!(named_types, NAMED_TYPES);
 compile_test!(named_type_errors, NAMED_TYPE_ERRORS);
+compile_test!(generics, GENERICS);

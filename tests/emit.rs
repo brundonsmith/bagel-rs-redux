@@ -76,3 +76,4 @@ emit_test!(union_types, UNION_TYPES);
 emit_test!(union_type_errors, UNION_TYPE_ERRORS);
 emit_test!(named_types, NAMED_TYPES);
 emit_test!(named_type_errors, NAMED_TYPE_ERRORS);
+emit_test!(generics, GENERICS);

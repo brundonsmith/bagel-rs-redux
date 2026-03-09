@@ -44,3 +44,4 @@ parse_test!(union_types, UNION_TYPES);
 parse_test!(union_type_errors, UNION_TYPE_ERRORS);
 parse_test!(named_types, NAMED_TYPES);
 parse_test!(named_type_errors, NAMED_TYPE_ERRORS);
+parse_test!(generics, GENERICS);
