@@ -139,6 +139,7 @@ impl Type {
                 let normalized_args: Vec<Type> =
                     args.into_iter().map(|a| a.normalize(ctx)).collect();
                 let func_type = function.as_ref().clone().normalize(ctx);
+                let func_type = strip_generic(func_type, ctx);
 
                 match func_type {
                     FuncType {
@@ -344,6 +345,7 @@ impl AST<Expression> {
                     current_module: None,
                 };
                 let func_type = inv.function.infer_type(ctx).normalize(norm_ctx);
+                let func_type = strip_generic(func_type, norm_ctx);
 
                 match func_type {
                     Type::FuncType { args, .. } => args.into_iter().nth(arg_index),
@@ -369,6 +371,7 @@ impl AST<Expression> {
                         current_module: norm_ctx.current_module,
                     };
                     let func_type = func_expr.infer_type(infer_ctx).normalize(norm_ctx);
+                    let func_type = strip_generic(func_type, norm_ctx);
 
                     match func_type {
                         Type::FuncType { args, .. } => args.into_iter().nth(idx),
@@ -573,7 +576,7 @@ fn resolve_local_identifier(
                             };
                             func_expr_node
                                 .expected_type()
-                                .and_then(|t| match t.normalize(ctx) {
+                                .and_then(|t| match strip_generic(t.normalize(ctx), ctx) {
                                     Type::FuncType { args, .. } => {
                                         args.into_iter().nth(param_index)
                                     }
@@ -996,6 +999,26 @@ fn normalize_binary_operation(
                 .normalize(ctx)
             }
         }
+    }
+}
+
+/// If the type is `Generic { parameters, subject }`, instantiate it by binding
+/// all type parameters to `Unknown`, yielding a concrete type (typically a
+/// `FuncType`).  Non-generic types pass through unchanged.
+fn strip_generic(t: Type, ctx: NormalizeContext<'_>) -> Type {
+    match t {
+        Type::Generic {
+            parameters,
+            subject,
+        } => Type::Parameterized {
+            subject: Arc::new(Type::Generic {
+                parameters: parameters.clone(),
+                subject,
+            }),
+            arguments: parameters.iter().map(|_| Type::Unknown).collect(),
+        }
+        .normalize(ctx),
+        other => other,
     }
 }
 
