@@ -746,6 +746,7 @@ where
                             }
                         }
                     }
+                    Any::Statement(Statement::ReturnStatement(_)) => {}
                     Any::Statement(Statement::Expression(expr)) => match expr {
                         Expression::Invocation(_) | Expression::PipeCallExpression(_) => {}
                         _ => {

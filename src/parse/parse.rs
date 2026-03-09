@@ -71,7 +71,7 @@ macro_rules! binary_operation {
 // Reserved keywords that cannot be used as identifiers
 const KEYWORDS: &[&str] = &[
     "nil", "true", "false", "const", "export", "from", "import", "as", "if", "else", "typeof",
-    "type",
+    "type", "return",
 ];
 
 fn is_keyword(s: &str) -> bool {
@@ -1022,8 +1022,25 @@ fn if_else_expression(i: Slice) -> ParseResult<AST<IfElseExpression>> {
 // Parser for a statement: any expression is accepted so that the AST preserves
 // structure for LSP features like autocomplete. Non-invocation expressions
 // are rejected later during type checking.
+fn return_statement(i: Slice) -> ParseResult<AST<ReturnStatement>> {
+    let (remaining, (return_keyword, mut value)) = seq!(tag("return"), postfix_expression)(i)?;
+    let span = return_keyword.spanning(value.slice());
+    let node = make_ast(
+        span,
+        ReturnStatement {
+            return_keyword,
+            value: value.clone(),
+        },
+    );
+    value.set_parent(&node);
+    Ok((remaining, node))
+}
+
 fn statement(i: Slice) -> ParseResult<AST<Statement>> {
-    map(postfix_expression, |expr| expr.upcast::<Statement>())(i)
+    alt((
+        map(return_statement, |s| s.upcast::<Statement>()),
+        map(postfix_expression, |expr| expr.upcast::<Statement>()),
+    ))(i)
 }
 
 // Parser for a block: "{" statement* "}"

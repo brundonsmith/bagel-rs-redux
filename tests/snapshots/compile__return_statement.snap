@@ -1,0 +1,17 @@
+---
+source: tests/compile.rs
+expression: "test_compile(common :: samples :: RETURN_STATEMENT)"
+---
+const a = (): number => {
+    return 1
+}
+const b = () => {
+    return 'hello'
+}
+const c = (x: boolean) => {
+    return if x { 1 } else { 2 }
+}
+---
+const module_0_a = () => { return 1; };
+const module_0_b = () => { return 'hello'; };
+const module_0_c = x => { return (x ? 1 : 2); };

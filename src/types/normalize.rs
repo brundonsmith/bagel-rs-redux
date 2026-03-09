@@ -129,6 +129,8 @@ impl Type {
 
                 if v.len() == 1 {
                     v.into_iter().next().unwrap()
+                } else if v.is_empty() {
+                    Type::Never
                 } else {
                     Union { variants: v }
                 }

@@ -1,0 +1,15 @@
+---
+source: tests/check.rs
+expression: "test_check(common :: samples :: RETURN_STATEMENT)"
+---
+const a = (): number => {
+    return 1
+}
+const b = () => {
+    return 'hello'
+}
+const c = (x: boolean) => {
+    return if x { 1 } else { 2 }
+}
+---
+[]

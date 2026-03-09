@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     ast::{
         container::AST,
-        grammar::{ElseClause, Expression, FunctionBody},
+        grammar::{Any, Block, ElseClause, Expression, FunctionBody, Statement},
         modules::{Module, ModulesStore},
     },
     types::{NormalizeContext, Type},
@@ -103,7 +103,12 @@ impl AST<Expression> {
                         }
                         None => match func.body.unpack() {
                             Some(FunctionBody::Expression(expr)) => expr.infer_type(ctx),
-                            Some(FunctionBody::Block(_)) => Type::Never,
+                            Some(FunctionBody::Block(block)) => match block.unpack() {
+                                Some(block_data) => Type::Union {
+                                    variants: collect_return_types(&block_data, ctx),
+                                },
+                                None => Type::Poisoned,
+                            },
                             None => Type::Poisoned,
                         },
                     });
@@ -201,4 +206,20 @@ impl AST<Expression> {
             },
         }
     }
+}
+
+fn collect_return_types(block: &Block, ctx: InferTypeContext<'_>) -> Vec<Type> {
+    block
+        .statements
+        .iter()
+        .flat_map(|stmt| match stmt.details() {
+            Some(Any::Statement(Statement::ReturnStatement(ret))) => {
+                vec![ret.value.infer_type(ctx)]
+            }
+            Some(Any::Statement(Statement::Block(inner_block))) => {
+                collect_return_types(inner_block, ctx)
+            }
+            _ => vec![],
+        })
+        .collect()
 }

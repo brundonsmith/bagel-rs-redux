@@ -422,6 +422,10 @@ impl Compilable for Any {
 
                     Ok(())
                 }
+                Statement::ReturnStatement(ret) => {
+                    write!(f, "return ")?;
+                    ret.value.compile(ctx, f)
+                }
             },
         }
     }

@@ -65,3 +65,4 @@ check_test!(union_type_errors, UNION_TYPE_ERRORS);
 check_test!(named_types, NAMED_TYPES);
 check_test!(named_type_errors, NAMED_TYPE_ERRORS);
 check_test!(generics, GENERICS);
+check_test!(return_statement, RETURN_STATEMENT);

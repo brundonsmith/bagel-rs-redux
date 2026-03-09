@@ -286,6 +286,19 @@ pub const GENERICS: &str = "
 const a = [1, 2, 3, 4].map((el) => el + 2)
 ";
 
+/// Return statements in block-bodied functions
+pub const RETURN_STATEMENT: &str = "
+const a = (): number => {
+    return 1
+}
+const b = () => {
+    return 'hello'
+}
+const c = (x: boolean) => {
+    return if x { 1 } else { 2 }
+}
+";
+
 /// Named type errors: mismatches through aliases, undefined types
 pub const NAMED_TYPE_ERRORS: &str = "
 type mynum = number

@@ -800,6 +800,11 @@ impl Emittable for Any {
                     emit_indent(ctx, f)?;
                     write!(f, "}}")
                 }
+                Statement::ReturnStatement(ret) => {
+                    write!(f, "return")?;
+                    emit_gap(&ret.return_keyword, ret.value.slice(), " ", ctx, f)?;
+                    ret.value.emit(ctx, f)
+                }
             },
         }
     }
@@ -879,6 +884,7 @@ where
                         .iter()
                         .map(|s| s.estimated_length().unwrap_or(0))
                         .max(),
+                    Statement::ReturnStatement(_) => None,
                 },
                 Any::PlainIdentifier(plain_identifier) => {
                     Some(plain_identifier.slice.as_str().len())

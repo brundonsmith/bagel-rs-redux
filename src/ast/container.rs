@@ -526,6 +526,9 @@ impl Any {
                 Statement::Block(block) => {
                     block.statements.iter().for_each(|s| f(s.clone().upcast()));
                 }
+                Statement::ReturnStatement(ret) => {
+                    f(ret.value.clone().upcast());
+                }
             },
             Any::PlainIdentifier(_) | Any::BinaryOperator(_) | Any::UnaryOperator(_) => {}
         }

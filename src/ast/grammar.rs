@@ -157,6 +157,12 @@ pub enum FunctionBody {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ReturnStatement {
+    pub return_keyword: Slice,
+    pub value: AST<Expression>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Block {
     pub statements: Vec<AST<Statement>>,
 }
@@ -446,7 +452,8 @@ type_hierarchy! {
         },
         Statement {
             Expression,
-            Block
+            Block,
+            ReturnStatement
         },
         PlainIdentifier,
         BinaryOperator,
