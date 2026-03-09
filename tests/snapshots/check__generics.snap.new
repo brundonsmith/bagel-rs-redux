@@ -1,0 +1,8 @@
+---
+source: tests/check.rs
+assertion_line: 67
+expression: "test_check(common :: samples :: GENERICS)"
+---
+const a = [1, 2, 3, 4].map((el) => el + 2)
+---
+[]

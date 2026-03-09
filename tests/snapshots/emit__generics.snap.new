@@ -1,0 +1,8 @@
+---
+source: tests/emit.rs
+assertion_line: 79
+expression: "test_emit(common :: samples :: GENERICS)"
+---
+const a = [1, 2, 3, 4].map((el) => el + 2)
+---
+const a = [1, 2, 3, 4].map((el) => el + 2)

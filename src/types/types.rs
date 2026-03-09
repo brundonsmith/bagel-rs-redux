@@ -251,7 +251,10 @@ impl fmt::Display for Type {
                 }
                 write!(f, "]")
             }
-            Type::Array { element } => write!(f, "{}[]", element),
+            Type::Array { element } => match element.as_ref() {
+                Type::Union { .. } => write!(f, "({})[]", element),
+                _ => write!(f, "{}[]", element),
+            },
             Type::Object { fields } => {
                 write!(f, "{{ ")?;
                 for (i, (key, value)) in fields.iter().enumerate() {

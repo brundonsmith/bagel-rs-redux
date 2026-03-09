@@ -1,0 +1,17 @@
+---
+source: tests/types.rs
+assertion_line: 94
+expression: "test_infer(common :: samples :: GENERICS)"
+---
+const a = [1, 2, 3, 4].map((el) => el + 2)
+---
+(el) => el + 2 -> (arg0: 1 | 2 | 3 | 4) => 3 | 4 | 5 | 6
+1 -> 1
+2 -> 2
+3 -> 3
+4 -> 4
+[1, 2, 3, 4] -> [1, 2, 3, 4]
+[1, 2, 3, 4].map -> <R>(arg0: (arg0: 1 | 2 | 3 | 4) => R) => R[]
+[1, 2, 3, 4].map((el) => el + 2) -> (3 | 4 | 5 | 6)[]
+el -> 1 | 2 | 3 | 4
+el + 2 -> 3 | 4 | 5 | 6

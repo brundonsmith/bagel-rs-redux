@@ -19,9 +19,6 @@ impl AST<Expression> {
     pub fn infer_type(&self, ctx: InferTypeContext<'_>) -> Type {
         use crate::ast::grammar::Expression::*;
 
-        eprintln!("[DEBUG] infer_type({:?})", self);
-        eprintln!("[DEBUG]   Slice: {:?}", self.slice());
-
         match self.unpack() {
             // Malformed expressions have unknown type
             None => Type::Poisoned,

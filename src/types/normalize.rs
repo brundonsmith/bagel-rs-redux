@@ -139,7 +139,7 @@ impl Type {
                 let normalized_args: Vec<Type> =
                     args.into_iter().map(|a| a.normalize(ctx)).collect();
                 let func_type = function.as_ref().clone().normalize(ctx);
-                let func_type = strip_generic(func_type, ctx);
+                let func_type = resolve_generic(func_type, Some(&normalized_args), ctx);
 
                 match func_type {
                     FuncType {
@@ -256,10 +256,30 @@ impl Type {
             Generic {
                 parameters,
                 subject,
-            } => Generic {
-                parameters,
-                subject: Arc::new(subject.as_ref().clone().normalize(ctx)),
-            },
+            } => {
+                let identity_bindings = TypeBindings {
+                    bindings: parameters
+                        .iter()
+                        .map(|p| {
+                            (
+                                p.clone(),
+                                Type::NamedType {
+                                    name: p.clone(),
+                                    identifier: None,
+                                },
+                            )
+                        })
+                        .collect(),
+                };
+                let binding_ctx = NormalizeContext {
+                    type_bindings: Some(&identity_bindings),
+                    ..ctx
+                };
+                Generic {
+                    parameters,
+                    subject: Arc::new(subject.as_ref().clone().normalize(binding_ctx)),
+                }
+            }
             Parameterized { subject, arguments } => {
                 let normalized_subject = subject.as_ref().clone().normalize(ctx);
                 let normalized_arguments: Vec<Type> =
@@ -345,7 +365,7 @@ impl AST<Expression> {
                     current_module: None,
                 };
                 let func_type = inv.function.infer_type(ctx).normalize(norm_ctx);
-                let func_type = strip_generic(func_type, norm_ctx);
+                let func_type = resolve_generic(func_type, None, norm_ctx);
 
                 match func_type {
                     Type::FuncType { args, .. } => args.into_iter().nth(arg_index),
@@ -371,7 +391,7 @@ impl AST<Expression> {
                         current_module: norm_ctx.current_module,
                     };
                     let func_type = func_expr.infer_type(infer_ctx).normalize(norm_ctx);
-                    let func_type = strip_generic(func_type, norm_ctx);
+                    let func_type = resolve_generic(func_type, None, norm_ctx);
 
                     match func_type {
                         Type::FuncType { args, .. } => args.into_iter().nth(idx),
@@ -576,7 +596,7 @@ fn resolve_local_identifier(
                             };
                             func_expr_node
                                 .expected_type()
-                                .and_then(|t| match strip_generic(t.normalize(ctx), ctx) {
+                                .and_then(|t| match resolve_generic(t.normalize(ctx), None, ctx) {
                                     Type::FuncType { args, .. } => {
                                         args.into_iter().nth(param_index)
                                     }
@@ -844,6 +864,26 @@ fn normalize_binary_operation(
         return Type::Poisoned;
     }
 
+    // Distribute over unions: (A | B) + C  →  (A + C) | (B + C), etc.
+    if let Type::Union { variants } = &left {
+        return Type::Union {
+            variants: variants
+                .iter()
+                .map(|v| normalize_binary_operation(operator, v.clone(), right.clone(), ctx))
+                .collect(),
+        }
+        .normalize(ctx);
+    }
+    if let Type::Union { variants } = &right {
+        return Type::Union {
+            variants: variants
+                .iter()
+                .map(|v| normalize_binary_operation(operator, left.clone(), v.clone(), ctx))
+                .collect(),
+        }
+        .normalize(ctx);
+    }
+
     // Check operand compatibility; return Poisoned if either operand doesn't fit
     if let Some(allowed) = operator.allowed_operand_type() {
         if !left.clone().fits(allowed.clone(), fits_ctx) || !right.clone().fits(allowed, fits_ctx) {
@@ -1002,24 +1042,172 @@ fn normalize_binary_operation(
     }
 }
 
-/// If the type is `Generic { parameters, subject }`, instantiate it by binding
-/// all type parameters to `Unknown`, yielding a concrete type (typically a
-/// `FuncType`).  Non-generic types pass through unchanged.
-fn strip_generic(t: Type, ctx: NormalizeContext<'_>) -> Type {
+/// If the type is `Generic { parameters, subject }`, resolve it by inferring
+/// type parameter bindings from the actual invocation arguments (if available),
+/// then instantiating the generic. Non-generic types pass through unchanged.
+///
+/// When `args` is `Some`, the function structurally matches actual argument
+/// types against the generic function's parameter types to infer bindings.
+/// When `args` is `None`, all parameters default to `Unknown`.
+fn resolve_generic(t: Type, args: Option<&[Type]>, ctx: NormalizeContext<'_>) -> Type {
     match t {
         Type::Generic {
             parameters,
             subject,
-        } => Type::Parameterized {
-            subject: Arc::new(Type::Generic {
-                parameters: parameters.clone(),
-                subject,
-            }),
-            arguments: parameters.iter().map(|_| Type::Unknown).collect(),
+        } => {
+            let mut bindings: Vec<(String, Vec<Type>)> =
+                parameters.iter().map(|p| (p.clone(), vec![])).collect();
+
+            if let (
+                Some(actual_args),
+                Type::FuncType {
+                    args: param_types, ..
+                },
+            ) = (args, subject.as_ref())
+            {
+                param_types
+                    .iter()
+                    .zip(actual_args.iter())
+                    .for_each(|(pattern, concrete)| {
+                        infer_generic_bindings(pattern, concrete, &mut bindings);
+                    });
+            }
+
+            let resolved_args = resolve_inferred_bindings(&parameters, &bindings);
+            Type::Parameterized {
+                subject: Arc::new(Type::Generic {
+                    parameters,
+                    subject,
+                }),
+                arguments: resolved_args,
+            }
+            .normalize(ctx)
         }
-        .normalize(ctx),
         other => other,
     }
+}
+
+/// Walk two types in parallel — a "pattern" type from the generic signature
+/// and a "concrete" type from the actual argument — collecting bindings for
+/// generic type parameters.
+fn infer_generic_bindings(
+    pattern: &Type,
+    concrete: &Type,
+    bindings: &mut Vec<(String, Vec<Type>)>,
+) {
+    match pattern {
+        // Base case: a NamedType that matches a generic parameter name
+        Type::NamedType {
+            name,
+            identifier: None,
+        } => {
+            if let Some(entry) = bindings.iter_mut().find(|(p, _)| p == name) {
+                entry.1.push(concrete.clone());
+            }
+        }
+        // Recurse into function types
+        Type::FuncType {
+            args: pattern_args,
+            returns: pattern_returns,
+            ..
+        } => {
+            if let Type::FuncType {
+                args: concrete_args,
+                returns: concrete_returns,
+                ..
+            } = concrete
+            {
+                pattern_args
+                    .iter()
+                    .zip(concrete_args.iter())
+                    .for_each(|(p, c)| infer_generic_bindings(p, c, bindings));
+                infer_generic_bindings(
+                    pattern_returns.as_ref(),
+                    concrete_returns.as_ref(),
+                    bindings,
+                );
+            }
+        }
+        // Recurse into arrays
+        Type::Array {
+            element: pattern_elem,
+        } => {
+            if let Type::Array {
+                element: concrete_elem,
+            } = concrete
+            {
+                infer_generic_bindings(pattern_elem.as_ref(), concrete_elem.as_ref(), bindings);
+            }
+        }
+        // Recurse into tuples pairwise
+        Type::Tuple {
+            elements: pattern_elems,
+        } => {
+            if let Type::Tuple {
+                elements: concrete_elems,
+            } = concrete
+            {
+                pattern_elems
+                    .iter()
+                    .zip(concrete_elems.iter())
+                    .for_each(|(p, c)| infer_generic_bindings(p, c, bindings));
+            }
+        }
+        // Recurse into object/interface shared fields
+        Type::Object {
+            fields: pattern_fields,
+        }
+        | Type::Interface {
+            fields: pattern_fields,
+            ..
+        } => match concrete {
+            Type::Object {
+                fields: concrete_fields,
+            }
+            | Type::Interface {
+                fields: concrete_fields,
+                ..
+            } => {
+                pattern_fields.iter().for_each(|(key, p_type)| {
+                    if let Some(c_type) = concrete_fields.get(key) {
+                        infer_generic_bindings(p_type, c_type, bindings);
+                    }
+                });
+            }
+            _ => {}
+        },
+        // Recurse into each variant of a union
+        Type::Union {
+            variants: pattern_variants,
+        } => {
+            pattern_variants
+                .iter()
+                .for_each(|p| infer_generic_bindings(p, concrete, bindings));
+        }
+        _ => {}
+    }
+}
+
+/// Convert collected bindings into a final argument list aligned with the
+/// generic parameters. Single match → use directly, multiple → union,
+/// unmatched → Unknown.
+fn resolve_inferred_bindings(parameters: &[String], bindings: &[(String, Vec<Type>)]) -> Vec<Type> {
+    parameters
+        .iter()
+        .map(|param| {
+            bindings
+                .iter()
+                .find(|(name, _)| name == param)
+                .map(|(_, types)| match types.len() {
+                    0 => Type::Unknown,
+                    1 => types[0].clone(),
+                    _ => Type::Union {
+                        variants: types.clone(),
+                    },
+                })
+                .unwrap_or(Type::Unknown)
+        })
+        .collect()
 }
 
 /// Normalize a unary operation type by computing exact results where possible.
