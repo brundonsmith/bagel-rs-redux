@@ -423,9 +423,10 @@ impl Emittable for Any {
                 }
 
                 Expression::FunctionExpression(func) => {
-                    // (param1, param2) => body  or  param => body
-                    if func.parameters.len() == 1 && func.open_paren.is_none() {
-                        // Single parameter without parens (no type annotation possible)
+                    // Emit without parens when there's a single parameter with no type annotation
+                    let single_untyped =
+                        func.parameters.len() == 1 && func.parameters[0].1.is_none();
+                    if single_untyped {
                         func.parameters[0].0.emit(ctx, f)?;
                     } else {
                         write!(f, "(")?;
@@ -458,10 +459,13 @@ impl Emittable for Any {
                         write!(f, ")")?;
                     }
 
-                    let close_or_last = func
-                        .close_paren
-                        .as_ref()
-                        .or(func.parameters.last().map(|(p, _)| p.slice()));
+                    let close_or_last = if single_untyped {
+                        func.parameters.last().map(|(p, _)| p.slice())
+                    } else {
+                        func.close_paren
+                            .as_ref()
+                            .or(func.parameters.last().map(|(p, _)| p.slice()))
+                    };
 
                     if let Some((colon, ret_type)) = &func.return_type {
                         if let Some(prev) = close_or_last {

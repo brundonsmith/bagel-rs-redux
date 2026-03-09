@@ -286,12 +286,10 @@ impl Compilable for Any {
                 }
 
                 Expression::FunctionExpression(func) => {
-                    // (param1: T, param2: U) => body  ->  (param1, param2) => body (strip types for JS)
-                    if func.parameters.len() == 1 && func.open_paren.is_none() {
-                        // Single parameter without parens
+                    // Single parameter: emit without parens (types are stripped in JS)
+                    if func.parameters.len() == 1 {
                         func.parameters[0].0.compile(ctx, f)?;
                     } else {
-                        // Multiple parameters or explicit parens
                         write!(f, "(")?;
                         for (i, (param_name, _type_ann)) in func.parameters.iter().enumerate() {
                             if i > 0 {

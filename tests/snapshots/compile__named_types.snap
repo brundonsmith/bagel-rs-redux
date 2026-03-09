@@ -27,6 +27,6 @@ const module_0_b = 'hello';
 const module_0_c = [1, 'hi'];
 const module_0_d = 42;
 const module_0_e = 'error';
-const module_0_f = (x) => 'done';
+const module_0_f = x => 'done';
 const module_0_g = [42, true];
 const module_0_h = ['err', false];

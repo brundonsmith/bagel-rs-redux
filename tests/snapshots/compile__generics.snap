@@ -1,8 +1,7 @@
 ---
 source: tests/compile.rs
-assertion_line: 82
 expression: "test_compile(common :: samples :: GENERICS)"
 ---
 const a = [1, 2, 3, 4].map((el) => el + 2)
 ---
-const module_0_a = [1, 2, 3, 4].map((el) => el + 2);
+const module_0_a = [1, 2, 3, 4].map(el => el + 2);

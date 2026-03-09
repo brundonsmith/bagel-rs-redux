@@ -15,7 +15,7 @@ const f = (a: number, b: number) => {
 }
 ---
 const module_0_a = () => 42;
-const module_0_b = (x) => x + 1;
+const module_0_b = x => x + 1;
 const module_0_c = (x, y) => x + y;
 const module_0_d = x => x;
 const module_0_e = () => { console.log('hello'); };

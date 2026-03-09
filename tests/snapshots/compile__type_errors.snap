@@ -37,7 +37,7 @@ const module_0_h = undefined ?? 5;
 const module_0_i = 15;
 const module_0_j = ['hello', 42];
 const module_0_k = () => 42;
-const module_0_l = (x) => x;
+const module_0_l = x => x;
 const module_0_m = (1 ? 'yes' : 'no');
 const module_0_n = {name: 'alice'}.age;
 const module_0_o = {name: 'alice', age: 42};

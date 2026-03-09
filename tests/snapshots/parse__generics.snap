@@ -1,6 +1,5 @@
 ---
 source: tests/parse.rs
-assertion_line: 47
 expression: "test_parse(common :: samples :: GENERICS)"
 ---
 const a = [1, 2, 3, 4].map((el) => el + 2)
