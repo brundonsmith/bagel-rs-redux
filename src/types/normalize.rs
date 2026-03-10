@@ -610,9 +610,11 @@ fn resolve_local_identifier(
             match func_node.details() {
                 Some(Any::Expression(Expression::FunctionExpression(func))) => {
                     match &func.parameters[param_index].1 {
-                        Some((_colon, type_expr)) => {
-                            type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned).normalize(ctx)
-                        }
+                        Some((_colon, type_expr)) => type_expr
+                            .unpack()
+                            .map(Type::from)
+                            .unwrap_or(Type::Poisoned)
+                            .normalize(ctx),
                         None => {
                             // Try contextual typing: get expected type for the
                             // function expression and extract the parameter type

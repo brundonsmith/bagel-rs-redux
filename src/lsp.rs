@@ -318,8 +318,7 @@ impl LanguageServer for BagelLanguageServer {
                 node.slice().end
             );
 
-            let current_module =
-                uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
+            let current_module = uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
             let norm_ctx = NormalizeContext {
                 modules: Some(&*store),
                 current_module,
@@ -328,20 +327,23 @@ impl LanguageServer for BagelLanguageServer {
             };
 
             // Check if this is a type expression (or its parent is)
-            let type_expr_node = node
-                .clone()
-                .try_downcast::<TypeExpression>()
-                .or_else(|| {
-                    node.parent()
-                        .and_then(|p| p.try_downcast::<TypeExpression>())
-                });
+            let type_expr_node = node.clone().try_downcast::<TypeExpression>().or_else(|| {
+                node.parent()
+                    .and_then(|p| p.try_downcast::<TypeExpression>())
+            });
 
-            // Check if this is a TypeDeclaration identifier
-            let parent_decl = node
-                .parent()
-                .and_then(|p| p.try_downcast::<Declaration>());
-            let parent_type_decl = parent_decl.and_then(|d| match d.unpack() {
+            // Check if this is a declaration identifier (type or const)
+            let parent_decl = node.parent().and_then(|p| p.try_downcast::<Declaration>());
+            let parent_type_decl = parent_decl.clone().and_then(|d| match d.unpack() {
                 Some(Declaration::TypeDeclaration(decl)) => Some(decl),
+                _ => None,
+            });
+            let parent_const_decl = parent_decl.and_then(|d| match d.unpack() {
+                Some(Declaration::ConstDeclaration(decl))
+                    if decl.identifier.slice().start == node.slice().start =>
+                {
+                    Some(decl)
+                }
                 _ => None,
             });
 
@@ -361,6 +363,14 @@ impl LanguageServer for BagelLanguageServer {
                     .unwrap_or(Type::Poisoned)
                     .normalize(norm_ctx);
                 format!("```bagel\n{}\n```", resolved_type)
+            } else if let Some(decl) = parent_const_decl {
+                // Hovering over the name in `const foo = ...`
+                let ctx = InferTypeContext {
+                    modules: Some(&*store),
+                    current_module,
+                };
+                let inferred_type = decl.value.infer_type(ctx).normalize(norm_ctx);
+                format!("```bagel\n{}\n```", inferred_type)
             } else {
                 // Try to get the type from expressions
                 let expr_node = node.clone().try_downcast::<Expression>().or_else(|| {
@@ -536,13 +546,10 @@ impl LanguageServer for BagelLanguageServer {
         };
 
         // Handle NamedTypeExpression identifiers (go-to-def for type names)
-        let type_expr_node = node
-            .clone()
-            .try_downcast::<TypeExpression>()
-            .or_else(|| {
-                node.parent()
-                    .and_then(|p| p.try_downcast::<TypeExpression>())
-            });
+        let type_expr_node = node.clone().try_downcast::<TypeExpression>().or_else(|| {
+            node.parent()
+                .and_then(|p| p.try_downcast::<TypeExpression>())
+        });
         if let Some(type_expr) = type_expr_node {
             if let Some(TypeExpression::NamedTypeExpression(named)) = type_expr.unpack() {
                 let name = named.identifier.slice().as_str();

@@ -499,7 +499,9 @@ impl Any {
                     f(array.element.clone().upcast());
                 }
                 TypeExpression::ObjectTypeExpression(obj) => {
-                    obj.fields.iter().for_each(|field| f(field.clone().upcast()));
+                    obj.fields
+                        .iter()
+                        .for_each(|field| f(field.clone().upcast()));
                 }
                 TypeExpression::FunctionTypeExpression(func) => {
                     func.parameters.iter().for_each(|(name_colon, typ)| {
