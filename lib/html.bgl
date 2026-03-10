@@ -1,0 +1,11 @@
+export type HTML = {
+    tag: 'h1' | 'p' | 'a',
+    attributes: {},
+    children: unknown[]
+}
+
+const renderHTML = (html: {
+    tag: 'h1' | 'p' | 'a',
+    attributes: {},
+    children: unknown[]
+}) => '<' + html.tag + '>' + children.map(c => ) + '</' + html.tag + '>'

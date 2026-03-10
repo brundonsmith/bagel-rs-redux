@@ -1,4 +1,3 @@
-import * as path from 'path';
 import { workspace, ExtensionContext } from 'vscode';
 import {
   LanguageClient,
@@ -11,7 +10,7 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
   const serverExecutable: Executable = {
-    command: path.join(context.extensionPath, '..', 'target', 'release', 'bagel'),
+    command: '/Users/brundolf/git/bagel-rs-redux/target/release/bagel',
     args: ['lsp'],
   };
 
