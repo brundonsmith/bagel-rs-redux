@@ -7,7 +7,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::ast::container::{find_deepest, walk_ast, WalkAction, AST};
-use crate::ast::grammar::{Any, Declaration, Expression, TypeExpression};
+use crate::ast::grammar::{Any, ConstDeclaration, Declaration, Expression, TypeExpression};
 use crate::ast::modules::{ModulePath, ModulesStore};
 use crate::ast::slice::Slice;
 use crate::check::{BagelError, CheckContext, Checkable};
@@ -889,80 +889,119 @@ impl LanguageServer for BagelLanguageServer {
             type_bindings: None,
         };
 
-        // Traverse the module's declarations
-        eprintln!("[DEBUG] inlay_hint() - attempting to unpack Module");
-        if let Some(module_data) = module.ast.unpack() {
-            eprintln!(
-                "[DEBUG] inlay_hint() - found Module with {} declarations",
-                module_data.declarations.len()
-            );
-
-            for (idx, decl) in module_data
-                .declarations
-                .iter()
-                .enumerate()
-                .filter_map(|(idx, decl)| decl.unpack().map(|decl| (idx, decl)))
-            {
-                match decl {
-                    Declaration::ConstDeclaration(decl_data) => {
-                        if decl_data.type_annotation.is_none()
-                            && !matches!(
-                                decl_data.value.unpack(),
-                                Some(Expression::FunctionExpression(_))
-                            )
-                        {
-                            eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
-                                        idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
-
-                            // Infer the type of the value
-                            let ctx = InferTypeContext {
-                                modules: Some(&*store),
-                                current_module,
-                            };
-                            let inferred_type = decl_data.value.infer_type(ctx).normalize(norm_ctx);
-                            eprintln!(
-                                "[DEBUG] inlay_hint() - inferred type for decl {}: {}",
-                                idx, inferred_type
-                            );
-
-                            // Get the position after the identifier
-                            let identifier_slice = decl_data.identifier.slice();
-                            let position = offset_to_position(&text, identifier_slice.end);
-                            eprintln!(
-                                "[DEBUG] inlay_hint() - hint position for decl {}: line={} char={}",
-                                idx, position.line, position.character
-                            );
-
-                            hints.push(InlayHint {
-                                position,
-                                label: InlayHintLabel::String(format!(": {}", inferred_type)),
-                                kind: Some(InlayHintKind::TYPE),
-                                text_edits: None,
-                                tooltip: None,
-                                padding_left: None,
-                                padding_right: None,
-                                data: None,
-                            });
-                        }
-
-                        // Collect parameter and return type hints from function expressions
+        // Walk the entire AST to find all ConstDeclarations and FunctionExpressions
+        walk_ast(&module.ast.clone().upcast(), &mut |node| {
+            // Const declaration type hints (both top-level and in blocks)
+            if let Some(const_decl) = node.clone().try_downcast::<ConstDeclaration>() {
+                if let Some(decl_data) = const_decl.unpack() {
+                    if decl_data.type_annotation.is_none()
+                        && !matches!(
+                            decl_data.value.unpack(),
+                            Some(Expression::FunctionExpression(_))
+                        )
+                    {
                         let ctx = InferTypeContext {
                             modules: Some(&*store),
                             current_module,
                         };
-                        collect_function_hints(&decl_data.value, &text, ctx, norm_ctx, &mut hints);
-                    }
-                    Declaration::TypeDeclaration(_) => {
-                        // No inlay hints for type declarations
-                    }
-                    Declaration::ImportDeclaration(_) => {
-                        // No inlay hints for imports
+                        let inferred_type = decl_data.value.infer_type(ctx).normalize(norm_ctx);
+
+                        let position = offset_to_position(&text, decl_data.identifier.slice().end);
+
+                        hints.push(InlayHint {
+                            position,
+                            label: InlayHintLabel::String(format!(": {}", inferred_type)),
+                            kind: Some(InlayHintKind::TYPE),
+                            text_edits: None,
+                            tooltip: None,
+                            padding_left: None,
+                            padding_right: None,
+                            data: None,
+                        });
                     }
                 }
             }
-        } else {
-            eprintln!("[DEBUG] inlay_hint() - AST is not a Module");
-        }
+
+            // Function parameter and return type hints
+            if let Some(func_expr) = node.clone().try_downcast::<Expression>() {
+                if let Some(Expression::FunctionExpression(func)) = func_expr.unpack() {
+                    // Parameter type hints
+                    if !func
+                        .parameters
+                        .iter()
+                        .all(|(_, type_ann)| type_ann.is_some())
+                    {
+                        let expected_args =
+                            func_expr
+                                .expected_type()
+                                .and_then(|t| match t.normalize(norm_ctx) {
+                                    Type::FuncType { args, .. } => Some(args),
+                                    _ => None,
+                                });
+
+                        if let Some(expected_args) = expected_args {
+                            func.parameters
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, (_, type_ann))| type_ann.is_none())
+                                .for_each(|(i, (param_name, _))| {
+                                    if let Some(arg_type) = expected_args.get(i) {
+                                        if *arg_type != Type::Unknown {
+                                            let position =
+                                                offset_to_position(&text, param_name.slice().end);
+                                            hints.push(InlayHint {
+                                                position,
+                                                label: InlayHintLabel::String(format!(
+                                                    ": {}",
+                                                    arg_type
+                                                )),
+                                                kind: Some(InlayHintKind::TYPE),
+                                                text_edits: None,
+                                                tooltip: None,
+                                                padding_left: None,
+                                                padding_right: None,
+                                                data: None,
+                                            });
+                                        }
+                                    }
+                                });
+                        }
+                    }
+
+                    // Return type hint
+                    if func.return_type.is_none() {
+                        let ctx = InferTypeContext {
+                            modules: Some(&*store),
+                            current_module,
+                        };
+                        let inferred = func_expr.infer_type(ctx);
+                        let return_type = match inferred.normalize(norm_ctx) {
+                            Type::FuncType { returns, .. } => (*returns).clone(),
+                            _ => Type::Unknown,
+                        };
+
+                        if return_type != Type::Unknown
+                            && return_type != Type::Poisoned
+                            && return_type != Type::Never
+                        {
+                            let position = offset_to_position(&text, func.arrow.start - 1);
+                            hints.push(InlayHint {
+                                position,
+                                label: InlayHintLabel::String(format!(": {}", return_type)),
+                                kind: Some(InlayHintKind::TYPE),
+                                text_edits: None,
+                                tooltip: None,
+                                padding_left: None,
+                                padding_right: Some(true),
+                                data: None,
+                            });
+                        }
+                    }
+                }
+            }
+
+            WalkAction::Continue
+        });
 
         eprintln!("[DEBUG] inlay_hint() - returning {} hints", hints.len());
         Ok(Some(hints))
@@ -1090,92 +1129,6 @@ fn position_to_offset(text: &str, position: Position) -> usize {
     }
 
     offset
-}
-
-/// Recursively walks an expression tree and collects inlay hints for function
-/// parameters whose types can be inferred from context.
-fn collect_function_hints(
-    expr: &AST<Expression>,
-    text: &str,
-    infer_ctx: InferTypeContext<'_>,
-    norm_ctx: NormalizeContext<'_>,
-    hints: &mut Vec<InlayHint>,
-) {
-    walk_ast(&expr.clone().upcast(), &mut |node| {
-        let Some(func_expr) = node.clone().try_downcast::<Expression>() else {
-            return WalkAction::Continue;
-        };
-        let Some(Expression::FunctionExpression(func)) = func_expr.unpack() else {
-            return WalkAction::Continue;
-        };
-
-        // Parameter type hints
-        if !func
-            .parameters
-            .iter()
-            .all(|(_, type_ann)| type_ann.is_some())
-        {
-            let expected_args =
-                func_expr
-                    .expected_type()
-                    .and_then(|t| match t.normalize(norm_ctx) {
-                        Type::FuncType { args, .. } => Some(args),
-                        _ => None,
-                    });
-
-            if let Some(expected_args) = expected_args {
-                func.parameters
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, (_, type_ann))| type_ann.is_none())
-                    .for_each(|(i, (param_name, _))| {
-                        if let Some(arg_type) = expected_args.get(i) {
-                            if *arg_type != Type::Unknown {
-                                let position = offset_to_position(text, param_name.slice().end);
-                                hints.push(InlayHint {
-                                    position,
-                                    label: InlayHintLabel::String(format!(": {}", arg_type)),
-                                    kind: Some(InlayHintKind::TYPE),
-                                    text_edits: None,
-                                    tooltip: None,
-                                    padding_left: None,
-                                    padding_right: None,
-                                    data: None,
-                                });
-                            }
-                        }
-                    });
-            }
-        }
-
-        // Return type hint when no annotation exists
-        if func.return_type.is_none() {
-            let inferred = func_expr.infer_type(infer_ctx);
-            let return_type = match inferred.normalize(norm_ctx) {
-                Type::FuncType { returns, .. } => (*returns).clone(),
-                _ => Type::Unknown,
-            };
-
-            if return_type != Type::Unknown
-                && return_type != Type::Poisoned
-                && return_type != Type::Never
-            {
-                let position = offset_to_position(text, func.arrow.start - 1);
-                hints.push(InlayHint {
-                    position,
-                    label: InlayHintLabel::String(format!(": {}", return_type)),
-                    kind: Some(InlayHintKind::TYPE),
-                    text_edits: None,
-                    tooltip: None,
-                    padding_left: None,
-                    padding_right: Some(true),
-                    data: None,
-                });
-            }
-        }
-
-        WalkAction::Continue
-    });
 }
 
 /// Search the AST for a PipeCallExpression whose `..` is at `double_dot_offset`,
