@@ -93,3 +93,4 @@ infer_test!(named_types, NAMED_TYPES);
 infer_test!(named_type_errors, NAMED_TYPE_ERRORS);
 infer_test!(generics, GENERICS);
 infer_test!(return_statement, RETURN_STATEMENT);
+infer_test!(markup, MARKUP);

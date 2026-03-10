@@ -3,7 +3,10 @@ use std::sync::Arc;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, Block, ElseClause, Expression, FunctionBody, Statement},
+        grammar::{
+            Any, Block, ElseClause, Expression, FunctionBody, MarkupAttribute, MarkupChild,
+            Statement,
+        },
         modules::{Module, ModulesStore},
     },
     types::{NormalizeContext, Type},
@@ -201,6 +204,59 @@ impl AST<Expression> {
                     Type::Invocation {
                         function: Arc::new(function_type),
                         args: all_args,
+                    }
+                }
+
+                MarkupExpression(markup) => {
+                    let tag_type = Type::String {
+                        value: Some(markup.tag_name.slice().clone()),
+                    };
+
+                    let attr_fields = markup
+                        .attributes
+                        .iter()
+                        .filter_map(|attr_ast| {
+                            attr_ast.unpack().map(|attr: MarkupAttribute| {
+                                let name = attr.name.slice().as_str().to_string();
+                                let typ = match &attr.value {
+                                    Some((_, value)) => value.infer_type(ctx),
+                                    None => Type::Boolean { value: Some(true) },
+                                };
+                                (name, typ)
+                            })
+                        })
+                        .collect();
+
+                    let child_types: Vec<Type> = markup
+                        .children
+                        .iter()
+                        .filter_map(|child_ast| {
+                            child_ast.unpack().map(|child: MarkupChild| match child {
+                                MarkupChild::Text(value) => Type::String { value: Some(value) },
+                                MarkupChild::Interpolation { ref expression, .. } => {
+                                    expression.infer_type(ctx)
+                                }
+                                MarkupChild::Element(ref expr) => expr.infer_type(ctx),
+                            })
+                        })
+                        .collect();
+
+                    Type::Object {
+                        fields: std::collections::BTreeMap::from([
+                            ("tag".to_string(), tag_type),
+                            (
+                                "attributes".to_string(),
+                                Type::Object {
+                                    fields: attr_fields,
+                                },
+                            ),
+                            (
+                                "children".to_string(),
+                                Type::Tuple {
+                                    elements: child_types,
+                                },
+                            ),
+                        ]),
                     }
                 }
             },

@@ -330,3 +330,14 @@ const d: result = true
 type strict = [boolean, number]
 const e: strict = [1, true]
 ";
+
+/// Markup expressions (JSX-like syntax)
+pub const MARKUP: &str = "
+const a = <br />
+const b = <h1>hello</h1>
+const c = <div count={1 + 2}>stuff</div>
+const d = <h1 prop='foo'><span>stuff</span> other</h1>
+const e = <div>{name}</div>
+const f = <input disabled />
+const g = <p></p>
+";

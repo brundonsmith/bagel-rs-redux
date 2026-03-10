@@ -395,6 +395,43 @@ pub struct ImportSpecifier {
     pub alias: Option<(Slice, AST<PlainIdentifier>)>, // (as_keyword, alias)
 }
 
+/// Markup expression nodes (JSX-like syntax)
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MarkupAttribute {
+    pub name: AST<PlainIdentifier>,
+    pub value: Option<(Slice, AST<Expression>)>, // (equals, value) — None for bare attrs like `disabled`
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MarkupChild {
+    Text(Slice),
+    Interpolation {
+        open_brace: Slice,
+        expression: AST<Expression>,
+        close_brace: Slice,
+    },
+    Element(AST<Expression>), // Always a MarkupExpression
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MarkupClosingTag {
+    pub open_angle_slash: Slice, // "</"
+    pub tag_name: AST<PlainIdentifier>,
+    pub close_angle: Slice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MarkupExpression {
+    pub open_angle: Slice,
+    pub tag_name: AST<PlainIdentifier>,
+    pub attributes: Vec<AST<MarkupAttribute>>,
+    pub self_closing_slash: Option<Slice>,
+    pub close_angle: Slice,
+    pub children: Vec<AST<MarkupChild>>,
+    pub closing_tag: Option<AST<MarkupClosingTag>>,
+}
+
 /// Module node (represents a whole document)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Module {
@@ -429,6 +466,7 @@ type_hierarchy! {
             ParenthesizedExpression,
             PropertyAccessExpression,
             PipeCallExpression,
+            MarkupExpression,
         },
         TypeExpression {
             UnknownTypeExpression,
@@ -459,6 +497,9 @@ type_hierarchy! {
         PlainIdentifier,
         BinaryOperator,
         UnaryOperator,
-        FunctionBody
+        FunctionBody,
+        MarkupAttribute,
+        MarkupChild,
+        MarkupClosingTag
     }
 }

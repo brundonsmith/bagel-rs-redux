@@ -145,7 +145,10 @@ where
 // Shared parser for identifier slices: [a-z]+ (but not a keyword)
 fn identifier_slice(i: Slice) -> ParseResult<Slice> {
     nom::combinator::verify(
-        take_while1(|c: char| c.is_ascii_lowercase()),
+        recognize(tuple((
+            take_while1(|c: char| c.is_ascii_alphabetic() || c == '_'),
+            nom::bytes::complete::take_while(|c: char| c.is_ascii_alphanumeric() || c == '_'),
+        ))),
         |matched: &Slice| !is_keyword(matched.as_str()),
     )(i)
 }
@@ -1172,6 +1175,239 @@ fn parenthesized_expression(i: Slice) -> ParseResult<AST<ParenthesizedExpression
     Ok((remaining, node))
 }
 
+// --- Markup expression parsers (JSX-like syntax) ---
+
+fn markup_attribute(i: Slice) -> ParseResult<AST<MarkupAttribute>> {
+    let (remaining, mut name) = preceded(whitespace_or_comments, plain_identifier)(i)?;
+
+    // Check for `=` followed by a value
+    let (remaining, value) =
+        match preceded(whitespace_or_comments, tag::<&str, Slice, _>("="))(remaining.clone()) {
+            Ok((after_eq, eq_slice)) => {
+                // Value is either a string literal or {expression}
+                let (after_val, val) = preceded(
+                    whitespace_or_comments,
+                    alt((
+                        map(string_literal, |n| n.upcast()),
+                        map(
+                            tuple((
+                                tag("{"),
+                                preceded(whitespace_or_comments, expression),
+                                preceded(whitespace_or_comments, expect_tag("}")),
+                            )),
+                            |(_, expr, _)| expr,
+                        ),
+                    )),
+                )(after_eq)?;
+                (after_val, Some((eq_slice, val)))
+            }
+            Err(_) => (remaining, None),
+        };
+
+    let span = match &value {
+        Some((_, val)) => name.slice().spanning(val.slice()),
+        None => name.slice().clone(),
+    };
+
+    let node = make_ast(
+        span,
+        MarkupAttribute {
+            name: name.clone(),
+            value: value.clone(),
+        },
+    );
+    name.set_parent(&node);
+    if let Some((_, ref val)) = value {
+        let mut val = val.clone();
+        val.set_parent(&node);
+    }
+    Ok((remaining, node))
+}
+
+fn parse_markup_children(mut i: Slice) -> (Vec<AST<MarkupChild>>, Slice) {
+    let mut children = Vec::new();
+
+    loop {
+        // Stop if we hit `</` (closing tag coming) or end of input
+        if i.len() == 0 || i.as_str().starts_with("</") {
+            break;
+        }
+
+        // `<` → nested markup element
+        if i.as_str().starts_with('<') {
+            match markup_expression(i.clone()) {
+                Ok((remaining, element)) => {
+                    let child_span = element.slice().clone();
+                    let mut element_expr: AST<Expression> = element.upcast();
+                    let child = make_ast(child_span, MarkupChild::Element(element_expr.clone()));
+                    element_expr.set_parent(&child);
+                    children.push(child);
+                    i = remaining;
+                }
+                Err(_) => break,
+            }
+            continue;
+        }
+
+        // `{` → interpolation: { expression }
+        if i.as_str().starts_with('{') {
+            let open_brace = i.clone().slice_range(0, Some(1));
+            let after_open = i.clone().slice_range(1, None);
+
+            match preceded(whitespace_or_comments, expression)(after_open) {
+                Ok((after_expr, mut expr)) => {
+                    match preceded(whitespace_or_comments, expect_tag("}"))(after_expr) {
+                        Ok((remaining, close_brace)) => {
+                            let span = open_brace.spanning(&close_brace);
+                            let child = make_ast(
+                                span,
+                                MarkupChild::Interpolation {
+                                    open_brace: open_brace.clone(),
+                                    expression: expr.clone(),
+                                    close_brace,
+                                },
+                            );
+                            expr.set_parent(&child);
+                            children.push(child);
+                            i = remaining;
+                        }
+                        Err(_) => break,
+                    }
+                }
+                Err(_) => break,
+            }
+            continue;
+        }
+
+        // Otherwise → consume text until `<`, `{`, or end
+        let text_end = i
+            .as_str()
+            .find(|c: char| c == '<' || c == '{')
+            .unwrap_or(i.len());
+
+        if text_end == 0 {
+            break;
+        }
+
+        let text_slice = i.clone().slice_range(0, Some(text_end));
+        let child = make_ast(text_slice.clone(), MarkupChild::Text(text_slice));
+        children.push(child);
+        i = i.slice_range(text_end, None);
+    }
+
+    (children, i)
+}
+
+fn markup_expression(i: Slice) -> ParseResult<AST<MarkupExpression>> {
+    // Parse `<`
+    let (after_open, open_angle) = tag("<")(i)?;
+
+    // Parse tag name — must immediately follow `<` (no whitespace allowed)
+    let (after_name, mut tag_name) = plain_identifier(after_open.clone()).map_err(|_| {
+        nom::Err::Error(BagelError {
+            src: after_open,
+            severity: RuleSeverity::Error,
+            details: BagelErrorDetails::ParseError {
+                message: "Expected tag name".to_string(),
+            },
+            related: vec![],
+        })
+    })?;
+
+    // Parse attributes
+    let mut remaining = after_name;
+    let mut attributes = Vec::new();
+    loop {
+        // Try to parse another attribute
+        match markup_attribute(remaining.clone()) {
+            Ok((after_attr, attr)) => {
+                attributes.push(attr);
+                remaining = after_attr;
+            }
+            Err(_) => break,
+        }
+    }
+
+    // Skip whitespace before `/>` or `>`
+    let (remaining, _) = whitespace_or_comments(remaining)?;
+
+    // Check for self-closing `/>` or `>`
+    match tag::<&str, Slice, BagelError>("/>")(remaining.clone()) {
+        Ok((after_close, slash_close)) => {
+            let self_closing_slash = slash_close.clone().slice_range(0, Some(1));
+            let close_angle = slash_close.clone().slice_range(1, Some(2));
+            let span = open_angle.spanning(&slash_close);
+
+            let node = make_ast(
+                span,
+                MarkupExpression {
+                    open_angle,
+                    tag_name: tag_name.clone(),
+                    attributes: attributes.clone(),
+                    self_closing_slash: Some(self_closing_slash),
+                    close_angle,
+                    children: vec![],
+                    closing_tag: None,
+                },
+            );
+            tag_name.set_parent(&node);
+            attributes.set_parent(&node);
+            Ok((after_close, node))
+        }
+        Err(_) => {
+            // Parse `>`
+            let (after_close, close_angle) = expect_tag(">")(remaining)?;
+
+            // Parse children
+            let (mut children, after_children): (Vec<AST<MarkupChild>>, Slice) =
+                parse_markup_children(after_close.clone());
+
+            // Parse closing tag: `</tagname>`
+            let (after_closing, mut closing_tag) = parse_closing_tag(after_children)?;
+
+            let span = open_angle.spanning(closing_tag.slice());
+
+            let node = make_ast(
+                span,
+                MarkupExpression {
+                    open_angle,
+                    tag_name: tag_name.clone(),
+                    attributes: attributes.clone(),
+                    self_closing_slash: None,
+                    close_angle,
+                    children: children.clone(),
+                    closing_tag: Some(closing_tag.clone()),
+                },
+            );
+            tag_name.set_parent(&node);
+            attributes.set_parent(&node);
+            children.set_parent(&node);
+            closing_tag.set_parent(&node);
+
+            Ok((after_closing, node))
+        }
+    }
+}
+
+fn parse_closing_tag(i: Slice) -> ParseResult<AST<MarkupClosingTag>> {
+    let (after_open, open_angle_slash) = tag("</")(i)?;
+    let (after_name, mut tag_name) =
+        preceded(whitespace_or_comments, plain_identifier)(after_open)?;
+    let (remaining, close_angle) = preceded(whitespace_or_comments, expect_tag(">"))(after_name)?;
+
+    let span = open_angle_slash.spanning(&close_angle);
+    let node = make_ast(
+        span,
+        MarkupClosingTag {
+            open_angle_slash,
+            tag_name: tag_name.clone(),
+            close_angle,
+        },
+    );
+    tag_name.set_parent(&node);
+    Ok((remaining, node))
+}
+
 fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
     alt((
         map(nil_literal, |n| n.upcast()),
@@ -1183,6 +1419,7 @@ fn atom_expression(i: Slice) -> ParseResult<AST<Expression>> {
         map(if_else_expression, |n| n.upcast()),
         map(function_expression, |n| n.upcast()),
         map(parenthesized_expression, |n| n.upcast()),
+        map(markup_expression, |n| n.upcast()),
         map(local_identifier, |n| n.upcast()),
     ))(i)
 }

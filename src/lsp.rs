@@ -86,7 +86,7 @@ impl LanguageServer for BagelLanguageServer {
                 inlay_hint_provider: Some(OneOf::Left(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
                 completion_provider: Some(CompletionOptions {
-                    trigger_characters: Some(vec![".".to_string()]),
+                    trigger_characters: Some(vec![".".to_string(), "<".to_string()]),
                     ..Default::default()
                 }),
                 workspace: Some(WorkspaceServerCapabilities {
@@ -710,6 +710,21 @@ impl LanguageServer for BagelLanguageServer {
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     filter_text: Some("return".to_string()),
                     sort_text: Some("0return".to_string()),
+                    ..Default::default()
+                });
+            }
+            if trimmed.ends_with('<') || (!partial.is_empty() && "<".starts_with(partial)) {
+                items.push(CompletionItem {
+                    label: "<tag>...</tag>".to_string(),
+                    kind: Some(CompletionItemKind::SNIPPET),
+                    insert_text: Some(if trimmed.ends_with('<') {
+                        "${1:tag}>$0</${1:tag}>".to_string()
+                    } else {
+                        "<${1:tag}>$0</${1:tag}>".to_string()
+                    }),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some("<".to_string()),
+                    sort_text: Some("0<".to_string()),
                     ..Default::default()
                 });
             }

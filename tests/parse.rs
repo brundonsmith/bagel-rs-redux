@@ -46,3 +46,4 @@ parse_test!(named_types, NAMED_TYPES);
 parse_test!(named_type_errors, NAMED_TYPE_ERRORS);
 parse_test!(generics, GENERICS);
 parse_test!(return_statement, RETURN_STATEMENT);
+parse_test!(markup, MARKUP);

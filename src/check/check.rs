@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, Declaration, Expression, Statement},
+        grammar::{Any, Declaration, Expression, MarkupClosingTag, Statement},
         modules::{Module, ModulesStore},
         slice::Slice,
     },
@@ -733,6 +733,32 @@ where
                                             },
                                             related: vec![],
                                         });
+                                    }
+                                }
+                            }
+                            Expression::MarkupExpression(markup) => {
+                                if let Some(closing) = &markup.closing_tag {
+                                    if let Some(closing_data) =
+                                        closing.unpack() as Option<MarkupClosingTag>
+                                    {
+                                        let open_name = markup.tag_name.slice().as_str();
+                                        let close_name = closing_data.tag_name.slice().as_str();
+                                        if open_name != close_name {
+                                            report_error(BagelError {
+                                                src: closing_data.tag_name.slice().clone(),
+                                                severity: RuleSeverity::Error,
+                                                details: BagelErrorDetails::MiscError {
+                                                    message: format!(
+                                                        "Closing tag '{}' does not match opening tag '{}'",
+                                                        close_name, open_name,
+                                                    ),
+                                                },
+                                                related: vec![RelatedInfo {
+                                                    src: markup.tag_name.slice().clone(),
+                                                    message: "Opening tag here".to_string(),
+                                                }],
+                                            });
+                                        }
                                     }
                                 }
                             }

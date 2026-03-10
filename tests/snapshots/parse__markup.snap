@@ -1,0 +1,476 @@
+---
+source: tests/parse.rs
+expression: "test_parse(common :: samples :: MARKUP)"
+---
+const a = <br />
+const b = <h1>hello</h1>
+const c = <div count={1 + 2}>stuff</div>
+const d = <h1 prop='foo'><span>stuff</span> other</h1>
+const e = <div>{name}</div>
+const f = <input disabled />
+const g = <p></p>
+---
+Ok(
+    (
+        Slice("\n"),
+        ASTInner {
+            slice: Slice("\nconst a = <br />\nconst b = <h1>hello</h1>\nconst c = <div count={1 + 2}>stuff</div>\nconst d = <h1 prop='foo'><span>stuff</span> other</h1>\nconst e = <div>{name}</div>\nconst f = <input disabled />\nconst g = <p></p>"),
+            details: Module {
+                declarations: [
+                    ASTInner {
+                        slice: Slice("const a = <br />"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("a"),
+                                details: PlainIdentifier {
+                                    slice: Slice("a"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("<br />"),
+                                details: MarkupExpression {
+                                    open_angle: Slice("<"),
+                                    tag_name: ASTInner {
+                                        slice: Slice("br"),
+                                        details: PlainIdentifier {
+                                            slice: Slice("br"),
+                                        },
+                                    },
+                                    attributes: [],
+                                    self_closing_slash: Some(
+                                        Slice("/"),
+                                    ),
+                                    close_angle: Slice(">"),
+                                    children: [],
+                                    closing_tag: None,
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const b = <h1>hello</h1>"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("b"),
+                                details: PlainIdentifier {
+                                    slice: Slice("b"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("<h1>hello</h1>"),
+                                details: MarkupExpression {
+                                    open_angle: Slice("<"),
+                                    tag_name: ASTInner {
+                                        slice: Slice("h1"),
+                                        details: PlainIdentifier {
+                                            slice: Slice("h1"),
+                                        },
+                                    },
+                                    attributes: [],
+                                    self_closing_slash: None,
+                                    close_angle: Slice(">"),
+                                    children: [
+                                        ASTInner {
+                                            slice: Slice("hello"),
+                                            details: Text(
+                                                Slice("hello"),
+                                            ),
+                                        },
+                                    ],
+                                    closing_tag: Some(
+                                        ASTInner {
+                                            slice: Slice("</h1>"),
+                                            details: MarkupClosingTag {
+                                                open_angle_slash: Slice("</"),
+                                                tag_name: ASTInner {
+                                                    slice: Slice("h1"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("h1"),
+                                                    },
+                                                },
+                                                close_angle: Slice(">"),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const c = <div count={1 + 2}>stuff</div>"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("c"),
+                                details: PlainIdentifier {
+                                    slice: Slice("c"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("<div count={1 + 2}>stuff</div>"),
+                                details: MarkupExpression {
+                                    open_angle: Slice("<"),
+                                    tag_name: ASTInner {
+                                        slice: Slice("div"),
+                                        details: PlainIdentifier {
+                                            slice: Slice("div"),
+                                        },
+                                    },
+                                    attributes: [
+                                        ASTInner {
+                                            slice: Slice("count={1 + 2"),
+                                            details: MarkupAttribute {
+                                                name: ASTInner {
+                                                    slice: Slice("count"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("count"),
+                                                    },
+                                                },
+                                                value: Some(
+                                                    (
+                                                        Slice("="),
+                                                        ASTInner {
+                                                            slice: Slice("1 + 2"),
+                                                            details: BinaryOperation {
+                                                                left: ASTInner {
+                                                                    slice: Slice("1"),
+                                                                    details: NumberLiteral {
+                                                                        slice: Slice("1"),
+                                                                    },
+                                                                },
+                                                                operator: ASTInner {
+                                                                    slice: Slice("+"),
+                                                                    details: Add,
+                                                                },
+                                                                right: ASTInner {
+                                                                    slice: Slice("2"),
+                                                                    details: NumberLiteral {
+                                                                        slice: Slice("2"),
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    ),
+                                                ),
+                                            },
+                                        },
+                                    ],
+                                    self_closing_slash: None,
+                                    close_angle: Slice(">"),
+                                    children: [
+                                        ASTInner {
+                                            slice: Slice("stuff"),
+                                            details: Text(
+                                                Slice("stuff"),
+                                            ),
+                                        },
+                                    ],
+                                    closing_tag: Some(
+                                        ASTInner {
+                                            slice: Slice("</div>"),
+                                            details: MarkupClosingTag {
+                                                open_angle_slash: Slice("</"),
+                                                tag_name: ASTInner {
+                                                    slice: Slice("div"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("div"),
+                                                    },
+                                                },
+                                                close_angle: Slice(">"),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d = <h1 prop='foo'><span>stuff</span> other</h1>"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("<h1 prop='foo'><span>stuff</span> other</h1>"),
+                                details: MarkupExpression {
+                                    open_angle: Slice("<"),
+                                    tag_name: ASTInner {
+                                        slice: Slice("h1"),
+                                        details: PlainIdentifier {
+                                            slice: Slice("h1"),
+                                        },
+                                    },
+                                    attributes: [
+                                        ASTInner {
+                                            slice: Slice("prop='foo'"),
+                                            details: MarkupAttribute {
+                                                name: ASTInner {
+                                                    slice: Slice("prop"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("prop"),
+                                                    },
+                                                },
+                                                value: Some(
+                                                    (
+                                                        Slice("="),
+                                                        ASTInner {
+                                                            slice: Slice("'foo'"),
+                                                            details: StringLiteral {
+                                                                open_quote: Slice("'"),
+                                                                contents: Slice("foo"),
+                                                                close_quote: Slice("'"),
+                                                            },
+                                                        },
+                                                    ),
+                                                ),
+                                            },
+                                        },
+                                    ],
+                                    self_closing_slash: None,
+                                    close_angle: Slice(">"),
+                                    children: [
+                                        ASTInner {
+                                            slice: Slice("<span>stuff</span>"),
+                                            details: Element(
+                                                ASTInner {
+                                                    slice: Slice("<span>stuff</span>"),
+                                                    details: MarkupExpression {
+                                                        open_angle: Slice("<"),
+                                                        tag_name: ASTInner {
+                                                            slice: Slice("span"),
+                                                            details: PlainIdentifier {
+                                                                slice: Slice("span"),
+                                                            },
+                                                        },
+                                                        attributes: [],
+                                                        self_closing_slash: None,
+                                                        close_angle: Slice(">"),
+                                                        children: [
+                                                            ASTInner {
+                                                                slice: Slice("stuff"),
+                                                                details: Text(
+                                                                    Slice("stuff"),
+                                                                ),
+                                                            },
+                                                        ],
+                                                        closing_tag: Some(
+                                                            ASTInner {
+                                                                slice: Slice("</span>"),
+                                                                details: MarkupClosingTag {
+                                                                    open_angle_slash: Slice("</"),
+                                                                    tag_name: ASTInner {
+                                                                        slice: Slice("span"),
+                                                                        details: PlainIdentifier {
+                                                                            slice: Slice("span"),
+                                                                        },
+                                                                    },
+                                                                    close_angle: Slice(">"),
+                                                                },
+                                                            },
+                                                        ),
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                        ASTInner {
+                                            slice: Slice(" other"),
+                                            details: Text(
+                                                Slice(" other"),
+                                            ),
+                                        },
+                                    ],
+                                    closing_tag: Some(
+                                        ASTInner {
+                                            slice: Slice("</h1>"),
+                                            details: MarkupClosingTag {
+                                                open_angle_slash: Slice("</"),
+                                                tag_name: ASTInner {
+                                                    slice: Slice("h1"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("h1"),
+                                                    },
+                                                },
+                                                close_angle: Slice(">"),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e = <div>{name}</div>"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier {
+                                    slice: Slice("e"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("<div>{name}</div>"),
+                                details: MarkupExpression {
+                                    open_angle: Slice("<"),
+                                    tag_name: ASTInner {
+                                        slice: Slice("div"),
+                                        details: PlainIdentifier {
+                                            slice: Slice("div"),
+                                        },
+                                    },
+                                    attributes: [],
+                                    self_closing_slash: None,
+                                    close_angle: Slice(">"),
+                                    children: [
+                                        ASTInner {
+                                            slice: Slice("{name}"),
+                                            details: Interpolation {
+                                                open_brace: Slice("{"),
+                                                expression: ASTInner {
+                                                    slice: Slice("name"),
+                                                    details: LocalIdentifier {
+                                                        slice: Slice("name"),
+                                                    },
+                                                },
+                                                close_brace: Slice("}"),
+                                            },
+                                        },
+                                    ],
+                                    closing_tag: Some(
+                                        ASTInner {
+                                            slice: Slice("</div>"),
+                                            details: MarkupClosingTag {
+                                                open_angle_slash: Slice("</"),
+                                                tag_name: ASTInner {
+                                                    slice: Slice("div"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("div"),
+                                                    },
+                                                },
+                                                close_angle: Slice(">"),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const f = <input disabled />"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("f"),
+                                details: PlainIdentifier {
+                                    slice: Slice("f"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("<input disabled />"),
+                                details: MarkupExpression {
+                                    open_angle: Slice("<"),
+                                    tag_name: ASTInner {
+                                        slice: Slice("input"),
+                                        details: PlainIdentifier {
+                                            slice: Slice("input"),
+                                        },
+                                    },
+                                    attributes: [
+                                        ASTInner {
+                                            slice: Slice("disabled"),
+                                            details: MarkupAttribute {
+                                                name: ASTInner {
+                                                    slice: Slice("disabled"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("disabled"),
+                                                    },
+                                                },
+                                                value: None,
+                                            },
+                                        },
+                                    ],
+                                    self_closing_slash: Some(
+                                        Slice("/"),
+                                    ),
+                                    close_angle: Slice(">"),
+                                    children: [],
+                                    closing_tag: None,
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const g = <p></p>"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("g"),
+                                details: PlainIdentifier {
+                                    slice: Slice("g"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("<p></p>"),
+                                details: MarkupExpression {
+                                    open_angle: Slice("<"),
+                                    tag_name: ASTInner {
+                                        slice: Slice("p"),
+                                        details: PlainIdentifier {
+                                            slice: Slice("p"),
+                                        },
+                                    },
+                                    attributes: [],
+                                    self_closing_slash: None,
+                                    close_angle: Slice(">"),
+                                    children: [],
+                                    closing_tag: Some(
+                                        ASTInner {
+                                            slice: Slice("</p>"),
+                                            details: MarkupClosingTag {
+                                                open_angle_slash: Slice("</"),
+                                                tag_name: ASTInner {
+                                                    slice: Slice("p"),
+                                                    details: PlainIdentifier {
+                                                        slice: Slice("p"),
+                                                    },
+                                                },
+                                                close_angle: Slice(">"),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ),
+)

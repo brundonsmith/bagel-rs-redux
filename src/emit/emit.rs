@@ -5,7 +5,7 @@ use crate::{
         container::AST,
         grammar::{
             Any, BinaryOperation, Block, Declaration, ElseClause, Expression, FunctionBody,
-            Statement, TypeExpression, UnaryOperation,
+            MarkupChild, Statement, TypeExpression, UnaryOperation,
         },
         modules::ModulesStore,
         slice::Slice,
@@ -636,6 +636,73 @@ impl Emittable for Any {
                     Ok(())
                 }
 
+                Expression::MarkupExpression(markup) => {
+                    // Check if all children are whitespace-only text; if so,
+                    // collapse to a self-closing tag.
+                    let children_all_whitespace = markup.children.iter().all(|child| {
+                        matches!(
+                            child.unpack(),
+                            Some(MarkupChild::Text(ref t)) if t.as_str().trim().is_empty()
+                        )
+                    });
+                    let collapse = !markup.self_closing_slash.is_some()
+                        && markup.closing_tag.is_some()
+                        && children_all_whitespace;
+
+                    write!(f, "<")?;
+                    markup.tag_name.emit(ctx, f)?;
+
+                    for attr in &markup.attributes {
+                        if let Some(attr_data) = attr.unpack() {
+                            write!(f, " ")?;
+                            attr_data.name.emit(ctx, f)?;
+                            if let Some((_, ref value)) = attr_data.value {
+                                write!(f, "=")?;
+
+                                match value.unpack() {
+                                    Some(Expression::StringLiteral(_)) => {
+                                        value.emit(ctx, f)?;
+                                    }
+                                    _ => {
+                                        write!(f, "{{")?;
+                                        value.emit(ctx, f)?;
+                                        write!(f, "}}")?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if markup.self_closing_slash.is_some() || collapse {
+                        write!(f, " />")?;
+                    } else {
+                        write!(f, ">")?;
+
+                        for child in &markup.children {
+                            if let Some(child_data) = child.unpack() {
+                                match child_data {
+                                    MarkupChild::Text(text) => write!(f, "{}", text.as_str())?,
+                                    MarkupChild::Interpolation { expression, .. } => {
+                                        write!(f, "{{")?;
+                                        expression.emit(ctx, f)?;
+                                        write!(f, "}}")?;
+                                    }
+                                    MarkupChild::Element(expr) => expr.emit(ctx, f)?,
+                                }
+                            }
+                        }
+
+                        if let Some(ref closing) = markup.closing_tag {
+                            write!(f, "</")?;
+                            if let Some(closing_data) = closing.unpack() {
+                                closing_data.tag_name.emit(ctx, f)?;
+                            }
+                            write!(f, ">")?;
+                        }
+                    }
+                    Ok(())
+                }
+
                 Expression::IfElseExpression(if_else) => {
                     write!(f, "if")?;
                     emit_gap(&if_else.if_keyword, if_else.condition.slice(), " ", ctx, f)?;
@@ -814,6 +881,11 @@ impl Emittable for Any {
                 },
             },
 
+            Any::MarkupAttribute(_) | Any::MarkupChild(_) | Any::MarkupClosingTag(_) => {
+                // These are emitted as part of MarkupExpression, not standalone
+                Ok(())
+            }
+
             Any::Statement(statement) => match statement {
                 Statement::Expression(expr) => Any::Expression(expr.clone()).emit(ctx, f),
                 Statement::Block(block) => {
@@ -917,6 +989,7 @@ where
                     }
                     Expression::PropertyAccessExpression(property_access_expression) => None,
                     Expression::PipeCallExpression(_) => None,
+                    Expression::MarkupExpression(_) => None,
                 },
                 Any::TypeExpression(type_expression) => None,
                 Any::Statement(statement) => match statement {
@@ -935,6 +1008,7 @@ where
                 Any::BinaryOperator(binary_operator) => Some(binary_operator.as_str().len()),
                 Any::UnaryOperator(unary_operator) => Some(unary_operator.as_str().len()),
                 Any::FunctionBody(function_body) => None,
+                Any::MarkupAttribute(_) | Any::MarkupChild(_) | Any::MarkupClosingTag(_) => None,
             },
             None => None,
         }

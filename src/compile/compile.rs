@@ -396,6 +396,56 @@ impl Compilable for Any {
                     }
                 }
 
+                Expression::MarkupExpression(markup) => {
+                    let tag_str = markup.tag_name.slice().as_str();
+                    write!(f, "{{tag: '{}', attributes: {{", tag_str)?;
+
+                    markup
+                        .attributes
+                        .iter()
+                        .filter_map(|a| a.unpack())
+                        .enumerate()
+                        .try_for_each(|(i, attr): (usize, MarkupAttribute)| {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            let name = attr.name.slice().as_str();
+                            match &attr.value {
+                                Some((_, value)) => {
+                                    write!(f, "{}: ", name)?;
+                                    value.compile(ctx, f)
+                                }
+                                None => write!(f, "{}: true", name),
+                            }
+                        })?;
+
+                    write!(f, "}}, children: [")?;
+
+                    markup
+                        .children
+                        .iter()
+                        .filter_map(|c| c.unpack())
+                        .enumerate()
+                        .try_for_each(|(i, child): (usize, MarkupChild)| {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            match child {
+                                MarkupChild::Text(text) => {
+                                    let escaped =
+                                        text.as_str().replace('\\', "\\\\").replace('\'', "\\'");
+                                    write!(f, "'{}'", escaped)
+                                }
+                                MarkupChild::Interpolation { ref expression, .. } => {
+                                    expression.compile(ctx, f)
+                                }
+                                MarkupChild::Element(ref expr) => expr.compile(ctx, f),
+                            }
+                        })?;
+
+                    write!(f, "]}}")
+                }
+
                 Expression::PropertyAccessExpression(prop_access) => {
                     // Strip `js.` — its members are JS globals
                     let is_js_global = matches!(
@@ -417,6 +467,11 @@ impl Compilable for Any {
             Any::TypeExpression(_type_expression) => {
                 // Type expressions are not emitted in JavaScript compilation
                 // (JavaScript is untyped at runtime)
+                Ok(())
+            }
+
+            Any::MarkupAttribute(_) | Any::MarkupChild(_) | Any::MarkupClosingTag(_) => {
+                // These are compiled as part of MarkupExpression, not standalone
                 Ok(())
             }
 

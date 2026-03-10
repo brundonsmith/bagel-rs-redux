@@ -81,3 +81,4 @@ compile_test!(named_types, NAMED_TYPES);
 compile_test!(named_type_errors, NAMED_TYPE_ERRORS);
 compile_test!(generics, GENERICS);
 compile_test!(return_statement, RETURN_STATEMENT);
+compile_test!(markup, MARKUP);

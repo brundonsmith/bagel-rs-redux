@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use std::sync::{Arc, RwLock, Weak};
 
 use crate::ast::grammar::{
-    Any, Declaration, ElseClause, Expression, FunctionBody, Statement, TypeExpression,
+    Any, Declaration, ElseClause, Expression, FunctionBody, MarkupChild, Statement, TypeExpression,
 };
 use crate::ast::slice::Slice;
 
@@ -467,6 +467,20 @@ impl Any {
                         .iter()
                         .for_each(|arg| f(arg.clone().upcast()));
                 }
+                Expression::MarkupExpression(markup) => {
+                    f(markup.tag_name.clone().upcast());
+                    markup
+                        .attributes
+                        .iter()
+                        .for_each(|attr| f(attr.clone().upcast()));
+                    markup
+                        .children
+                        .iter()
+                        .for_each(|child| f(child.clone().upcast()));
+                    if let Some(closing) = &markup.closing_tag {
+                        f(closing.clone().upcast());
+                    }
+                }
             },
             Any::TypeExpression(type_expr) => match type_expr {
                 TypeExpression::UnknownTypeExpression(_)
@@ -533,6 +547,20 @@ impl Any {
                     Any::Declaration(Declaration::ConstDeclaration(decl.clone())).for_each_child(f);
                 }
             },
+            Any::MarkupAttribute(attr) => {
+                f(attr.name.clone().upcast());
+                if let Some((_, value)) = &attr.value {
+                    f(value.clone().upcast());
+                }
+            }
+            Any::MarkupChild(child) => match child {
+                MarkupChild::Text(_) => {}
+                MarkupChild::Interpolation { expression, .. } => f(expression.clone().upcast()),
+                MarkupChild::Element(expr) => f(expr.clone().upcast()),
+            },
+            Any::MarkupClosingTag(closing) => {
+                f(closing.tag_name.clone().upcast());
+            }
             Any::PlainIdentifier(_) | Any::BinaryOperator(_) | Any::UnaryOperator(_) => {}
         }
     }
