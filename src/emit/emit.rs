@@ -832,6 +832,9 @@ impl Emittable for Any {
                     emit_gap(&ret.return_keyword, ret.value.slice(), " ", ctx, f)?;
                     ret.value.emit(ctx, f)
                 }
+                Statement::ConstDeclaration(decl) => {
+                    Any::Declaration(Declaration::ConstDeclaration(decl.clone())).emit(ctx, f)
+                }
             },
         }
     }
@@ -912,6 +915,7 @@ where
                         .map(|s| s.estimated_length().unwrap_or(0))
                         .max(),
                     Statement::ReturnStatement(_) => None,
+                    Statement::ConstDeclaration(_) => None,
                 },
                 Any::PlainIdentifier(plain_identifier) => {
                     Some(plain_identifier.slice.as_str().len())

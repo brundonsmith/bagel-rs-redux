@@ -453,7 +453,8 @@ type_hierarchy! {
         Statement {
             Expression,
             Block,
-            ReturnStatement
+            ReturnStatement,
+            ConstDeclaration
         },
         PlainIdentifier,
         BinaryOperator,

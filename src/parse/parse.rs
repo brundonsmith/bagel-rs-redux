@@ -1060,6 +1060,7 @@ fn return_statement(i: Slice) -> ParseResult<AST<ReturnStatement>> {
 fn statement(i: Slice) -> ParseResult<AST<Statement>> {
     alt((
         map(return_statement, |s| s.upcast::<Statement>()),
+        map(const_declaration, |d| d.upcast::<Statement>()),
         map(postfix_expression, |expr| expr.upcast::<Statement>()),
     ))(i)
 }

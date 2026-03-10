@@ -3,7 +3,7 @@ use std::fmt::Write;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, Block, ElseClause, Expression, IfElseExpression, Statement},
+        grammar::{Any, Block, Declaration, ElseClause, Expression, IfElseExpression, Statement},
         modules::{Module, ModulesStore},
     },
     config::Config,
@@ -61,6 +61,11 @@ where
                         write!(f, "{}", name)
                     }
                     Some(ResolvedIdentifier::ConstDeclaration {
+                        block_level: true, ..
+                    }) => {
+                        write!(f, "{}", name)
+                    }
+                    Some(ResolvedIdentifier::ConstDeclaration {
                         module: Some(source_module),
                         ..
                     }) => {
@@ -80,6 +85,20 @@ where
                     }
                     None => write!(f, "{}", name),
                 }
+            }
+
+            // Intercept block-level ConstDeclaration to skip module-id prefixing
+            Some(Any::Declaration(Declaration::ConstDeclaration(decl)))
+                if ctx.prefix_identifiers_with_module_ids
+                    && self.parent().is_some_and(|p: AST<Any>| {
+                        p.details()
+                            .is_some_and(|d| matches!(d, Any::Statement(Statement::Block(_))))
+                    }) =>
+            {
+                write!(f, "const ")?;
+                decl.identifier.compile(ctx, f)?;
+                write!(f, " = ")?;
+                decl.value.compile(ctx, f)
             }
 
             // Process valid nodes
@@ -441,6 +460,12 @@ impl Compilable for Any {
                 Statement::ReturnStatement(ret) => {
                     write!(f, "return ")?;
                     ret.value.compile(ctx, f)
+                }
+                Statement::ConstDeclaration(decl) => {
+                    write!(f, "const ")?;
+                    decl.identifier.compile(ctx, f)?;
+                    write!(f, " = ")?;
+                    decl.value.compile(ctx, f)
                 }
             },
         }

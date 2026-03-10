@@ -12,6 +12,14 @@ const c = (x: boolean) => {
     b()
     return if x || y { 1 } else { 2 }
 }
+const d = (): number => {
+    const x = 5
+    return x
+}
+const e = () => {
+    const greeting: string = 'hello'
+    return greeting
+}
 ---
 [
     BagelError {

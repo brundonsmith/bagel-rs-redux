@@ -220,7 +220,7 @@ where
         match self {
             AST::Valid(inner, _) => match TKind::try_from(inner.details.clone()) {
                 Ok(res) => Some(res),
-                Err(_) => unreachable!(),
+                Err(_) => unreachable!("The macro guarantees at compile time that the inner details, if they exist, will be of type TKind"),
             },
             AST::Malformed(..) => None,
         }
@@ -528,6 +528,9 @@ impl Any {
                 }
                 Statement::ReturnStatement(ret) => {
                     f(ret.value.clone().upcast());
+                }
+                Statement::ConstDeclaration(decl) => {
+                    Any::Declaration(Declaration::ConstDeclaration(decl.clone())).for_each_child(f);
                 }
             },
             Any::PlainIdentifier(_) | Any::BinaryOperator(_) | Any::UnaryOperator(_) => {}

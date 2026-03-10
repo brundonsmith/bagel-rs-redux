@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::ast::container::AST;
 use crate::ast::grammar::{
-    self, Any, BinaryOperator, Declaration, Expression, FunctionBody, UnaryOperator,
+    self, Any, BinaryOperator, Declaration, Expression, FunctionBody, Statement, UnaryOperator,
 };
 use crate::ast::modules::{Module, ModulesStore};
 use crate::ast::slice::Slice;
@@ -37,6 +37,7 @@ pub enum ResolvedIdentifier<'a> {
     ConstDeclaration {
         decl: grammar::ConstDeclaration,
         module: Option<&'a Module>,
+        block_level: bool,
     },
     /// A type declaration, possibly in a different module
     TypeDeclaration {
@@ -355,7 +356,8 @@ impl AST<Expression> {
         };
 
         match parent.details()? {
-            Any::Declaration(grammar::Declaration::ConstDeclaration(const_decl)) => const_decl
+            Any::Declaration(grammar::Declaration::ConstDeclaration(const_decl))
+            | Any::Statement(Statement::ConstDeclaration(const_decl)) => const_decl
                 .type_annotation
                 .as_ref()
                 .and_then(|(_colon, type_expr)| type_expr.unpack().map(Type::from)),
@@ -443,6 +445,7 @@ pub fn identifiers_in_scope<'a>(
                         .map(|const_decl| ResolvedIdentifier::ConstDeclaration {
                             decl: const_decl,
                             module: None,
+                            block_level: false,
                         }),
                 );
 
@@ -492,6 +495,24 @@ pub fn identifiers_in_scope<'a>(
                         func_node: ancestor.clone(),
                     },
                 ));
+            }
+            Some(Any::Statement(Statement::Block(block))) => {
+                results.extend(
+                    block
+                        .statements
+                        .iter()
+                        .take_while(|stmt: &&AST<grammar::Statement>| !stmt.contains_child(node))
+                        .filter_map(|stmt: &AST<grammar::Statement>| match stmt.unpack() {
+                            Some(Statement::ConstDeclaration(const_decl)) => {
+                                Some(ResolvedIdentifier::ConstDeclaration {
+                                    decl: const_decl,
+                                    module: None,
+                                    block_level: true,
+                                })
+                            }
+                            _ => None,
+                        }),
+                );
             }
             _ => {}
         }
@@ -552,7 +573,7 @@ fn resolve_local_identifier(
 
     let node: AST<Any> = identifier.clone().upcast();
     match resolve_identifier(name, &node, ctx) {
-        Some(ResolvedIdentifier::ConstDeclaration { decl, module }) => {
+        Some(ResolvedIdentifier::ConstDeclaration { decl, module, .. }) => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {
                     current_module: Some(m),
@@ -640,6 +661,7 @@ fn resolve_imported_identifier<'a>(
         .map(|const_decl| ResolvedIdentifier::ConstDeclaration {
             decl: const_decl,
             module: Some(imported_module),
+            block_level: false,
         })
 }
 

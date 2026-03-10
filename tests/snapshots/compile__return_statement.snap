@@ -12,7 +12,17 @@ const c = (x: boolean) => {
     b()
     return if x || y { 1 } else { 2 }
 }
+const d = (): number => {
+    const x = 5
+    return x
+}
+const e = () => {
+    const greeting: string = 'hello'
+    return greeting
+}
 ---
 const module_0_a = () => 1;
 const module_0_b = () => 'hello';
 const module_0_c = x => { module_0_b(); return (x || y ? 1 : 2); };
+const module_0_d = () => { const x = 5; return x; };
+const module_0_e = () => { const greeting = 'hello'; return greeting; };

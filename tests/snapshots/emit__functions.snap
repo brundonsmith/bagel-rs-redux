@@ -16,6 +16,10 @@ const f = (a: number, b: number) => {
 const g = (a: string, b: string) => { a: a, b: b }
 const h = (a: string, b: string) => { a, b }
 const i = (a: string, b: string) => [ a, b ]
+const j = () => {
+    const x = 10
+    js.console.log(x)
+}
 ---
 const a = () => 42
 const b = (x: number) => x + 1
@@ -31,3 +35,7 @@ const f = (a: number, b: number) => {
 const g = (a: string, b: string) => { a, b }
 const h = (a: string, b: string) => { a, b }
 const i = (a: string, b: string) => [a, b]
+const j = () => {
+    const x = 10
+    js.console.log(x)
+}

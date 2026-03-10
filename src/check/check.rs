@@ -771,6 +771,19 @@ where
                         }
                     }
                     Any::Statement(Statement::ReturnStatement(_)) => {}
+                    Any::Statement(Statement::ConstDeclaration(decl)) => {
+                        if let Some(export_kw) = &decl.export_keyword {
+                            report_error(BagelError {
+                                src: export_kw.clone(),
+                                severity: RuleSeverity::Error,
+                                details: BagelErrorDetails::MiscError {
+                                    message: "'export' is not allowed on block-level declarations"
+                                        .to_string(),
+                                },
+                                related: vec![],
+                            });
+                        }
+                    }
                     Any::Statement(Statement::Expression(expr)) => match expr {
                         Expression::Invocation(_) | Expression::PipeCallExpression(_) => {}
                         _ => {

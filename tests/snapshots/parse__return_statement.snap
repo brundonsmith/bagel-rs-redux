@@ -12,12 +12,20 @@ const c = (x: boolean) => {
     b()
     return if x || y { 1 } else { 2 }
 }
+const d = (): number => {
+    const x = 5
+    return x
+}
+const e = () => {
+    const greeting: string = 'hello'
+    return greeting
+}
 ---
 Ok(
     (
         Slice("\n"),
         ASTInner {
-            slice: Slice("\nconst a = (): number => {\n    return 1\n}\nconst b = () => {\n    return 'hello'\n}\nconst c = (x: boolean) => {\n    b()\n    return if x || y { 1 } else { 2 }\n}"),
+            slice: Slice("\nconst a = (): number => {\n    return 1\n}\nconst b = () => {\n    return 'hello'\n}\nconst c = (x: boolean) => {\n    b()\n    return if x || y { 1 } else { 2 }\n}\nconst d = (): number => {\n    const x = 5\n    return x\n}\nconst e = () => {\n    const greeting: string = 'hello'\n    return greeting\n}"),
             details: Module {
                 declarations: [
                     ASTInner {
@@ -260,6 +268,176 @@ Ok(
                                                                                 close_brace: Slice("}"),
                                                                             },
                                                                         ),
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const d = (): number => {\n    const x = 5\n    return x\n}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("d"),
+                                details: PlainIdentifier {
+                                    slice: Slice("d"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("(): number => {\n    const x = 5\n    return x\n}"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: Some(
+                                        (
+                                            Slice(":"),
+                                            ASTInner {
+                                                slice: Slice("number"),
+                                                details: NumberTypeExpression,
+                                            },
+                                        ),
+                                    ),
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("{\n    const x = 5\n    return x\n}"),
+                                        details: Block(
+                                            ASTInner {
+                                                slice: Slice("{\n    const x = 5\n    return x\n}"),
+                                                details: Block {
+                                                    statements: [
+                                                        ASTInner {
+                                                            slice: Slice("const x = 5"),
+                                                            details: ConstDeclaration {
+                                                                export_keyword: None,
+                                                                const_keyword: Slice("const"),
+                                                                identifier: ASTInner {
+                                                                    slice: Slice("x"),
+                                                                    details: PlainIdentifier {
+                                                                        slice: Slice("x"),
+                                                                    },
+                                                                },
+                                                                type_annotation: None,
+                                                                equals: Slice("="),
+                                                                value: ASTInner {
+                                                                    slice: Slice("5"),
+                                                                    details: NumberLiteral {
+                                                                        slice: Slice("5"),
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                        ASTInner {
+                                                            slice: Slice("return x"),
+                                                            details: ReturnStatement {
+                                                                return_keyword: Slice("return"),
+                                                                value: ASTInner {
+                                                                    slice: Slice("x"),
+                                                                    details: LocalIdentifier {
+                                                                        slice: Slice("x"),
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ASTInner {
+                        slice: Slice("const e = () => {\n    const greeting: string = 'hello'\n    return greeting\n}"),
+                        details: ConstDeclaration {
+                            export_keyword: None,
+                            const_keyword: Slice("const"),
+                            identifier: ASTInner {
+                                slice: Slice("e"),
+                                details: PlainIdentifier {
+                                    slice: Slice("e"),
+                                },
+                            },
+                            type_annotation: None,
+                            equals: Slice("="),
+                            value: ASTInner {
+                                slice: Slice("() => {\n    const greeting: string = 'hello'\n    return greeting\n}"),
+                                details: FunctionExpression {
+                                    open_paren: Some(
+                                        Slice("("),
+                                    ),
+                                    parameters: [],
+                                    commas: [],
+                                    trailing_comma: None,
+                                    close_paren: Some(
+                                        Slice(")"),
+                                    ),
+                                    return_type: None,
+                                    arrow: Slice("=>"),
+                                    body: ASTInner {
+                                        slice: Slice("{\n    const greeting: string = 'hello'\n    return greeting\n}"),
+                                        details: Block(
+                                            ASTInner {
+                                                slice: Slice("{\n    const greeting: string = 'hello'\n    return greeting\n}"),
+                                                details: Block {
+                                                    statements: [
+                                                        ASTInner {
+                                                            slice: Slice("const greeting: string = 'hello'"),
+                                                            details: ConstDeclaration {
+                                                                export_keyword: None,
+                                                                const_keyword: Slice("const"),
+                                                                identifier: ASTInner {
+                                                                    slice: Slice("greeting"),
+                                                                    details: PlainIdentifier {
+                                                                        slice: Slice("greeting"),
+                                                                    },
+                                                                },
+                                                                type_annotation: Some(
+                                                                    (
+                                                                        Slice(":"),
+                                                                        ASTInner {
+                                                                            slice: Slice("string"),
+                                                                            details: StringTypeExpression,
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                equals: Slice("="),
+                                                                value: ASTInner {
+                                                                    slice: Slice("'hello'"),
+                                                                    details: StringLiteral {
+                                                                        open_quote: Slice("'"),
+                                                                        contents: Slice("hello"),
+                                                                        close_quote: Slice("'"),
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                        ASTInner {
+                                                            slice: Slice("return greeting"),
+                                                            details: ReturnStatement {
+                                                                return_keyword: Slice("return"),
+                                                                value: ASTInner {
+                                                                    slice: Slice("greeting"),
+                                                                    details: LocalIdentifier {
+                                                                        slice: Slice("greeting"),
                                                                     },
                                                                 },
                                                             },

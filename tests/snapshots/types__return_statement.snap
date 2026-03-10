@@ -12,11 +12,27 @@ const c = (x: boolean) => {
     b()
     return if x || y { 1 } else { 2 }
 }
+const d = (): number => {
+    const x = 5
+    return x
+}
+const e = () => {
+    const greeting: string = 'hello'
+    return greeting
+}
 ---
 'hello' -> 'hello'
 () => {
+    const greeting: string = 'hello'
+    return greeting
+} -> () => 'hello'
+() => {
     return 'hello'
 } -> () => 'hello'
+(): number => {
+    const x = 5
+    return x
+} -> () => number
 (): number => {
     return 1
 } -> () => number
@@ -26,9 +42,11 @@ const c = (x: boolean) => {
 } -> (arg0: boolean) => 1 | 2
 1 -> 1
 2 -> 2
+5 -> 5
 b -> () => 'hello'
 b() -> never
+greeting -> 'hello'
 if x || y { 1 } else { 2 } -> 1 | 2
-x -> boolean
+x -> 5
 x || y -> unknown
 y -> unknown

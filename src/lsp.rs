@@ -1282,7 +1282,7 @@ fn resolve_identifier_type(resolved: &ResolvedIdentifier<'_>, ctx: NormalizeCont
                 .unwrap_or(Type::Poisoned)
                 .normalize(decl_ctx)
         }
-        ResolvedIdentifier::ConstDeclaration { decl, module } => {
+        ResolvedIdentifier::ConstDeclaration { decl, module, .. } => {
             let decl_ctx = match module {
                 Some(m) => NormalizeContext {
                     current_module: Some(m),
@@ -1350,7 +1350,7 @@ fn resolved_identifier_to_location(
     current_text: &str,
 ) -> Option<Location> {
     match resolved {
-        ResolvedIdentifier::ConstDeclaration { decl, module } => {
+        ResolvedIdentifier::ConstDeclaration { decl, module, .. } => {
             let target_slice = decl.identifier.slice();
             Some(match module {
                 Some(target_module) => {
