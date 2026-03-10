@@ -13,6 +13,9 @@ const f = (a: number, b: number) => {
     js.console.log(a)
     js.console.log(b)
 }
+const g = (a: string, b: string) => { a: a, b: b }
+const h = (a: string, b: string) => { a, b }
+const i = (a: string, b: string) => [ a, b ]
 ---
 'hello' -> 'hello'
 () => 42 -> () => 42
@@ -23,12 +26,16 @@ const f = (a: number, b: number) => {
     js.console.log(a)
     js.console.log(b)
 } -> (arg0: number, arg1: number) => never
+(a: string, b: string) => [ a, b ] -> (arg0: string, arg1: string) => [string, string]
+(a: string, b: string) => { a, b } -> (arg0: string, arg1: string) => { a: string, b: string }
+(a: string, b: string) => { a: a, b: b } -> (arg0: string, arg1: string) => { a: string, b: string }
 (x: number) => x + 1 -> (arg0: number) => number
 (x: number, y: number): number => x + y -> (arg0: number, arg1: number) => number
 1 -> 1
 42 -> 42
-a -> number
-b -> number
+[ a, b ] -> [string, string]
+a -> string
+b -> string
 js -> JsGlobals { console: Console { log: (...args: unknown) => never } }
 js.console -> Console { log: (...args: unknown) => never }
 js.console.log -> (...args: unknown) => never
@@ -40,3 +47,5 @@ x + 1 -> number
 x + y -> number
 x => x -> (arg0: unknown) => unknown
 y -> number
+{ a, b } -> { a: string, b: string }
+{ a: a, b: b } -> { a: string, b: string }

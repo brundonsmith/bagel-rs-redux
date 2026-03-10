@@ -10,7 +10,10 @@ use crate::{
         slice::Slice,
     },
     config::{Config, RuleSeverity},
-    types::{fits::FitsContext, infer::InferTypeContext, NormalizeContext, Type},
+    types::{
+        fits::FitsContext, infer::InferTypeContext, normalize::resolve_identifier,
+        NormalizeContext, Type,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -478,6 +481,27 @@ where
                     }
                     Any::Expression(expression) => {
                         match expression {
+                            Expression::LocalIdentifier(local_id) => {
+                                let name = local_id.slice.as_str();
+                                if name != "js" {
+                                    let node = match self {
+                                        AST::Valid(inner, _) => AST::<Any>::new(inner.clone()),
+                                        AST::Malformed(s, m) => {
+                                            AST::<Any>::Malformed(s.clone(), m.clone())
+                                        }
+                                    };
+                                    if resolve_identifier(name, &node, norm_ctx).is_none() {
+                                        report_error(BagelError {
+                                            src: local_id.slice.clone(),
+                                            severity: RuleSeverity::Error,
+                                            details: BagelErrorDetails::MiscError {
+                                                message: format!("\"{}\" is not defined", name),
+                                            },
+                                            related: vec![],
+                                        });
+                                    }
+                                }
+                            }
                             Expression::BinaryOperation(bin_op) => {
                                 // Type-check operands
                                 let operator = bin_op.operator.unpack();

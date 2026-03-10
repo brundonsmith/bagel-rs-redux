@@ -633,7 +633,9 @@ Ok(
                                                             slice: Slice("name"),
                                                         },
                                                     },
-                                                    Slice(":"),
+                                                    Some(
+                                                        Slice(":"),
+                                                    ),
                                                     ASTInner {
                                                         slice: Slice("'alice'"),
                                                         details: StringLiteral {
@@ -715,7 +717,9 @@ Ok(
                                                     slice: Slice("name"),
                                                 },
                                             },
-                                            Slice(":"),
+                                            Some(
+                                                Slice(":"),
+                                            ),
                                             ASTInner {
                                                 slice: Slice("'alice'"),
                                                 details: StringLiteral {
@@ -732,7 +736,9 @@ Ok(
                                                     slice: Slice("age"),
                                                 },
                                             },
-                                            Slice(":"),
+                                            Some(
+                                                Slice(":"),
+                                            ),
                                             ASTInner {
                                                 slice: Slice("42"),
                                                 details: NumberLiteral {
@@ -820,7 +826,9 @@ Ok(
                                                     slice: Slice("x"),
                                                 },
                                             },
-                                            Slice(":"),
+                                            Some(
+                                                Slice(":"),
+                                            ),
                                             ASTInner {
                                                 slice: Slice("1"),
                                                 details: NumberLiteral {

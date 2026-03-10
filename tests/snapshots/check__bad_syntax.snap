@@ -30,10 +30,10 @@ const otherfunc = () => {
         related: [],
     },
     BagelError {
-        src: Slice(""),
+        src: Slice("obj"),
         severity: Error,
-        details: ParseError {
-            message: "identifier",
+        details: MiscError {
+            message: "\"obj\" is not defined",
         },
         related: [],
     },
@@ -42,6 +42,30 @@ const otherfunc = () => {
         severity: Error,
         details: ParseError {
             message: "identifier",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("obja"),
+        severity: Error,
+        details: MiscError {
+            message: "\"obja\" is not defined",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice(""),
+        severity: Error,
+        details: ParseError {
+            message: "identifier",
+        },
+        related: [],
+    },
+    BagelError {
+        src: Slice("objb"),
+        severity: Error,
+        details: MiscError {
+            message: "\"objb\" is not defined",
         },
         related: [],
     },

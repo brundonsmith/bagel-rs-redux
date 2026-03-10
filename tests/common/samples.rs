@@ -66,6 +66,9 @@ const f = (a: number, b: number) => {
     js.console.log(a)
     js.console.log(b)
 }
+const g = (a: string, b: string) => { a: a, b: b }
+const h = (a: string, b: string) => { a, b }
+const i = (a: string, b: string) => [ a, b ]
 ";
 
 /// Function type annotations and contextual typing
@@ -295,7 +298,8 @@ const b = () => {
     return 'hello'
 }
 const c = (x: boolean) => {
-    return if x { 1 } else { 2 }
+    b()
+    return if x || y { 1 } else { 2 }
 }
 ";
 

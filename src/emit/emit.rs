@@ -4,8 +4,8 @@ use crate::{
     ast::{
         container::AST,
         grammar::{
-            Any, BinaryOperation, Declaration, ElseClause, Expression, FunctionBody, Statement,
-            TypeExpression, UnaryOperation,
+            Any, BinaryOperation, Block, Declaration, ElseClause, Expression, FunctionBody,
+            Statement, TypeExpression, UnaryOperation,
         },
         modules::ModulesStore,
         slice::Slice,
@@ -168,6 +168,18 @@ fn emit_gap<W: Write>(
         Ok((_, dressing)) if !dressing.is_empty() => emit_dressing(&dressing, ctx, f),
         _ => write!(f, "{}", default),
     }
+}
+
+/// If a block contains exactly one statement which is a return statement,
+/// returns the return value expression.
+fn single_return_value(block: &AST<Block>) -> Option<AST<Expression>> {
+    block.unpack().and_then(|b| match b.statements.as_slice() {
+        [only] => match only.details() {
+            Some(Any::Statement(Statement::ReturnStatement(ret))) => Some(ret.value.clone()),
+            _ => None,
+        },
+        _ => None,
+    })
 }
 
 pub trait Emittable {
@@ -516,6 +528,13 @@ impl Emittable for Any {
                 Expression::ObjectLiteral(obj) => {
                     write!(f, "{{")?;
                     for (i, (key, colon, value)) in obj.fields.iter().enumerate() {
+                        // Emit shorthand whenever the value is a LocalIdentifier matching the key
+                        let is_shorthand = matches!(
+                            value.details(),
+                            Some(Any::Expression(Expression::LocalIdentifier(id)))
+                                if id.slice.as_str() == key.slice().as_str()
+                        );
+
                         if i > 0 {
                             let comma = &obj.commas[i - 1];
                             let (_, _, prev_value) = &obj.fields[i - 1];
@@ -525,11 +544,16 @@ impl Emittable for Any {
                         } else {
                             emit_gap(&obj.open_brace, key.slice(), " ", ctx, f)?;
                         }
-                        key.emit(ctx, f)?;
-                        emit_gap(key.slice(), colon, "", ctx, f)?;
-                        write!(f, ":")?;
-                        emit_gap(colon, value.slice(), " ", ctx, f)?;
-                        value.emit(ctx, f)?;
+
+                        if is_shorthand {
+                            key.emit(ctx, f)?;
+                        } else if let Some(colon) = colon {
+                            key.emit(ctx, f)?;
+                            emit_gap(key.slice(), colon, "", ctx, f)?;
+                            write!(f, ":")?;
+                            emit_gap(colon, value.slice(), " ", ctx, f)?;
+                            value.emit(ctx, f)?;
+                        }
                     }
                     if let Some(trailing) = &obj.trailing_comma {
                         write!(f, ",")?;
@@ -784,7 +808,10 @@ impl Emittable for Any {
 
             Any::FunctionBody(body) => match body {
                 FunctionBody::Expression(expr) => expr.emit(ctx, f),
-                FunctionBody::Block(block) => block.emit(ctx, f),
+                FunctionBody::Block(block) => match single_return_value(block) {
+                    Some(value) => value.emit(ctx, f),
+                    None => block.emit(ctx, f),
+                },
             },
 
             Any::Statement(statement) => match statement {

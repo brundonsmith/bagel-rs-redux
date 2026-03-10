@@ -40,7 +40,9 @@ Ok(
                                                     slice: Slice("x"),
                                                 },
                                             },
-                                            Slice(":"),
+                                            Some(
+                                                Slice(":"),
+                                            ),
                                             ASTInner {
                                                 slice: Slice("1"),
                                                 details: NumberLiteral {
@@ -55,7 +57,9 @@ Ok(
                                                     slice: Slice("y"),
                                                 },
                                             },
-                                            Slice(":"),
+                                            Some(
+                                                Slice(":"),
+                                            ),
                                             ASTInner {
                                                 slice: Slice("2"),
                                                 details: NumberLiteral {
@@ -133,7 +137,9 @@ Ok(
                                                     slice: Slice("inner"),
                                                 },
                                             },
-                                            Slice(":"),
+                                            Some(
+                                                Slice(":"),
+                                            ),
                                             ASTInner {
                                                 slice: Slice("{deep: 42}"),
                                                 details: ObjectLiteral {
@@ -146,7 +152,9 @@ Ok(
                                                                     slice: Slice("deep"),
                                                                 },
                                                             },
-                                                            Slice(":"),
+                                                            Some(
+                                                                Slice(":"),
+                                                            ),
                                                             ASTInner {
                                                                 slice: Slice("42"),
                                                                 details: NumberLiteral {

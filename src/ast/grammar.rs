@@ -202,11 +202,11 @@ pub enum ElseClause {
     },
 }
 
-/// ObjectLiteral node: "{" (PlainIdentifier ":" Expression (?:"," PlainIdentifier ":" Expression)*)? ","? "}"
+/// ObjectLiteral node: "{" (PlainIdentifier (":" Expression)? (?:"," PlainIdentifier (":" Expression)?)*)? ","? "}"
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectLiteral {
     pub open_brace: Slice,
-    pub fields: Vec<(AST<PlainIdentifier>, Slice, AST<Expression>)>, // (key, colon, value)
+    pub fields: Vec<(AST<PlainIdentifier>, Option<Slice>, AST<Expression>)>, // (key, optional colon, value)
     pub commas: Vec<Slice>,
     pub trailing_comma: Option<Slice>,
     pub close_brace: Option<Slice>,

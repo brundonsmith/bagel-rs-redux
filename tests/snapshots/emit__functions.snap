@@ -13,6 +13,9 @@ const f = (a: number, b: number) => {
     js.console.log(a)
     js.console.log(b)
 }
+const g = (a: string, b: string) => { a: a, b: b }
+const h = (a: string, b: string) => { a, b }
+const i = (a: string, b: string) => [ a, b ]
 ---
 const a = () => 42
 const b = (x: number) => x + 1
@@ -25,3 +28,6 @@ const f = (a: number, b: number) => {
     js.console.log(a)
     js.console.log(b)
 }
+const g = (a: string, b: string) => { a, b }
+const h = (a: string, b: string) => { a, b }
+const i = (a: string, b: string) => [a, b]

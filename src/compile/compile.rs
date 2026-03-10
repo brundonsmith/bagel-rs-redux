@@ -3,7 +3,7 @@ use std::fmt::Write;
 use crate::{
     ast::{
         container::AST,
-        grammar::{Any, ElseClause, Expression, IfElseExpression},
+        grammar::{Any, Block, ElseClause, Expression, IfElseExpression, Statement},
         modules::{Module, ModulesStore},
     },
     config::Config,
@@ -318,14 +318,27 @@ impl Compilable for Any {
 
                 Expression::ObjectLiteral(obj) => {
                     // {a: 1, b: 2} -> {a: 1, b: 2} (same in JS)
+                    // {a, b} -> {a, b} (shorthand)
                     write!(f, "{{")?;
-                    for (i, (key, _, value)) in obj.fields.iter().enumerate() {
+                    for (i, (key, colon, value)) in obj.fields.iter().enumerate() {
                         if i > 0 {
                             write!(f, ", ")?;
                         }
-                        key.compile(ctx, f)?;
-                        write!(f, ": ")?;
-                        value.compile(ctx, f)?;
+
+                        // Compile shorthand whenever the value is a LocalIdentifier matching the key
+                        let is_shorthand = matches!(
+                            value.details(),
+                            Some(Any::Expression(Expression::LocalIdentifier(id)))
+                                if id.slice.as_str() == key.slice().as_str()
+                        );
+
+                        if is_shorthand {
+                            key.compile(ctx, f)?;
+                        } else {
+                            key.compile(ctx, f)?;
+                            write!(f, ": ")?;
+                            value.compile(ctx, f)?;
+                        }
                     }
                     write!(f, "}}")
                 }
@@ -405,7 +418,10 @@ impl Compilable for Any {
 
             Any::FunctionBody(body) => match body {
                 FunctionBody::Expression(expr) => expr.compile(ctx, f),
-                FunctionBody::Block(block) => block.compile(ctx, f),
+                FunctionBody::Block(block) => match single_return_value(block) {
+                    Some(value) => value.compile(ctx, f),
+                    None => block.compile(ctx, f),
+                },
             },
 
             Any::Statement(statement) => match statement {
@@ -429,6 +445,16 @@ impl Compilable for Any {
             },
         }
     }
+}
+
+fn single_return_value(block: &AST<Block>) -> Option<AST<Expression>> {
+    block.unpack().and_then(|b| match b.statements.as_slice() {
+        [only] => match only.details() {
+            Some(Any::Statement(Statement::ReturnStatement(ret))) => Some(ret.value.clone()),
+            _ => None,
+        },
+        _ => None,
+    })
 }
 
 fn compile_if_else_ternary<W: Write>(

@@ -891,34 +891,55 @@ fn object_literal(i: Slice) -> ParseResult<AST<ObjectLiteral>> {
     let mut current = remaining;
     let mut trailing_comma = None;
 
-    // Parse first field if present
-    if let Ok((after_key, key)) = w(plain_identifier)(current.clone()) {
+    // Helper: synthesize a LocalIdentifier expression AST from a PlainIdentifier key
+    fn shorthand_value(key: &AST<PlainIdentifier>) -> AST<Expression> {
+        let slice = key.slice().clone();
+        make_ast(
+            slice.clone(),
+            Expression::LocalIdentifier(LocalIdentifier { slice }),
+        )
+    }
+
+    // Helper: parse colon+value or synthesize shorthand value
+    fn parse_field_value(
+        after_key: Slice,
+        key: &AST<PlainIdentifier>,
+    ) -> (Slice, Option<Slice>, AST<Expression>) {
         if let Ok((after_colon, colon)) = w(tag(":"))(after_key.clone()) {
             if let Ok((after_value, value)) = w(expression)(after_colon.clone()) {
-                fields.push((key, colon, value));
-                current = after_value;
+                return (after_value, Some(colon), value);
+            }
+        }
+        (after_key, None, shorthand_value(key))
+    }
 
-                // Parse subsequent ", key: value" triples
-                loop {
-                    if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
-                        // Check if there's another field or if this is a trailing comma
-                        if let Ok((after_key, key)) = w(plain_identifier)(after_comma.clone()) {
-                            if let Ok((after_colon, colon)) = w(tag(":"))(after_key) {
-                                if let Ok((after_value, value)) = w(expression)(after_colon) {
-                                    commas.push(comma);
-                                    fields.push((key, colon, value));
-                                    current = after_value;
-                                    continue;
-                                }
-                            }
-                        }
-                        // Trailing comma
-                        trailing_comma = Some(comma);
-                        current = after_comma;
-                        break;
-                    } else {
-                        break;
+    // Parse first field if present
+    if let Ok((after_key, key)) = w(plain_identifier)(current.clone()) {
+        let (after_field, colon, value) = parse_field_value(after_key.clone(), &key);
+
+        // Only commit if we parsed a colon or consumed an identifier (not empty)
+        if colon.is_some() || !after_key.eq(&current) {
+            fields.push((key, colon, value));
+            current = after_field;
+
+            // Parse subsequent fields
+            loop {
+                if let Ok((after_comma, comma)) = w(tag(","))(current.clone()) {
+                    // Check if there's another field or if this is a trailing comma
+                    if let Ok((after_key, key)) = w(plain_identifier)(after_comma.clone()) {
+                        let (after_field, colon, value) = parse_field_value(after_key, &key);
+
+                        commas.push(comma);
+                        fields.push((key, colon, value));
+                        current = after_field;
+                        continue;
                     }
+                    // Trailing comma
+                    trailing_comma = Some(comma);
+                    current = after_comma;
+                    break;
+                } else {
+                    break;
                 }
             }
         }
@@ -1083,10 +1104,39 @@ fn block(i: Slice) -> ParseResult<AST<Block>> {
     Ok((remaining, node))
 }
 
+/// A block parser for function bodies that rejects blocks containing only
+/// malformed statements when the input also parses as a non-empty object literal.
+/// This ensures `{ key: value }` is parsed as an object literal expression, not a block.
+fn strict_block(i: Slice) -> ParseResult<AST<Block>> {
+    let (remaining, result) = block(i.clone())?;
+    match result.unpack() {
+        Some(b) if b.statements.iter().all(|s| s.is_valid()) => Ok((remaining, result)),
+        Some(b) if b.statements.is_empty() => Ok((remaining, result)),
+        _ => {
+            // The block has malformed statements; check if it would parse as a non-empty
+            // object literal instead. If so, reject the block to let alt fall through.
+            match object_literal(i.clone()) {
+                Ok((_, obj)) => match obj.unpack() {
+                    Some(o) if !o.fields.is_empty() => Err(nom::Err::Error(BagelError {
+                        src: i,
+                        severity: RuleSeverity::Error,
+                        details: BagelErrorDetails::ParseError {
+                            message: "Block contains malformed statements".to_string(),
+                        },
+                        related: vec![],
+                    })),
+                    _ => Ok((remaining, result)),
+                },
+                Err(_) => Ok((remaining, result)),
+            }
+        }
+    }
+}
+
 // Parser for a function body: block or expression
 fn function_body(i: Slice) -> ParseResult<AST<FunctionBody>> {
     alt((
-        map(block, |mut block_ast| {
+        map(strict_block, |mut block_ast| {
             let span = block_ast.slice().clone();
             let body = make_ast(span, FunctionBody::Block(block_ast.clone()));
             block_ast.set_parent(&body);

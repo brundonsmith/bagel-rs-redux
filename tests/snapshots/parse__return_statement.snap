@@ -9,14 +9,15 @@ const b = () => {
     return 'hello'
 }
 const c = (x: boolean) => {
-    return if x { 1 } else { 2 }
+    b()
+    return if x || y { 1 } else { 2 }
 }
 ---
 Ok(
     (
         Slice("\n"),
         ASTInner {
-            slice: Slice("\nconst a = (): number => {\n    return 1\n}\nconst b = () => {\n    return 'hello'\n}\nconst c = (x: boolean) => {\n    return if x { 1 } else { 2 }\n}"),
+            slice: Slice("\nconst a = (): number => {\n    return 1\n}\nconst b = () => {\n    return 'hello'\n}\nconst c = (x: boolean) => {\n    b()\n    return if x || y { 1 } else { 2 }\n}"),
             details: Module {
                 declarations: [
                     ASTInner {
@@ -140,7 +141,7 @@ Ok(
                         },
                     },
                     ASTInner {
-                        slice: Slice("const c = (x: boolean) => {\n    return if x { 1 } else { 2 }\n}"),
+                        slice: Slice("const c = (x: boolean) => {\n    b()\n    return if x || y { 1 } else { 2 }\n}"),
                         details: ConstDeclaration {
                             export_keyword: None,
                             const_keyword: Slice("const"),
@@ -153,7 +154,7 @@ Ok(
                             type_annotation: None,
                             equals: Slice("="),
                             value: ASTInner {
-                                slice: Slice("(x: boolean) => {\n    return if x { 1 } else { 2 }\n}"),
+                                slice: Slice("(x: boolean) => {\n    b()\n    return if x || y { 1 } else { 2 }\n}"),
                                 details: FunctionExpression {
                                     open_paren: Some(
                                         Slice("("),
@@ -185,24 +186,57 @@ Ok(
                                     return_type: None,
                                     arrow: Slice("=>"),
                                     body: ASTInner {
-                                        slice: Slice("{\n    return if x { 1 } else { 2 }\n}"),
+                                        slice: Slice("{\n    b()\n    return if x || y { 1 } else { 2 }\n}"),
                                         details: Block(
                                             ASTInner {
-                                                slice: Slice("{\n    return if x { 1 } else { 2 }\n}"),
+                                                slice: Slice("{\n    b()\n    return if x || y { 1 } else { 2 }\n}"),
                                                 details: Block {
                                                     statements: [
                                                         ASTInner {
-                                                            slice: Slice("return if x { 1 } else { 2 }"),
+                                                            slice: Slice("b()"),
+                                                            details: Invocation {
+                                                                function: ASTInner {
+                                                                    slice: Slice("b"),
+                                                                    details: LocalIdentifier {
+                                                                        slice: Slice("b"),
+                                                                    },
+                                                                },
+                                                                open_paren: Slice("("),
+                                                                arguments: [],
+                                                                commas: [],
+                                                                trailing_comma: None,
+                                                                close_paren: Some(
+                                                                    Slice(")"),
+                                                                ),
+                                                            },
+                                                        },
+                                                        ASTInner {
+                                                            slice: Slice("return if x || y { 1 } else { 2 }"),
                                                             details: ReturnStatement {
                                                                 return_keyword: Slice("return"),
                                                                 value: ASTInner {
-                                                                    slice: Slice("if x { 1 } else { 2 }"),
+                                                                    slice: Slice("if x || y { 1 } else { 2 }"),
                                                                     details: IfElseExpression {
                                                                         if_keyword: Slice("if"),
                                                                         condition: ASTInner {
-                                                                            slice: Slice("x"),
-                                                                            details: LocalIdentifier {
-                                                                                slice: Slice("x"),
+                                                                            slice: Slice("x || y"),
+                                                                            details: BinaryOperation {
+                                                                                left: ASTInner {
+                                                                                    slice: Slice("x"),
+                                                                                    details: LocalIdentifier {
+                                                                                        slice: Slice("x"),
+                                                                                    },
+                                                                                },
+                                                                                operator: ASTInner {
+                                                                                    slice: Slice("||"),
+                                                                                    details: Or,
+                                                                                },
+                                                                                right: ASTInner {
+                                                                                    slice: Slice("y"),
+                                                                                    details: LocalIdentifier {
+                                                                                        slice: Slice("y"),
+                                                                                    },
+                                                                                },
                                                                             },
                                                                         },
                                                                         open_brace: Slice("{"),
