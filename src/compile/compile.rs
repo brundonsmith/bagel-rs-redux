@@ -320,7 +320,7 @@ impl Compilable for Any {
                     // {a: 1, b: 2} -> {a: 1, b: 2} (same in JS)
                     // {a, b} -> {a, b} (shorthand)
                     write!(f, "{{")?;
-                    for (i, (key, colon, value)) in obj.fields.iter().enumerate() {
+                    for (i, (key, _, value)) in obj.fields.iter().enumerate() {
                         if i > 0 {
                             write!(f, ", ")?;
                         }

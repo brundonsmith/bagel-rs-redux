@@ -879,7 +879,12 @@ impl LanguageServer for BagelLanguageServer {
             {
                 match decl {
                     Declaration::ConstDeclaration(decl_data) => {
-                        if decl_data.type_annotation.is_none() {
+                        if decl_data.type_annotation.is_none()
+                            && !matches!(
+                                decl_data.value.unpack(),
+                                Some(Expression::FunctionExpression(_))
+                            )
+                        {
                             eprintln!("[DEBUG] inlay_hint() - processing declaration {}: identifier at {}..{}",
                                         idx, decl_data.identifier.slice().start, decl_data.identifier.slice().end);
 
@@ -914,8 +919,12 @@ impl LanguageServer for BagelLanguageServer {
                             });
                         }
 
-                        // Collect parameter hints from function expressions in the value
-                        collect_parameter_hints(&decl_data.value, &text, &mut hints);
+                        // Collect parameter and return type hints from function expressions
+                        let ctx = InferTypeContext {
+                            modules: Some(&*store),
+                            current_module,
+                        };
+                        collect_function_hints(&decl_data.value, &text, ctx, norm_ctx, &mut hints);
                     }
                     Declaration::TypeDeclaration(_) => {
                         // No inlay hints for type declarations
@@ -1059,7 +1068,13 @@ fn position_to_offset(text: &str, position: Position) -> usize {
 
 /// Recursively walks an expression tree and collects inlay hints for function
 /// parameters whose types can be inferred from context.
-fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<InlayHint>) {
+fn collect_function_hints(
+    expr: &AST<Expression>,
+    text: &str,
+    infer_ctx: InferTypeContext<'_>,
+    norm_ctx: NormalizeContext<'_>,
+    hints: &mut Vec<InlayHint>,
+) {
     walk_ast(&expr.clone().upcast(), &mut |node| {
         let Some(func_expr) = node.clone().try_downcast::<Expression>() else {
             return WalkAction::Continue;
@@ -1068,19 +1083,12 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
             return WalkAction::Continue;
         };
 
-        // Skip if all parameters already have type annotations
+        // Parameter type hints
         if !func
             .parameters
             .iter()
             .all(|(_, type_ann)| type_ann.is_some())
         {
-            // Get the contextual expected type for this function expression
-            let norm_ctx = NormalizeContext {
-                modules: None,
-                current_module: None,
-                param_type_overrides: None,
-                type_bindings: None,
-            };
             let expected_args =
                 func_expr
                     .expected_type()
@@ -1111,6 +1119,32 @@ fn collect_parameter_hints(expr: &AST<Expression>, text: &str, hints: &mut Vec<I
                             }
                         }
                     });
+            }
+        }
+
+        // Return type hint when no annotation exists
+        if func.return_type.is_none() {
+            let inferred = func_expr.infer_type(infer_ctx);
+            let return_type = match inferred.normalize(norm_ctx) {
+                Type::FuncType { returns, .. } => (*returns).clone(),
+                _ => Type::Unknown,
+            };
+
+            if return_type != Type::Unknown
+                && return_type != Type::Poisoned
+                && return_type != Type::Never
+            {
+                let position = offset_to_position(text, func.arrow.start - 1);
+                hints.push(InlayHint {
+                    position,
+                    label: InlayHintLabel::String(format!(": {}", return_type)),
+                    kind: Some(InlayHintKind::TYPE),
+                    text_edits: None,
+                    tooltip: None,
+                    padding_left: None,
+                    padding_right: Some(true),
+                    data: None,
+                });
             }
         }
 
