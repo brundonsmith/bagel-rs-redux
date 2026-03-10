@@ -819,11 +819,23 @@ impl Emittable for Any {
                 Statement::Block(block) => {
                     let inner_ctx = ctx.indented();
                     writeln!(f, "{{")?;
-                    for stmt in &block.statements {
-                        emit_indent(inner_ctx, f)?;
-                        stmt.emit(inner_ctx, f)?;
-                        writeln!(f)?;
-                    }
+                    block
+                        .statements
+                        .iter()
+                        .enumerate()
+                        .try_for_each(|(i, stmt)| {
+                            if i > 0 {
+                                emit_declaration_gap(
+                                    block.statements[i - 1].slice(),
+                                    stmt.slice(),
+                                    inner_ctx,
+                                    f,
+                                )?;
+                            }
+                            emit_indent(inner_ctx, f)?;
+                            stmt.emit(inner_ctx, f)
+                        })?;
+                    writeln!(f)?;
                     emit_indent(ctx, f)?;
                     write!(f, "}}")
                 }
