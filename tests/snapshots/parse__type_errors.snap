@@ -683,19 +683,22 @@ Ok(
                                         details: ObjectTypeExpression {
                                             open_brace: Slice("{"),
                                             fields: [
-                                                (
-                                                    ASTInner {
-                                                        slice: Slice("name"),
-                                                        details: PlainIdentifier {
+                                                ASTInner {
+                                                    slice: Slice("name: string"),
+                                                    details: ObjectTypeField {
+                                                        name: ASTInner {
                                                             slice: Slice("name"),
+                                                            details: PlainIdentifier {
+                                                                slice: Slice("name"),
+                                                            },
+                                                        },
+                                                        colon: Slice(":"),
+                                                        type_expr: ASTInner {
+                                                            slice: Slice("string"),
+                                                            details: StringTypeExpression,
                                                         },
                                                     },
-                                                    Slice(":"),
-                                                    ASTInner {
-                                                        slice: Slice("string"),
-                                                        details: StringTypeExpression,
-                                                    },
-                                                ),
+                                                },
                                             ],
                                             commas: [],
                                             trailing_comma: None,
@@ -777,32 +780,38 @@ Ok(
                                         details: ObjectTypeExpression {
                                             open_brace: Slice("{"),
                                             fields: [
-                                                (
-                                                    ASTInner {
-                                                        slice: Slice("x"),
-                                                        details: PlainIdentifier {
+                                                ASTInner {
+                                                    slice: Slice("x: number"),
+                                                    details: ObjectTypeField {
+                                                        name: ASTInner {
                                                             slice: Slice("x"),
+                                                            details: PlainIdentifier {
+                                                                slice: Slice("x"),
+                                                            },
+                                                        },
+                                                        colon: Slice(":"),
+                                                        type_expr: ASTInner {
+                                                            slice: Slice("number"),
+                                                            details: NumberTypeExpression,
                                                         },
                                                     },
-                                                    Slice(":"),
-                                                    ASTInner {
-                                                        slice: Slice("number"),
-                                                        details: NumberTypeExpression,
-                                                    },
-                                                ),
-                                                (
-                                                    ASTInner {
-                                                        slice: Slice("y"),
-                                                        details: PlainIdentifier {
+                                                },
+                                                ASTInner {
+                                                    slice: Slice("y: number"),
+                                                    details: ObjectTypeField {
+                                                        name: ASTInner {
                                                             slice: Slice("y"),
+                                                            details: PlainIdentifier {
+                                                                slice: Slice("y"),
+                                                            },
+                                                        },
+                                                        colon: Slice(":"),
+                                                        type_expr: ASTInner {
+                                                            slice: Slice("number"),
+                                                            details: NumberTypeExpression,
                                                         },
                                                     },
-                                                    Slice(":"),
-                                                    ASTInner {
-                                                        slice: Slice("number"),
-                                                        details: NumberTypeExpression,
-                                                    },
-                                                ),
+                                                },
                                             ],
                                             commas: [
                                                 Slice(","),

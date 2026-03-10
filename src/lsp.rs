@@ -691,6 +691,26 @@ impl LanguageServer for BagelLanguageServer {
                     ..Default::default()
                 });
             }
+            if !partial.is_empty() && "export".starts_with(partial) {
+                items.push(CompletionItem {
+                    label: "export const <name> = <value>".to_string(),
+                    kind: Some(CompletionItemKind::SNIPPET),
+                    insert_text: Some("export const ${1:name} = ${0:value}".to_string()),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some("export".to_string()),
+                    sort_text: Some("0export const".to_string()),
+                    ..Default::default()
+                });
+                items.push(CompletionItem {
+                    label: "export type <name> = <type>".to_string(),
+                    kind: Some(CompletionItemKind::SNIPPET),
+                    insert_text: Some("export type ${1:name} = ${0:type}".to_string()),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some("export".to_string()),
+                    sort_text: Some("0export type".to_string()),
+                    ..Default::default()
+                });
+            }
             if !partial.is_empty() && "from".starts_with(partial) {
                 items.push(CompletionItem {
                     label: "from '<path>' import { <names> }".to_string(),

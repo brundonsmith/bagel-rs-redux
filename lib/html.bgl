@@ -1,11 +1,14 @@
 export type HTML = {
     tag: 'h1' | 'p' | 'a',
     attributes: {},
-    children: unknown[]
+    foo,
+    bar
+    children: unknown[],
+    blah
 }
 
-const renderHTML = (html: {
-    tag: 'h1' | 'p' | 'a',
-    attributes: {},
-    children: unknown[]
-}) => '<' + html.tag + '>' + children.map(c => ) + '</' + html.tag + '>'
+const renderHTML = (html: HTML) => 'ddd' + html.tag
+
+const foo = 'aaa' + html.tag
+
+export const foo = 12 + 2

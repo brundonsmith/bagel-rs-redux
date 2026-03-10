@@ -470,8 +470,11 @@ impl Compilable for Any {
                 Ok(())
             }
 
-            Any::MarkupAttribute(_) | Any::MarkupChild(_) | Any::MarkupClosingTag(_) => {
-                // These are compiled as part of MarkupExpression, not standalone
+            Any::MarkupAttribute(_)
+            | Any::MarkupChild(_)
+            | Any::MarkupClosingTag(_)
+            | Any::ObjectTypeField(_) => {
+                // These are compiled as part of their parent, not standalone
                 Ok(())
             }
 

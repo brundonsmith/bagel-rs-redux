@@ -278,9 +278,16 @@ pub struct ArrayTypeExpression {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ObjectTypeField {
+    pub name: AST<PlainIdentifier>,
+    pub colon: Slice,
+    pub type_expr: AST<TypeExpression>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectTypeExpression {
     pub open_brace: Slice,
-    pub fields: Vec<(AST<PlainIdentifier>, Slice, AST<TypeExpression>)>, // (name, colon, type)
+    pub fields: Vec<AST<ObjectTypeField>>,
     pub commas: Vec<Slice>,
     pub trailing_comma: Option<Slice>,
     pub close_brace: Slice,
@@ -500,6 +507,7 @@ type_hierarchy! {
         FunctionBody,
         MarkupAttribute,
         MarkupChild,
-        MarkupClosingTag
+        MarkupClosingTag,
+        ObjectTypeField
     }
 }

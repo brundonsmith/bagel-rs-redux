@@ -1668,17 +1668,25 @@ fn typeof_type_expression(i: Slice) -> ParseResult<AST<TypeOfTypeExpression>> {
 fn object_type_expression(i: Slice) -> ParseResult<AST<ObjectTypeExpression>> {
     let (remaining, open_brace) = tag("{")(i)?;
 
-    let mut fields = Vec::new();
+    let mut fields: Vec<AST<ObjectTypeField>> = Vec::new();
     let mut commas = Vec::new();
     let mut current = remaining;
     let mut trailing_comma = None;
 
     // Parse fields: "name: type" separated by commas
-    while let Ok((after_key, key)) = w(plain_identifier)(current.clone()) {
-        match w(tag(":"))(after_key) {
+    while let Ok((after_key, name)) = w(plain_identifier)(current.clone()) {
+        match w(tag(":"))(after_key.clone()) {
             Ok((after_colon, colon)) => match w(type_expression)(after_colon) {
                 Ok((after_type, type_expr)) => {
-                    fields.push((key, colon, type_expr));
+                    let span = name.slice().spanning(type_expr.slice());
+                    fields.push(make_ast(
+                        span,
+                        ObjectTypeField {
+                            name,
+                            colon,
+                            type_expr,
+                        },
+                    ));
                     current = after_type;
 
                     match w(tag(","))(current.clone()) {
@@ -1691,7 +1699,21 @@ fn object_type_expression(i: Slice) -> ParseResult<AST<ObjectTypeExpression>> {
                 }
                 Err(_) => break,
             },
-            Err(_) => break,
+            Err(_) => {
+                // Bare key without `:` — emit malformed field and skip to next `,` or `}`
+                fields.push(AST::Malformed(
+                    name.slice().clone(),
+                    "Expected ':' after field name in object type".to_string(),
+                ));
+                current = after_key;
+                match w(tag(","))(current.clone()) {
+                    Ok((after_comma, comma)) => {
+                        commas.push(comma);
+                        current = after_comma;
+                    }
+                    Err(_) => break,
+                }
+            }
         }
     }
 
@@ -1714,9 +1736,8 @@ fn object_type_expression(i: Slice) -> ParseResult<AST<ObjectTypeExpression>> {
             close_brace: close_brace.unwrap_or(open_brace),
         },
     );
-    for (key, _, type_expr) in &mut fields {
-        key.set_parent(&node);
-        type_expr.set_parent(&node);
+    for field in &mut fields {
+        field.set_parent(&node);
     }
 
     Ok((remaining, node))

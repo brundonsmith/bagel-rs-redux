@@ -189,12 +189,17 @@ impl Type {
             }
             PropertyAccess { subject, property } => {
                 let subject_normalized = subject.as_ref().clone().normalize(ctx);
-                match subject_normalized.known_properties() {
-                    Some(fields) => fields.get(&property).cloned().unwrap_or(Poisoned),
-                    None => PropertyAccess {
-                        subject: Arc::new(subject_normalized),
-                        property,
-                    },
+
+                if subject_normalized == Type::Poisoned {
+                    Type::Poisoned
+                } else {
+                    match subject_normalized.known_properties() {
+                        Some(fields) => fields.get(&property).cloned().unwrap_or(Poisoned),
+                        None => PropertyAccess {
+                            subject: Arc::new(subject_normalized),
+                            property,
+                        },
+                    }
                 }
             }
             BinaryOperation {

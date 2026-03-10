@@ -499,10 +499,7 @@ impl Any {
                     f(array.element.clone().upcast());
                 }
                 TypeExpression::ObjectTypeExpression(obj) => {
-                    obj.fields.iter().for_each(|(name, _, typ)| {
-                        f(name.clone().upcast());
-                        f(typ.clone().upcast());
-                    });
+                    obj.fields.iter().for_each(|field| f(field.clone().upcast()));
                 }
                 TypeExpression::FunctionTypeExpression(func) => {
                     func.parameters.iter().for_each(|(name_colon, typ)| {
@@ -560,6 +557,10 @@ impl Any {
             },
             Any::MarkupClosingTag(closing) => {
                 f(closing.tag_name.clone().upcast());
+            }
+            Any::ObjectTypeField(field) => {
+                f(field.name.clone().upcast());
+                f(field.type_expr.clone().upcast());
             }
             Any::PlainIdentifier(_) | Any::BinaryOperator(_) | Any::UnaryOperator(_) => {}
         }

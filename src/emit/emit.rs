@@ -788,13 +788,15 @@ impl Emittable for Any {
 
                 TypeExpression::ObjectTypeExpression(obj) => {
                     write!(f, "{{ ")?;
-                    for (i, (name, _, type_expr)) in obj.fields.iter().enumerate() {
+                    for (i, field) in obj.fields.iter().enumerate() {
                         if i > 0 {
                             write!(f, ", ")?;
                         }
-                        name.emit(ctx, f)?;
-                        write!(f, ": ")?;
-                        type_expr.emit(ctx, f)?;
+                        if let Some(field) = field.unpack() {
+                            field.name.emit(ctx, f)?;
+                            write!(f, ": ")?;
+                            field.type_expr.emit(ctx, f)?;
+                        }
                     }
                     if obj.trailing_comma.is_some() {
                         write!(f, ",")?;
@@ -881,8 +883,11 @@ impl Emittable for Any {
                 },
             },
 
-            Any::MarkupAttribute(_) | Any::MarkupChild(_) | Any::MarkupClosingTag(_) => {
-                // These are emitted as part of MarkupExpression, not standalone
+            Any::MarkupAttribute(_)
+            | Any::MarkupChild(_)
+            | Any::MarkupClosingTag(_)
+            | Any::ObjectTypeField(_) => {
+                // These are emitted as part of their parent, not standalone
                 Ok(())
             }
 
@@ -1008,7 +1013,10 @@ where
                 Any::BinaryOperator(binary_operator) => Some(binary_operator.as_str().len()),
                 Any::UnaryOperator(unary_operator) => Some(unary_operator.as_str().len()),
                 Any::FunctionBody(function_body) => None,
-                Any::MarkupAttribute(_) | Any::MarkupChild(_) | Any::MarkupClosingTag(_) => None,
+                Any::MarkupAttribute(_)
+                | Any::MarkupChild(_)
+                | Any::MarkupClosingTag(_)
+                | Any::ObjectTypeField(_) => None,
             },
             None => None,
         }

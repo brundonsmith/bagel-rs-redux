@@ -416,11 +416,15 @@ impl From<TypeExpression> for Type {
                 let fields = obj
                     .fields
                     .into_iter()
-                    .map(|(name, _colon, type_expr)| {
-                        let field_name = name.slice().as_str().to_string();
-                        let field_type =
-                            type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned);
-                        (field_name, field_type)
+                    .filter_map(|field| {
+                        let field = field.unpack()?;
+                        let field_name = field.name.slice().as_str().to_string();
+                        let field_type = field
+                            .type_expr
+                            .unpack()
+                            .map(Type::from)
+                            .unwrap_or(Type::Poisoned);
+                        Some((field_name, field_type))
                     })
                     .collect();
                 Type::Object { fields }

@@ -37,6 +37,10 @@
         },
         {
           "include": "#type-declaration"
+        },
+        {
+          "name": "keyword.control.export.bagel",
+          "match": "\\bexport\\b"
         }
       ]
     },
@@ -51,7 +55,7 @@
           "name": "storage.type.bagel"
         }
       },
-      "end": "(?=\\n|;)",
+      "end": "(?=^\\s*$|^\\s*(?:const|type|from|export)\\b|;)",
       "patterns": [
         {
           "include": "#type-annotation"
@@ -79,7 +83,7 @@
           "name": "storage.type.bagel"
         }
       },
-      "end": "(?=\\n|;)",
+      "end": "(?=^\\s*$|^\\s*(?:const|type|from|export)\\b|;)",
       "patterns": [
         {
           "comment": "Type name identifier",
@@ -107,7 +111,7 @@
           "name": "keyword.control.import.bagel"
         }
       },
-      "end": "(?=\\n|;)",
+      "end": "(?=^\\s*$|^\\s*(?:const|type|from|export)\\b|;)",
       "patterns": [
         {
           "include": "#string-literal"
@@ -205,7 +209,7 @@
         {
           "comment": "Arrow function with parenthesized parameters (possibly typed): (a: number, b) => ...",
           "name": "meta.function.arrow.bagel",
-          "begin": "(\\()(?=[^)]*\\)\\s*(?::\\s*[a-zA-Z_(\\[{])?\\s*=>)",
+          "begin": "(\\()(?=[^)]*\\)\\s*(?::\\s*[a-zA-Z_'\"(\\[{])?\\s*=>)",
           "beginCaptures": {
             "1": {
               "name": "punctuation.definition.parameters.begin.bagel"
@@ -682,7 +686,7 @@
           "name": "punctuation.separator.type.bagel"
         }
       },
-      "end": "(?==(?!>))",
+      "end": "(?=[=),}\\]])",
       "patterns": [
         {
           "include": "#type-expression"
@@ -696,6 +700,15 @@
         },
         {
           "include": "#function-type-expression"
+        },
+        {
+          "include": "#string-literal"
+        },
+        {
+          "include": "#number-literal"
+        },
+        {
+          "include": "#boolean-literal"
         },
         {
           "include": "#primitive-type"
@@ -792,18 +805,27 @@
       },
       "patterns": [
         {
-          "match": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(:)",
-          "captures": {
+          "comment": "Field with type: name: type",
+          "begin": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(:)",
+          "beginCaptures": {
             "1": {
               "name": "variable.object.property.bagel"
             },
             "2": {
               "name": "punctuation.separator.key-value.bagel"
             }
-          }
+          },
+          "end": "(?=[,}])",
+          "patterns": [
+            {
+              "include": "#type-expression"
+            }
+          ]
         },
         {
-          "include": "#type-expression"
+          "comment": "Bare field name (missing type annotation)",
+          "name": "variable.object.property.bagel",
+          "match": "[a-zA-Z_][a-zA-Z0-9_]*"
         },
         {
           "name": "punctuation.separator.comma.bagel",
