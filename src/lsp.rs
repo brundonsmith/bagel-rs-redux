@@ -897,7 +897,12 @@ impl LanguageServer for BagelLanguageServer {
                     if decl_data.type_annotation.is_none()
                         && !matches!(
                             decl_data.value.unpack(),
-                            Some(Expression::FunctionExpression(_))
+                            Some(
+                                Expression::FunctionExpression(_)
+                                    | Expression::StringLiteral(_)
+                                    | Expression::NumberLiteral(_)
+                                    | Expression::BooleanLiteral(_)
+                            )
                         )
                     {
                         let ctx = InferTypeContext {
