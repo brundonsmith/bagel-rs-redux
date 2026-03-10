@@ -5,7 +5,7 @@ use crate::{
         container::AST,
         grammar::{
             Any, BinaryOperation, Block, Declaration, ElseClause, Expression, FunctionBody,
-            MarkupChild, Statement, TypeExpression, UnaryOperation,
+            MarkupChild, ObjectLiteral, Statement, TypeExpression, UnaryOperation,
         },
         modules::ModulesStore,
         slice::Slice,
@@ -934,91 +934,110 @@ where
     TKind: Clone + TryFrom<Any>,
     Any: From<TKind>,
 {
-    pub fn estimated_length(&self) -> Option<usize> {
+    pub fn estimated_length(&self) -> usize {
         match self.details() {
             Some(ast) => match ast {
                 Any::Module(module) => module
                     .declarations
                     .iter()
-                    .map(|d| d.estimated_length().unwrap_or(0))
-                    .max(),
+                    .map(|d| d.estimated_length())
+                    .max()
+                    .unwrap_or(0),
                 Any::Declaration(declaration) => match declaration {
-                    Declaration::ConstDeclaration(_) => None,
-                    Declaration::TypeDeclaration(_) => None,
-                    Declaration::ImportDeclaration(_) => None,
+                    Declaration::ConstDeclaration(_) => 0,
+                    Declaration::TypeDeclaration(_) => 0,
+                    Declaration::ImportDeclaration(_) => 0,
                 },
                 Any::Expression(expression) => match expression {
-                    Expression::NilLiteral(_) => Some("nil".len()),
+                    Expression::NilLiteral(_) => "nil".len(),
                     Expression::BooleanLiteral(boolean_literal) => match boolean_literal.value {
-                        true => Some("true".len()),
-                        false => Some("false".len()),
+                        true => "true".len(),
+                        false => "false".len(),
                     },
-                    Expression::NumberLiteral(number_literal) => Some(number_literal.slice.len()),
+                    Expression::NumberLiteral(number_literal) => number_literal.slice.len(),
                     Expression::StringLiteral(string_literal) => {
-                        Some(1 + string_literal.contents.len() + 1)
+                        1 + string_literal.contents.len() + 1
                     }
                     Expression::BinaryOperation(BinaryOperation {
                         left,
                         operator,
                         right,
-                    }) => Some(
-                        left.estimated_length().unwrap_or(0)
-                            + operator.estimated_length().unwrap_or(0)
-                            + right.estimated_length().unwrap_or(0),
-                    ),
-                    Expression::UnaryOperation(UnaryOperation { operator, operand }) => Some(
-                        operator.estimated_length().unwrap_or(0)
-                            + operand.estimated_length().unwrap_or(0),
-                    ),
-                    Expression::LocalIdentifier(local_identifier) => {
-                        Some(local_identifier.slice.len())
+                    }) => {
+                        left.estimated_length()
+                            + operator.estimated_length()
+                            + right.estimated_length()
                     }
-                    Expression::Invocation(invocation) => None,
-                    Expression::FunctionExpression(function_expression) => None,
-                    Expression::ArrayLiteral(array_literal) => Some(
+                    Expression::UnaryOperation(UnaryOperation { operator, operand }) => {
+                        operator.estimated_length() + operand.estimated_length()
+                    }
+                    Expression::LocalIdentifier(local_identifier) => local_identifier.slice.len(),
+                    Expression::Invocation(invocation) => 0,
+                    Expression::FunctionExpression(function_expression) => 0,
+                    Expression::ArrayLiteral(array_literal) => {
                         1 + array_literal
                             .elements
                             .iter()
-                            .map(|e| e.estimated_length().unwrap_or(0) + 1)
+                            .map(|e| e.estimated_length() + 1)
                             .sum::<usize>()
                             - 1 // trailing comma
-                            + 1,
-                    ),
-                    Expression::ObjectLiteral(object_literal) => None,
-                    Expression::IfElseExpression(if_else_expression) => None,
-                    Expression::ParenthesizedExpression(parenthesized_expression) => {
-                        parenthesized_expression
-                            .expression
-                            .estimated_length()
-                            .map(|e| 1 + e + 1)
+                            + 1
                     }
-                    Expression::PropertyAccessExpression(property_access_expression) => None,
-                    Expression::PipeCallExpression(_) => None,
-                    Expression::MarkupExpression(_) => None,
+                    Expression::ObjectLiteral(ObjectLiteral {
+                        open_brace,
+                        fields,
+                        commas,
+                        trailing_comma,
+                        close_brace,
+                    }) => {
+                        2 + fields
+                            .iter()
+                            .map(|(key, _, value)| {
+                                key.estimated_length() + 2 + value.estimated_length() + 2
+                            })
+                            .sum::<usize>()
+                            - 1
+                            + 2
+                    }
+                    Expression::IfElseExpression(if_else_expression) => {
+                        3 + if_else_expression.condition.estimated_length()
+                            + 3
+                            + if_else_expression.consequent.estimated_length()
+                            + 2
+                        // TODO
+                        // + if_else_expression.else_clause.map(|e| " else { ".len() + match e {
+                        //     ElseClause::ElseBlock { else_keyword, open_brace, expression, close_brace } => todo!(),
+                        //     ElseClause::ElseIf { else_keyword, if_else } => todo!(),
+                        // })
+                    }
+                    Expression::ParenthesizedExpression(parenthesized_expression) => {
+                        1 + parenthesized_expression.expression.estimated_length() + 1
+                    }
+                    Expression::PropertyAccessExpression(property_access_expression) => 0,
+                    Expression::PipeCallExpression(_) => 0,
+                    Expression::MarkupExpression(_) => 0,
                 },
-                Any::TypeExpression(type_expression) => None,
+                Any::TypeExpression(type_expression) => 0,
                 Any::Statement(statement) => match statement {
-                    Statement::Expression(expression) => None,
+                    Statement::Expression(expression) => 0,
                     Statement::Block(block) => block
                         .statements
                         .iter()
-                        .map(|s| s.estimated_length().unwrap_or(0))
-                        .max(),
-                    Statement::ReturnStatement(_) => None,
-                    Statement::ConstDeclaration(_) => None,
+                        .map(|s| s.estimated_length())
+                        .max()
+                        .unwrap_or(0),
+                    Statement::ReturnStatement(_) => 0,
+                    Statement::ConstDeclaration(_) => 0,
                 },
-                Any::PlainIdentifier(plain_identifier) => {
-                    Some(plain_identifier.slice.as_str().len())
-                }
-                Any::BinaryOperator(binary_operator) => Some(binary_operator.as_str().len()),
-                Any::UnaryOperator(unary_operator) => Some(unary_operator.as_str().len()),
-                Any::FunctionBody(function_body) => None,
+                Any::PlainIdentifier(plain_identifier) => plain_identifier.slice.as_str().len(),
+                Any::BinaryOperator(binary_operator) => binary_operator.as_str().len(),
+                Any::UnaryOperator(unary_operator) => unary_operator.as_str().len(),
+                Any::FunctionBody(function_body) => 0,
                 Any::MarkupAttribute(_)
                 | Any::MarkupChild(_)
                 | Any::MarkupClosingTag(_)
-                | Any::ObjectTypeField(_) => None,
+                | Any::ObjectTypeField(_) => 0,
             },
-            None => None,
+            None => 0,
         }
     }
 }

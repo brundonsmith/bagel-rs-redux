@@ -611,7 +611,7 @@ fn resolve_local_identifier(
                 Some(Any::Expression(Expression::FunctionExpression(func))) => {
                     match &func.parameters[param_index].1 {
                         Some((_colon, type_expr)) => {
-                            type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned)
+                            type_expr.unpack().map(Type::from).unwrap_or(Type::Poisoned).normalize(ctx)
                         }
                         None => {
                             // Try contextual typing: get expected type for the

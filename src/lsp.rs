@@ -318,39 +318,71 @@ impl LanguageServer for BagelLanguageServer {
                 node.slice().end
             );
 
-            // Try to get the type: if this node is an expression, use it directly;
-            // otherwise walk up to find the nearest ancestor expression (e.g.
-            // PlainIdentifier -> LocalIdentifier or PropertyAccessExpression)
-            let expr_node = node.clone().try_downcast::<Expression>().or_else(|| {
-                let mut current = node.parent();
-                while let Some(ancestor) = current {
-                    if let Some(expr) = ancestor.clone().try_downcast::<Expression>() {
-                        return Some(expr);
-                    }
-                    current = ancestor.parent();
-                }
-                None
+            let current_module =
+                uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
+            let norm_ctx = NormalizeContext {
+                modules: Some(&*store),
+                current_module,
+                param_type_overrides: None,
+                type_bindings: None,
+            };
+
+            // Check if this is a type expression (or its parent is)
+            let type_expr_node = node
+                .clone()
+                .try_downcast::<TypeExpression>()
+                .or_else(|| {
+                    node.parent()
+                        .and_then(|p| p.try_downcast::<TypeExpression>())
+                });
+
+            // Check if this is a TypeDeclaration identifier
+            let parent_decl = node
+                .parent()
+                .and_then(|p| p.try_downcast::<Declaration>());
+            let parent_type_decl = parent_decl.and_then(|d| match d.unpack() {
+                Some(Declaration::TypeDeclaration(decl)) => Some(decl),
+                _ => None,
             });
-            let type_info = if let Some(expr) = expr_node {
-                eprintln!("[DEBUG] hover() - node is an Expression, inferring type");
-                let current_module =
-                    uri_to_path(&uri).and_then(|p| store.get(&ModulePath::File(p)));
-                let ctx = InferTypeContext {
-                    modules: Some(&*store),
-                    current_module,
-                };
-                let norm_ctx = NormalizeContext {
-                    modules: Some(&*store),
-                    current_module,
-                    param_type_overrides: None,
-                    type_bindings: None,
-                };
-                let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
-                eprintln!("[DEBUG] hover() - inferred type: {}", inferred_type);
-                format!("```bagel\n{}\n```", inferred_type)
+
+            let type_info = if let Some(type_expr) = type_expr_node {
+                let resolved_type = type_expr
+                    .unpack()
+                    .map(Type::from)
+                    .unwrap_or(Type::Poisoned)
+                    .normalize(norm_ctx);
+                format!("```bagel\n{}\n```", resolved_type)
+            } else if let Some(decl) = parent_type_decl {
+                // Hovering over the name in `type Foo = ...`
+                let resolved_type = decl
+                    .value
+                    .unpack()
+                    .map(Type::from)
+                    .unwrap_or(Type::Poisoned)
+                    .normalize(norm_ctx);
+                format!("```bagel\n{}\n```", resolved_type)
             } else {
-                eprintln!("[DEBUG] hover() - node is not an Expression");
-                String::new()
+                // Try to get the type from expressions
+                let expr_node = node.clone().try_downcast::<Expression>().or_else(|| {
+                    let mut current = node.parent();
+                    while let Some(ancestor) = current {
+                        if let Some(expr) = ancestor.clone().try_downcast::<Expression>() {
+                            return Some(expr);
+                        }
+                        current = ancestor.parent();
+                    }
+                    None
+                });
+                if let Some(expr) = expr_node {
+                    let ctx = InferTypeContext {
+                        modules: Some(&*store),
+                        current_module,
+                    };
+                    let inferred_type = expr.infer_type(ctx).normalize(norm_ctx);
+                    format!("```bagel\n{}\n```", inferred_type)
+                } else {
+                    String::new()
+                }
             };
 
             if !type_info.is_empty() {
@@ -504,7 +536,14 @@ impl LanguageServer for BagelLanguageServer {
         };
 
         // Handle NamedTypeExpression identifiers (go-to-def for type names)
-        if let Some(type_expr) = node.clone().try_downcast::<TypeExpression>() {
+        let type_expr_node = node
+            .clone()
+            .try_downcast::<TypeExpression>()
+            .or_else(|| {
+                node.parent()
+                    .and_then(|p| p.try_downcast::<TypeExpression>())
+            });
+        if let Some(type_expr) = type_expr_node {
             if let Some(TypeExpression::NamedTypeExpression(named)) = type_expr.unpack() {
                 let name = named.identifier.slice().as_str();
                 let resolved = resolve_type_identifier(name, &node, ctx);
