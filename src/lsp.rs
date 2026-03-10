@@ -702,6 +702,17 @@ impl LanguageServer for BagelLanguageServer {
                     ..Default::default()
                 });
             }
+            if !partial.is_empty() && "return".starts_with(partial) {
+                items.push(CompletionItem {
+                    label: "return <value>".to_string(),
+                    kind: Some(CompletionItemKind::SNIPPET),
+                    insert_text: Some("return ${0:value}".to_string()),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some("return".to_string()),
+                    sort_text: Some("0return".to_string()),
+                    ..Default::default()
+                });
+            }
 
             // Try identifier completion: find the node at the cursor and check
             // if it's a LocalIdentifier (or we're inside one)
