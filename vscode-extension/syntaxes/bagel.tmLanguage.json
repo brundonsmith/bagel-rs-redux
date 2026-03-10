@@ -438,6 +438,9 @@
       },
       "patterns": [
         {
+          "include": "#const-declaration"
+        },
+        {
           "name": "meta.object.member.bagel",
           "match": "([a-z]+)\\s*(:)",
           "captures": {
